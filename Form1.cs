@@ -7,6 +7,7 @@ namespace ProjectCreator {
         private string rutaBase = "";
         private string rutaPlantilla = "";
 
+        // Cargar la configuración desde el archivo config.txt
         private void CargarConfiguracion() {
             string rutaConfig =
             @"C:\Users\jeanc\source\repos\Plantillas\ProjectCreator\config.txt";
@@ -212,7 +213,6 @@ namespace ProjectCreator {
         }
 
         private void PictureBox1_Click(object sender, EventArgs e) {
-
         }
     }
 }
