@@ -1,16 +1,27 @@
 using System.Windows.Forms;
-
+using System.Diagnostics;
+using System.Linq;
 namespace ProjectCreator {
 
     public partial class frmPrincipal : Form {
-
+        private Panel panelSeleccionado;
         private string rutaBase = "";
         private string rutaPlantilla = "";
+        private string rutaRecientes = "";
+
+        private class ProyectoReciente {
+            public string Nombre { get; set; } = "";
+            public string Ruta { get; set; } = "";
+
+            public override string ToString() {
+                return Nombre;
+            }
+        }
 
         // Cargar la configuración desde el archivo config.txt
         private void CargarConfiguracion() {
-            string rutaConfig =
-            @"C:\Users\jeanc\source\repos\Plantillas\ProjectCreator\config.txt";
+            string rutaConfig = @"C:\Users\jeanc\source\repos\Plantillas\ProjectCreator\config.txt";
+            rutaRecientes = Path.Combine(Path.GetDirectoryName(rutaConfig)!, "recientes.txt");
 
             if (!File.Exists(rutaConfig)) {
                 MessageBox.Show("No se encontró el archivo config.txt");
@@ -28,6 +39,52 @@ namespace ProjectCreator {
 
             rutaBase = lineas[0];
             rutaPlantilla = lineas[1];
+
+            if (!File.Exists(rutaRecientes)) {
+                File.Create(rutaRecientes).Close();
+            }
+        }
+
+        private void GuardarProyectoReciente(string rutaProyecto) {
+            List<string> recientes = new List<string>();
+
+            if (File.Exists(rutaRecientes)) {
+                recientes = File.ReadAllLines(rutaRecientes).ToList();
+            }
+
+            string nombreProyecto = Path.GetFileName(rutaProyecto);
+            string registro = nombreProyecto + "|" + rutaProyecto;
+
+            recientes.RemoveAll(x => x.EndsWith("|" + rutaProyecto));
+            recientes.Insert(0, registro);
+
+            if (recientes.Count > 10) {
+                recientes = recientes.Take(10).ToList();
+            }
+
+            File.WriteAllLines(rutaRecientes, recientes);
+        }
+
+        private void CargarRecientes() {
+            listRecientes.Items.Clear();
+
+            if (!File.Exists(rutaRecientes))
+                return;
+
+            string[] recientes = File.ReadAllLines(rutaRecientes);
+
+            foreach (string reciente in recientes) {
+                string[] datos = reciente.Split('|');
+
+                if (datos.Length >= 2) {
+                    ProyectoReciente proyecto = new ProyectoReciente {
+                        Nombre = datos[0],
+                        Ruta = datos[1]
+                    };
+
+                    listRecientes.Items.Add(proyecto);
+                }
+            }
         }
 
         public frmPrincipal() {
@@ -36,8 +93,179 @@ namespace ProjectCreator {
 
             btnCrearProyecto.MouseEnter += BtnCrearProyecto_MouseEnter;
             btnCrearProyecto.MouseLeave += BtnCrearProyecto_MouseLeave;
+
+            // Paneles del menú
+
+            // Inicio
+            panelInicio.MouseEnter += PanelMenu_MouseEnter;
+            panelInicio.MouseLeave += PanelMenu_MouseLeave;
+            lblInicio.MouseLeave += PanelMenu_MouseLeave;
+            pictureBoxInicio.MouseLeave += PanelMenu_MouseLeave;
+            panelInicio.Click += PanelInicio_Click;
+            lblInicio.Click += PanelInicio_Click;
+            pictureBoxInicio.Click += PanelInicio_Click;
+
+            // Nueva práctica
+            panelNuevaPractica.MouseEnter += PanelMenu_MouseEnter;
+            panelNuevaPractica.MouseLeave += PanelMenu_MouseLeave;
+            lblNuevaPractica.MouseLeave += PanelMenu_MouseLeave;
+            pictureBoxNuevaPractica.MouseLeave += PanelMenu_MouseLeave;
+            panelNuevaPractica.Click += panelNuevaPractica_Click;
+            lblNuevaPractica.Click += panelNuevaPractica_Click;
+            pictureBoxNuevaPractica.Click += panelNuevaPractica_Click;
+
+            // Abrir práctica
+            panelAbrirPractica.MouseEnter += PanelMenu_MouseEnter;
+            panelAbrirPractica.MouseLeave += PanelMenu_MouseLeave;
+            panelAbrirPractica.Click += PanelAbrirPractica_Click;
+            lblAbrirPractica.Click += PanelAbrirPractica_Click;
+            pictureBoxAbrirPractica.Click += PanelAbrirPractica_Click;
+            lblAbrirPractica.MouseLeave += PanelMenu_MouseLeave;
+            pictureBoxAbrirPractica.MouseLeave += PanelMenu_MouseLeave;
+
+            // Recientes
+            panelRecientes.MouseEnter += PanelMenu_MouseEnter;
+            panelRecientes.MouseLeave += PanelMenu_MouseLeave;
+            panelRecientes.Click += PanelRecientes_Click;
+            lblRecientes.Click += PanelRecientes_Click;
+            pictureBoxRecientes.Click += PanelRecientes_Click;
+            lblRecientes.MouseLeave += PanelMenu_MouseLeave;
+            pictureBoxRecientes.MouseLeave += PanelMenu_MouseLeave;
+
+            // Configuración
+            panelConfiguracion.MouseEnter += PanelMenu_MouseEnter;
+            panelConfiguracion.MouseLeave += PanelMenu_MouseLeave;
+            panelConfiguracion.Click += PanelConfiguracion_Click;
+            lblConfiguracion.Click += PanelConfiguracion_Click;
+            pictureBoxConfiguracion.Click += PanelConfiguracion_Click;
+            lblConfiguracion.MouseLeave += PanelMenu_MouseLeave;
+            pictureBoxConfiguracion.MouseLeave += PanelMenu_MouseLeave;
+
+            // Acerca de
+            panelAcercaDe.MouseEnter += PanelMenu_MouseEnter;
+            panelAcercaDe.MouseLeave += PanelMenu_MouseLeave;
+            panelAcercaDe.Click += PanelAcercaDe_Click;
+            lblAcercaDe.Click += PanelAcercaDe_Click;
+            pictureBoxAcercaDe.Click += PanelAcercaDe_Click;
+            lblAcercaDe.MouseLeave += PanelMenu_MouseLeave;
+            pictureBoxAcercaDe.MouseLeave += PanelMenu_MouseLeave;
+
+            // Terminan los paneles del menú
+
+            panelSeleccionado = panelInicio;
+            panelRecientesVista.Visible = false;
+            panelConfiguracionVista.Visible = false;
         }
 
+        private void PanelMenu_MouseEnter(object? sender, EventArgs e) {
+            Panel? panel = sender as Panel;
+
+            if (panel != null) {
+                if (panel != panelSeleccionado) {
+                    panel.BackColor = Color.FromArgb(60, 60, 64);
+                }
+            }
+        }
+
+        private void PanelMenu_MouseLeave(object? sender, EventArgs e) {
+            Panel? panel = sender as Panel ?? (sender as Control)?.Parent as Panel;
+
+            if (panel != null) {
+                if (!panel.ClientRectangle.Contains(panel.PointToClient(Cursor.Position))) {
+
+                    if (panel != panelSeleccionado) {
+                        panel.BackColor = Color.FromArgb(45, 45, 48);
+                    }
+                }
+            }
+        }
+
+        private void SeleccionarPanelMenu(Panel panel) {
+            if (panelSeleccionado == panel) {
+                return;
+            }
+
+            panelSeleccionado.BackColor = Color.FromArgb(45, 45, 48);
+            panel.BackColor = Color.FromArgb(46, 125, 50);
+
+            panelSeleccionado = panel;
+        }
+
+        private void panelNuevaPractica_Click(object? sender, EventArgs e) {
+            SeleccionarPanelMenu(panelNuevaPractica);
+            panelRecientesVista.Visible = false;
+            panelConfiguracionVista.Visible = false;
+        }
+
+        private void PanelInicio_Click(object? sender, EventArgs e) {
+            SeleccionarPanelMenu(panelInicio);
+        }
+
+        private void PanelAbrirPractica_Click(object? sender, EventArgs e) {
+            SeleccionarPanelMenu(panelAbrirPractica);
+
+            using (FolderBrowserDialog carpeta = new FolderBrowserDialog()) {
+                carpeta.Description = "Selecciona la carpeta del proyecto";
+
+                if (carpeta.ShowDialog() != DialogResult.OK)
+                    return;
+
+                string[] soluciones = Directory.GetFiles(
+                    carpeta.SelectedPath,
+                    "*.sln",
+                    SearchOption.TopDirectoryOnly);
+
+                if (soluciones.Length == 0) {
+                    MessageBox.Show(
+                        "No se encontró ningún archivo .sln en la carpeta seleccionada.",
+                        "EndForge",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+
+                    return;
+                }
+
+                Process.Start(new ProcessStartInfo() {
+                    FileName = soluciones[0],
+                    UseShellExecute = true
+                });
+            }
+        }
+
+        private void PanelRecientes_Click(object? sender, EventArgs e) {
+            SeleccionarPanelMenu(panelRecientes);
+
+            panelConfiguracionVista.Visible = false;
+            panelRecientesVista.Visible = true;
+            panelRecientesVista.BringToFront();
+
+            CargarRecientes();
+        }
+
+        private void PanelConfiguracion_Click(object? sender, EventArgs e) {
+            SeleccionarPanelMenu(panelConfiguracion);
+
+            panelRecientesVista.Visible = false;
+            panelConfiguracionVista.Visible = true;
+            panelConfiguracionVista.BringToFront();
+
+            txtRutaBaseConfig.Text = rutaBase;
+            txtRutaPlantillaConfig.Text = rutaPlantilla;
+        }
+
+        private void PanelAcercaDe_Click(object? sender, EventArgs e) {
+            SeleccionarPanelMenu(panelAcercaDe);
+
+            MessageBox.Show(
+                "EndForge 1.0\n\n" +
+                "Desarrollado por:\n" +
+                "Jeancarlo Pérez Pérez\n\n" +
+                "Herramienta para automatizar la creación de proyectos de C++.\n\n" +
+                "© 2026",
+                "Acerca de EndForge",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
 
         private void BtnCrearProyecto_MouseEnter(object? sender, EventArgs e) {
             btnCrearProyecto.BackColor = Color.FromArgb(56, 142, 60);
@@ -65,17 +293,17 @@ namespace ProjectCreator {
         }
 
         private void FrmPrincipal_Load(object sender, EventArgs e) {
-            cmbTemas.Items.Add("01_Variables");
-            cmbTemas.Items.Add("02_Condicionales");
-            cmbTemas.Items.Add("03_Ciclos");
-            cmbTemas.Items.Add("04_Funciones");
-            cmbTemas.Items.Add("05_Strings");
-            cmbTemas.Items.Add("06_Arrays");
-            cmbTemas.Items.Add("07_Structs");
-            cmbTemas.Items.Add("08_Vectores");
-            cmbTemas.Items.Add("09_Archivos");
-            cmbTemas.Items.Add("10_POO");
-            cmbTemas.SelectedIndex = 0;
+            txtTemas.Items.Add("01_Variables");
+            txtTemas.Items.Add("02_Condicionales");
+            txtTemas.Items.Add("03_Ciclos");
+            txtTemas.Items.Add("04_Funciones");
+            txtTemas.Items.Add("05_Strings");
+            txtTemas.Items.Add("06_Arrays");
+            txtTemas.Items.Add("07_Structs");
+            txtTemas.Items.Add("08_Vectores");
+            txtTemas.Items.Add("09_Archivos");
+            txtTemas.Items.Add("10_POO");
+            txtTemas.SelectedIndex = 0;
 
             btnCrearProyecto.Enabled = false;
 
@@ -89,33 +317,17 @@ namespace ProjectCreator {
                 MessageBox.Show("No se encontró la imagen:\n" + rutaImagen);
             }
 
-            // lblTitulo.Parent = pictureBoxfondo;
-            // lblTitulo.BackColor = Color.Transparent;
-
-            // lblTema.Parent = pictureBoxfondo;   
-            // lblTema.BackColor = Color.Transparent;
-
-            // lblNombre.Parent = pictureBoxfondo;
-            // lblNombre.BackColor = Color.Transparent;
-
-            // lblObjetivo.Parent = pictureBoxfondo;
-            // lblObjetivo.BackColor = Color.Transparent;
-
-            // lblVistaPrevia.Parent = pictureBoxfondo;
-            // lblVistaPrevia.BackColor = Color.Transparent;
-
-            // lblNombreFinal.Parent = pictureBoxfondo;
-            // lblNombreFinal.BackColor = Color.Transparent;
+            panelPrincipal.BackColor = Color.FromArgb(45, 45, 48);
 
         }
 
         private void ActualizarVistaPrevia() {
-            if (cmbTemas.SelectedItem == null || txtNombreProyecto.Text.Trim() == "") {
+            if (txtTemas.SelectedItem == null || txtNombreProyecto.Text.Trim() == "") {
                 lblNombreFinal.Text = "Esperando datos...";
                 return;
             }
 
-            string temaSeleccionado = cmbTemas.Text;
+            string temaSeleccionado = txtTemas.Text;
             string rutaTema = Path.Combine(rutaBase, temaSeleccionado);
             int siguienteNumero = 1;
 
@@ -138,7 +350,7 @@ namespace ProjectCreator {
         }
 
         private void BtnCrearProyecto_Click(object sender, EventArgs e) {
-            string temaSeleccionado = cmbTemas.Text;
+            string temaSeleccionado = txtTemas.Text;
             string nombreProyecto = lblNombreFinal.Text;
             string nombreUsuario = txtNombreProyecto.Text.Trim();
 
@@ -209,7 +421,7 @@ namespace ProjectCreator {
             {DateTime.Now:dd/MM/yyyy}
 
             ## Descripción
-            Ejercicio creado automáticamente mediante ProjectCreator.";
+            Ejercicio creado automáticamente mediante EndForge.";
 
             string rutaReadme = Path.Combine(rutaProyecto, "README.md");
 
@@ -226,10 +438,16 @@ namespace ProjectCreator {
                 UseShellExecute = true
             });
 
+            GuardarProyectoReciente(rutaProyecto);
+
             txtNombreProyecto.Clear();
             txtObjetivo.Clear();
 
-            MessageBox.Show("Proyecto creado correctamente.");
+            MessageBox.Show(
+                "El proyecto se creó correctamente.\n\n¡Visual Studio se abrirá automáticamente!",
+                "EndForge",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
 
         }
 
@@ -247,6 +465,49 @@ namespace ProjectCreator {
         }
 
         private void LblObjetivo_Click(object sender, EventArgs e) {
+
+        }
+
+        private void PanelControles_Paint(object sender, PaintEventArgs e) {
+
+        }
+
+        private void PanelMenu_Paint(object sender, PaintEventArgs e) {
+
+        }
+
+        private void LblInicio_Click(object sender, EventArgs e) {
+
+        }
+
+        private void ListRecientes_DoubleClick(object sender, EventArgs e) {
+            if (listRecientes.SelectedItem == null)
+                return;
+
+            ProyectoReciente proyecto = (ProyectoReciente)listRecientes.SelectedItem;
+
+            string? rutaSolucion = Directory.GetFiles(proyecto.Ruta, "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault();
+
+            if (rutaSolucion == null) {
+                MessageBox.Show(
+                    "No se encontró la solución del proyecto.",
+                    "EndForge",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+
+                return;
+            }
+
+            Process.Start(new ProcessStartInfo() {
+                FileName = rutaSolucion,
+                UseShellExecute = true
+            });
+
+            GuardarProyectoReciente(proyecto.Ruta);
+            CargarRecientes();
+        }
+
+        private void PanelConfiguracionVista_Paint(object sender, PaintEventArgs e) {
 
         }
     }
