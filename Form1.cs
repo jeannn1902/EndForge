@@ -153,6 +153,7 @@ namespace ProjectCreator {
             // Terminan los paneles del menú
 
             panelSeleccionado = panelInicio;
+            panelInicio.BackColor = Color.FromArgb(111, 45, 189);
             panelRecientesVista.Visible = false;
             panelConfiguracionVista.Visible = false;
         }
@@ -162,7 +163,7 @@ namespace ProjectCreator {
 
             if (panel != null) {
                 if (panel != panelSeleccionado) {
-                    panel.BackColor = Color.FromArgb(60, 60, 64);
+                    panel.BackColor = Color.FromArgb(74, 35, 110);
                 }
             }
         }
@@ -186,7 +187,7 @@ namespace ProjectCreator {
             }
 
             panelSeleccionado.BackColor = Color.FromArgb(45, 45, 48);
-            panel.BackColor = Color.FromArgb(46, 125, 50);
+            panel.BackColor = Color.FromArgb(111, 45, 189);
 
             panelSeleccionado = panel;
         }

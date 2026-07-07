@@ -119,8 +119,10 @@
             // 
             // btnCrearProyecto
             // 
-            btnCrearProyecto.BackColor = Color.FromArgb(46, 125, 50);
+            btnCrearProyecto.BackColor = Color.FromArgb(111, 45, 189);
             btnCrearProyecto.FlatAppearance.BorderSize = 0;
+            btnCrearProyecto.FlatAppearance.MouseDownBackColor = Color.FromArgb(88, 35, 155);
+            btnCrearProyecto.FlatAppearance.MouseOverBackColor = Color.FromArgb(126, 55, 210);
             btnCrearProyecto.FlatStyle = FlatStyle.Flat;
             btnCrearProyecto.Font = new Font("Segoe UI", 10F, FontStyle.Bold, GraphicsUnit.Point, 0);
             btnCrearProyecto.ForeColor = Color.White;
@@ -162,6 +164,7 @@
             // 
             // txtObjetivo
             // 
+            txtObjetivo.Font = new Font("Segoe UI Light", 9F);
             txtObjetivo.Location = new Point(88, 252);
             txtObjetivo.Multiline = true;
             txtObjetivo.Name = "txtObjetivo";
