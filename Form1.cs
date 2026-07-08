@@ -195,15 +195,20 @@ namespace ProjectCreator {
         private void panelNuevaPractica_Click(object? sender, EventArgs e) {
             SeleccionarPanelMenu(panelNuevaPractica);
 
+            panelInicioVista.Visible = false;
             panelRecientesVista.Visible = false;
             panelConfiguracionVista.Visible = false;
+            fondoEndForge.SendToBack();
         }
 
         private void PanelInicio_Click(object? sender, EventArgs e) {
             SeleccionarPanelMenu(panelInicio);
 
+            panelInicioVista.Visible = true;
             panelRecientesVista.Visible = false;
             panelConfiguracionVista.Visible = false;
+
+            panelInicioVista.BringToFront();
         }
 
         private void PanelAbrirPractica_Click(object? sender, EventArgs e) {
@@ -246,8 +251,10 @@ namespace ProjectCreator {
         private void PanelRecientes_Click(object? sender, EventArgs e) {
             SeleccionarPanelMenu(panelRecientes);
 
-            panelConfiguracionVista.Visible = false;
+            panelInicioVista.Visible = false;
             panelRecientesVista.Visible = true;
+            panelConfiguracionVista.Visible = false;
+
             panelRecientesVista.BringToFront();
 
             CargarRecientes();
@@ -256,8 +263,10 @@ namespace ProjectCreator {
         private void PanelConfiguracion_Click(object? sender, EventArgs e) {
             SeleccionarPanelMenu(panelConfiguracion);
 
+            panelInicioVista.Visible = false;
             panelRecientesVista.Visible = false;
             panelConfiguracionVista.Visible = true;
+
             panelConfiguracionVista.BringToFront();
 
             txtRutaBaseConfig.Text = rutaBase;
@@ -315,22 +324,23 @@ namespace ProjectCreator {
             txtTemas.Items.Add("08_Vectores");
             txtTemas.Items.Add("09_Archivos");
             txtTemas.Items.Add("10_POO");
+
             txtTemas.SelectedIndex = 0;
 
             btnCrearProyecto.Enabled = false;
 
-            string rutaImagen =
-            @"C:\Users\jeanc\source\repos\Plantillas\ProjectCreator\Recursos\FondodeProyectoAutocpp.png";
+            pictureBoxfondo.SendToBack();
 
-            if (File.Exists(rutaImagen)) {
-                pictureBoxfondo.Image = Image.FromFile(rutaImagen);
-                pictureBoxfondo.SendToBack();
-            } else {
-                MessageBox.Show("No se encontró la imagen:\n" + rutaImagen);
-            }
+            // panelPrincipal.BackColor = Color.FromArgb(45, 45, 48);
 
-            panelPrincipal.BackColor = Color.FromArgb(45, 45, 48);
+            panelInicioVista.Visible = true;
+            panelRecientesVista.Visible = false;
+            panelConfiguracionVista.Visible = false;
 
+            panelInicioVista.BringToFront();
+
+            panelSeleccionado = panelInicio;
+            panelInicio.BackColor = Color.FromArgb(111, 45, 189);
         }
 
         private void ActualizarVistaPrevia() {

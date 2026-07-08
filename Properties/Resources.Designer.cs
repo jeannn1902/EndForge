@@ -63,9 +63,49 @@ namespace ProjectCreator.Properties {
         /// <summary>
         ///   Busca un recurso adaptado de tipo System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap fondo_endforge_892x470_optimizado {
+            get {
+                object obj = ResourceManager.GetObject("fondo_endforge_892x470_optimizado", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Busca un recurso adaptado de tipo System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap fondo_panelPrincipal_alineado_892x470 {
+            get {
+                object obj = ResourceManager.GetObject("fondo_panelPrincipal_alineado_892x470", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Busca un recurso adaptado de tipo System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap FondodeProyectoAutocpp {
             get {
                 object obj = ResourceManager.GetObject("FondodeProyectoAutocpp", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Busca un recurso adaptado de tipo System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap fondoproyectoEndForge {
+            get {
+                object obj = ResourceManager.GetObject("fondoproyectoEndForge", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Busca un recurso adaptado de tipo System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap fondoproyectoEndForge1 {
+            get {
+                object obj = ResourceManager.GetObject("fondoproyectoEndForge1", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

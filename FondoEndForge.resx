@@ -117,20 +117,4 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
-  <data name="fondo_endforge_892x470_optimizado" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Recursos\fondo_endforge_892x470_optimizado.jpg;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="fondoproyectoEndForge" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Recursos\fondoproyectoEndForge.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="FondodeProyectoAutocpp" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Recursos\FondodeProyectoAutocpp.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="fondoproyectoEndForge1" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Recursos\fondoproyectoEndForge.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="fondo_panelPrincipal_alineado_892x470" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Recursos\fondo_panelPrincipal_alineado_892x470.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
 </root>

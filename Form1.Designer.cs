@@ -40,6 +40,9 @@
             txtTemas = new ComboBox();
             lblTema = new Label();
             panelPrincipal = new Panel();
+            panelInicioVista = new Panel();
+            lblInicioSubtitulo = new Label();
+            lblInicioTitulo = new Label();
             panelRecientesVista = new Panel();
             lblAyudaRecientes = new Label();
             lblRecientesSubtitulo = new Label();
@@ -54,6 +57,7 @@
             txtRutaBaseConfig = new TextBox();
             lblRutaBase = new Label();
             lblConfiguracionTitulo = new Label();
+            fondoEndForge = new FondoEndForge();
             panelMenu = new Panel();
             panelAcercaDe = new Panel();
             panelIndicadorAD = new Panel();
@@ -84,6 +88,7 @@
             lblMenuTitulo = new Label();
             ((System.ComponentModel.ISupportInitialize)pictureBoxfondo).BeginInit();
             panelPrincipal.SuspendLayout();
+            panelInicioVista.SuspendLayout();
             panelRecientesVista.SuspendLayout();
             panelConfiguracionVista.SuspendLayout();
             panelMenu.SuspendLayout();
@@ -106,8 +111,8 @@
             // 
             pictureBoxfondo.BackColor = Color.Transparent;
             pictureBoxfondo.Cursor = Cursors.Hand;
-            pictureBoxfondo.Dock = DockStyle.Fill;
-            pictureBoxfondo.Image = Properties.Resources.FondodeProyectoAutocpp;
+            pictureBoxfondo.Enabled = false;
+            pictureBoxfondo.Image = Properties.Resources.fondoproyectoEndForge1;
             pictureBoxfondo.ImageLocation = "";
             pictureBoxfondo.Location = new Point(0, 0);
             pictureBoxfondo.Name = "pictureBoxfondo";
@@ -115,6 +120,7 @@
             pictureBoxfondo.SizeMode = PictureBoxSizeMode.StretchImage;
             pictureBoxfondo.TabIndex = 10;
             pictureBoxfondo.TabStop = false;
+            pictureBoxfondo.Visible = false;
             pictureBoxfondo.Click += PictureBox1_Click;
             // 
             // btnCrearProyecto
@@ -246,6 +252,9 @@
             // panelPrincipal
             // 
             panelPrincipal.BackColor = Color.FromArgb(45, 45, 48);
+            panelPrincipal.BackgroundImage = Properties.Resources.fondo_panelPrincipal_alineado_892x470;
+            panelPrincipal.BackgroundImageLayout = ImageLayout.Stretch;
+            panelPrincipal.Controls.Add(panelInicioVista);
             panelPrincipal.Controls.Add(panelRecientesVista);
             panelPrincipal.Controls.Add(panelConfiguracionVista);
             panelPrincipal.Controls.Add(lblTitulo);
@@ -263,6 +272,43 @@
             panelPrincipal.Size = new Size(892, 470);
             panelPrincipal.TabIndex = 11;
             panelPrincipal.Paint += PanelControles_Paint;
+            // 
+            // panelInicioVista
+            // 
+            panelInicioVista.BackColor = Color.FromArgb(45, 45, 48);
+            panelInicioVista.BackgroundImage = Properties.Resources.fondo_panelPrincipal_alineado_892x470;
+            panelInicioVista.BackgroundImageLayout = ImageLayout.Stretch;
+            panelInicioVista.Controls.Add(lblInicioSubtitulo);
+            panelInicioVista.Controls.Add(lblInicioTitulo);
+            panelInicioVista.Location = new Point(0, 0);
+            panelInicioVista.Name = "panelInicioVista";
+            panelInicioVista.Size = new Size(892, 470);
+            panelInicioVista.TabIndex = 16;
+            panelInicioVista.Visible = false;
+            // 
+            // lblInicioSubtitulo
+            // 
+            lblInicioSubtitulo.AutoSize = true;
+            lblInicioSubtitulo.BackColor = Color.Transparent;
+            lblInicioSubtitulo.Font = new Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            lblInicioSubtitulo.ForeColor = Color.Gainsboro;
+            lblInicioSubtitulo.Location = new Point(222, 234);
+            lblInicioSubtitulo.Name = "lblInicioSubtitulo";
+            lblInicioSubtitulo.Size = new Size(442, 32);
+            lblInicioSubtitulo.TabIndex = 1;
+            lblInicioSubtitulo.Text = "Tu centro de control para aprender C++";
+            // 
+            // lblInicioTitulo
+            // 
+            lblInicioTitulo.AutoSize = true;
+            lblInicioTitulo.BackColor = Color.Transparent;
+            lblInicioTitulo.Font = new Font("Segoe UI", 24F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            lblInicioTitulo.ForeColor = Color.White;
+            lblInicioTitulo.Location = new Point(155, 139);
+            lblInicioTitulo.Name = "lblInicioTitulo";
+            lblInicioTitulo.Size = new Size(548, 65);
+            lblInicioTitulo.TabIndex = 0;
+            lblInicioTitulo.Text = "Bienvenido a EndForge";
             // 
             // panelRecientesVista
             // 
@@ -420,6 +466,15 @@
             lblConfiguracionTitulo.Size = new Size(187, 27);
             lblConfiguracionTitulo.TabIndex = 0;
             lblConfiguracionTitulo.Text = "Configuración";
+            // 
+            // fondoEndForge
+            // 
+            fondoEndForge.Dock = DockStyle.Fill;
+            fondoEndForge.ImagenFondo = Properties.Resources.fondo_endforge_892x470_optimizado;
+            fondoEndForge.Location = new Point(0, 0);
+            fondoEndForge.Name = "fondoEndForge";
+            fondoEndForge.Size = new Size(1178, 744);
+            fondoEndForge.TabIndex = 0;
             // 
             // panelMenu
             // 
@@ -743,10 +798,11 @@
             // 
             AutoScaleDimensions = new SizeF(10F, 25F);
             AutoScaleMode = AutoScaleMode.Font;
+            BackgroundImageLayout = ImageLayout.Stretch;
             ClientSize = new Size(1178, 744);
             Controls.Add(panelMenu);
             Controls.Add(panelPrincipal);
-            Controls.Add(pictureBoxfondo);
+            Controls.Add(fondoEndForge);
             Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             Icon = (Icon)resources.GetObject("$this.Icon");
@@ -758,6 +814,8 @@
             ((System.ComponentModel.ISupportInitialize)pictureBoxfondo).EndInit();
             panelPrincipal.ResumeLayout(false);
             panelPrincipal.PerformLayout();
+            panelInicioVista.ResumeLayout(false);
+            panelInicioVista.PerformLayout();
             panelRecientesVista.ResumeLayout(false);
             panelRecientesVista.PerformLayout();
             panelConfiguracionVista.ResumeLayout(false);
@@ -798,6 +856,7 @@
         private ComboBox txtTemas;
         private Label lblTema;
         private Panel panelPrincipal;
+        private FondoEndForge fondoEndForge;
         private Panel panelMenu;
         private Label lblMenuTitulo;
         private Label lblMenuSubtitulo;
@@ -840,5 +899,8 @@
         private ListBox listRecientes;
         private Label lblRecientesTitulo;
         private Label lblAyudaRecientes;
+        private Panel panelInicioVista;
+        private Label lblInicioTitulo;
+        private Label lblInicioSubtitulo;
     }
 }
