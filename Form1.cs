@@ -65,13 +65,77 @@ namespace ProjectCreator {
             File.WriteAllLines(rutaRecientes, recientes);
         }
 
+        private List<Label> ObtenerLabelsRecientes() {
+            return new List<Label> {
+                lblReciente1,
+                lblReciente2,
+                lblReciente3,
+                lblReciente4,
+                lblReciente5,
+                lblReciente6,
+                lblReciente7,
+                lblReciente8,
+                lblReciente9,
+                lblReciente10
+            };
+        }
+
+        private void LimpiarLabelsRecientes() {
+            foreach (Label label in ObtenerLabelsRecientes()) {
+                label.Text = "";
+                label.Visible = false;
+                label.Tag = null;
+            }
+        }
+
+        private void LabelReciente_DoubleClick(object? sender, EventArgs e) {
+            Label? label = sender as Label;
+
+            if (label?.Tag is not ProyectoReciente proyecto)
+                return;
+
+            if (!Directory.Exists(proyecto.Ruta)) {
+                MessageBox.Show(
+                    "La carpeta de esta práctica ya no existe.",
+                    "EndForge",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning
+                );
+                return;
+            }
+
+            string[] soluciones = Directory.GetFiles(proyecto.Ruta, "*.sln");
+
+            if (soluciones.Length == 0) {
+                MessageBox.Show(
+                    "No se encontró ningún archivo .sln en esta práctica.",
+                    "EndForge",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning
+                );
+                return;
+            }
+
+            Process.Start(new ProcessStartInfo {
+                FileName = soluciones[0],
+                UseShellExecute = true
+            });
+
+            GuardarProyectoReciente(proyecto.Ruta);
+            CargarRecientes();
+        }
+
         private void CargarRecientes() {
             listRecientes.Items.Clear();
+            LimpiarLabelsRecientes();
 
             if (!File.Exists(rutaRecientes))
                 return;
 
             string[] recientes = File.ReadAllLines(rutaRecientes);
+            List<Label> labelsRecientes = ObtenerLabelsRecientes();
+
+            int indice = 0;
 
             foreach (string reciente in recientes) {
                 string[] datos = reciente.Split('|');
@@ -83,6 +147,13 @@ namespace ProjectCreator {
                     };
 
                     listRecientes.Items.Add(proyecto);
+
+                    if (indice < labelsRecientes.Count) {
+                        labelsRecientes[indice].Text = proyecto.Nombre;
+                        labelsRecientes[indice].Tag = proyecto;
+                        labelsRecientes[indice].Visible = true;
+                        indice++;
+                    }
                 }
             }
         }
@@ -177,6 +248,12 @@ namespace ProjectCreator {
 
             lblCardConfiguracionTitulo.Click += PanelConfiguracion_Click;
             lblCardConfiguracionDesc.Click += PanelConfiguracion_Click;
+            //
+            // Doble clic en los labels de recientes
+            //
+            foreach (Label label in ObtenerLabelsRecientes()) {
+                label.DoubleClick += LabelReciente_DoubleClick;
+            }
             //
             // Estado inicial
             //
@@ -666,5 +743,30 @@ namespace ProjectCreator {
         private void ListRecientes_SelectedIndexChanged_1(object sender, EventArgs e) {
 
         }
+
+        private void ListRecientes_DrawItem(object sender, DrawItemEventArgs e) {
+            if (e.Index < 0)
+                return;
+
+            bool seleccionado = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+            Color colorFondo = seleccionado ? Color.FromArgb(111, 45, 189) : Color.FromArgb(20, 16, 30);
+            Color colorTexto = Color.White;
+            Color colorLinea = Color.FromArgb(55, 45, 70);
+
+            using (SolidBrush fondo = new SolidBrush(colorFondo)) {
+                e.Graphics.FillRectangle(fondo, e.Bounds);
+            }
+
+            string texto = listRecientes.Items[e.Index].ToString() ?? "";
+
+            Rectangle areaTexto = new Rectangle(e.Bounds.Left + 12, e.Bounds.Top, e.Bounds.Width - 24, e.Bounds.Height - 1);
+
+            TextRenderer.DrawText(e.Graphics, texto, listRecientes.Font, areaTexto, colorTexto, TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
+
+            using (Pen linea = new Pen(colorLinea)) {
+                e.Graphics.DrawLine(linea, e.Bounds.Left + 8, e.Bounds.Bottom - 1, e.Bounds.Right - 8, e.Bounds.Bottom - 1);
+            }
+        }   
+          
     }
 }

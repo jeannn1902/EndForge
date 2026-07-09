@@ -52,6 +52,17 @@
             lblInicioSubtitulo = new Label();
             lblInicioTitulo = new Label();
             panelRecientesVista = new Panel();
+            panelListaRecientes = new Panel();
+            lblReciente10 = new Label();
+            lblReciente9 = new Label();
+            lblReciente8 = new Label();
+            lblReciente7 = new Label();
+            lblReciente6 = new Label();
+            lblReciente5 = new Label();
+            lblReciente4 = new Label();
+            lblReciente3 = new Label();
+            lblReciente2 = new Label();
+            lblReciente1 = new Label();
             lblAyudaRecientes = new Label();
             lblRecientesSubtitulo = new Label();
             listRecientes = new ListBox();
@@ -100,6 +111,7 @@
             panelCardRecientes.SuspendLayout();
             panelCardNuevaPractica.SuspendLayout();
             panelRecientesVista.SuspendLayout();
+            panelListaRecientes.SuspendLayout();
             panelConfiguracionVista.SuspendLayout();
             panelMenu.SuspendLayout();
             panelAcercaDe.SuspendLayout();
@@ -423,6 +435,8 @@
             // 
             // panelRecientesVista
             // 
+            panelRecientesVista.BackColor = Color.Transparent;
+            panelRecientesVista.Controls.Add(panelListaRecientes);
             panelRecientesVista.Controls.Add(lblAyudaRecientes);
             panelRecientesVista.Controls.Add(lblRecientesSubtitulo);
             panelRecientesVista.Controls.Add(listRecientes);
@@ -433,14 +447,183 @@
             panelRecientesVista.TabIndex = 15;
             panelRecientesVista.Visible = false;
             // 
+            // panelListaRecientes
+            // 
+            panelListaRecientes.BackColor = Color.Transparent;
+            panelListaRecientes.Controls.Add(lblReciente10);
+            panelListaRecientes.Controls.Add(lblReciente9);
+            panelListaRecientes.Controls.Add(lblReciente8);
+            panelListaRecientes.Controls.Add(lblReciente7);
+            panelListaRecientes.Controls.Add(lblReciente6);
+            panelListaRecientes.Controls.Add(lblReciente5);
+            panelListaRecientes.Controls.Add(lblReciente4);
+            panelListaRecientes.Controls.Add(lblReciente3);
+            panelListaRecientes.Controls.Add(lblReciente2);
+            panelListaRecientes.Controls.Add(lblReciente1);
+            panelListaRecientes.Location = new Point(80, 78);
+            panelListaRecientes.Name = "panelListaRecientes";
+            panelListaRecientes.Size = new Size(729, 342);
+            panelListaRecientes.TabIndex = 15;
+            // 
+            // lblReciente10
+            // 
+            lblReciente10.BackColor = Color.FromArgb(20, 16, 30);
+            lblReciente10.BorderStyle = BorderStyle.FixedSingle;
+            lblReciente10.Cursor = Cursors.Hand;
+            lblReciente10.Font = new Font("Segoe UI Light", 10F);
+            lblReciente10.ForeColor = Color.White;
+            lblReciente10.Location = new Point(0, 324);
+            lblReciente10.Name = "lblReciente10";
+            lblReciente10.Padding = new Padding(12, 0, 0, 0);
+            lblReciente10.Size = new Size(729, 34);
+            lblReciente10.TabIndex = 15;
+            lblReciente10.Text = "Proyecto reciente";
+            lblReciente10.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // lblReciente9
+            // 
+            lblReciente9.BackColor = Color.FromArgb(20, 16, 30);
+            lblReciente9.BorderStyle = BorderStyle.FixedSingle;
+            lblReciente9.Cursor = Cursors.Hand;
+            lblReciente9.Font = new Font("Segoe UI Light", 10F);
+            lblReciente9.ForeColor = Color.White;
+            lblReciente9.Location = new Point(0, 288);
+            lblReciente9.Name = "lblReciente9";
+            lblReciente9.Padding = new Padding(12, 0, 0, 0);
+            lblReciente9.Size = new Size(729, 34);
+            lblReciente9.TabIndex = 14;
+            lblReciente9.Text = "Proyecto reciente";
+            lblReciente9.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // lblReciente8
+            // 
+            lblReciente8.BackColor = Color.FromArgb(20, 16, 30);
+            lblReciente8.BorderStyle = BorderStyle.FixedSingle;
+            lblReciente8.Cursor = Cursors.Hand;
+            lblReciente8.Font = new Font("Segoe UI Light", 10F);
+            lblReciente8.ForeColor = Color.White;
+            lblReciente8.Location = new Point(0, 252);
+            lblReciente8.Name = "lblReciente8";
+            lblReciente8.Padding = new Padding(12, 0, 0, 0);
+            lblReciente8.Size = new Size(729, 34);
+            lblReciente8.TabIndex = 13;
+            lblReciente8.Text = "Proyecto reciente";
+            lblReciente8.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // lblReciente7
+            // 
+            lblReciente7.BackColor = Color.FromArgb(20, 16, 30);
+            lblReciente7.BorderStyle = BorderStyle.FixedSingle;
+            lblReciente7.Cursor = Cursors.Hand;
+            lblReciente7.Font = new Font("Segoe UI Light", 10F);
+            lblReciente7.ForeColor = Color.White;
+            lblReciente7.Location = new Point(0, 216);
+            lblReciente7.Name = "lblReciente7";
+            lblReciente7.Padding = new Padding(12, 0, 0, 0);
+            lblReciente7.Size = new Size(729, 34);
+            lblReciente7.TabIndex = 12;
+            lblReciente7.Text = "Proyecto reciente";
+            lblReciente7.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // lblReciente6
+            // 
+            lblReciente6.BackColor = Color.FromArgb(20, 16, 30);
+            lblReciente6.BorderStyle = BorderStyle.FixedSingle;
+            lblReciente6.Cursor = Cursors.Hand;
+            lblReciente6.Font = new Font("Segoe UI Light", 10F);
+            lblReciente6.ForeColor = Color.White;
+            lblReciente6.Location = new Point(0, 180);
+            lblReciente6.Name = "lblReciente6";
+            lblReciente6.Padding = new Padding(12, 0, 0, 0);
+            lblReciente6.Size = new Size(729, 34);
+            lblReciente6.TabIndex = 11;
+            lblReciente6.Text = "Proyecto reciente";
+            lblReciente6.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // lblReciente5
+            // 
+            lblReciente5.BackColor = Color.FromArgb(20, 16, 30);
+            lblReciente5.BorderStyle = BorderStyle.FixedSingle;
+            lblReciente5.Cursor = Cursors.Hand;
+            lblReciente5.Font = new Font("Segoe UI Light", 10F);
+            lblReciente5.ForeColor = Color.White;
+            lblReciente5.Location = new Point(0, 144);
+            lblReciente5.Name = "lblReciente5";
+            lblReciente5.Padding = new Padding(12, 0, 0, 0);
+            lblReciente5.Size = new Size(729, 34);
+            lblReciente5.TabIndex = 10;
+            lblReciente5.Text = "Proyecto reciente";
+            lblReciente5.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // lblReciente4
+            // 
+            lblReciente4.BackColor = Color.FromArgb(20, 16, 30);
+            lblReciente4.BorderStyle = BorderStyle.FixedSingle;
+            lblReciente4.Cursor = Cursors.Hand;
+            lblReciente4.Font = new Font("Segoe UI Light", 10F);
+            lblReciente4.ForeColor = Color.White;
+            lblReciente4.Location = new Point(0, 108);
+            lblReciente4.Name = "lblReciente4";
+            lblReciente4.Padding = new Padding(12, 0, 0, 0);
+            lblReciente4.Size = new Size(729, 34);
+            lblReciente4.TabIndex = 9;
+            lblReciente4.Text = "Proyecto reciente";
+            lblReciente4.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // lblReciente3
+            // 
+            lblReciente3.BackColor = Color.FromArgb(20, 16, 30);
+            lblReciente3.BorderStyle = BorderStyle.FixedSingle;
+            lblReciente3.Cursor = Cursors.Hand;
+            lblReciente3.Font = new Font("Segoe UI Light", 10F);
+            lblReciente3.ForeColor = Color.White;
+            lblReciente3.Location = new Point(0, 72);
+            lblReciente3.Name = "lblReciente3";
+            lblReciente3.Padding = new Padding(12, 0, 0, 0);
+            lblReciente3.Size = new Size(729, 34);
+            lblReciente3.TabIndex = 8;
+            lblReciente3.Text = "Proyecto reciente";
+            lblReciente3.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // lblReciente2
+            // 
+            lblReciente2.BackColor = Color.FromArgb(20, 16, 30);
+            lblReciente2.BorderStyle = BorderStyle.FixedSingle;
+            lblReciente2.Cursor = Cursors.Hand;
+            lblReciente2.Font = new Font("Segoe UI Light", 10F);
+            lblReciente2.ForeColor = Color.White;
+            lblReciente2.Location = new Point(0, 36);
+            lblReciente2.Name = "lblReciente2";
+            lblReciente2.Padding = new Padding(12, 0, 0, 0);
+            lblReciente2.Size = new Size(729, 34);
+            lblReciente2.TabIndex = 7;
+            lblReciente2.Text = "Proyecto reciente";
+            lblReciente2.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // lblReciente1
+            // 
+            lblReciente1.BackColor = Color.FromArgb(20, 16, 30);
+            lblReciente1.BorderStyle = BorderStyle.FixedSingle;
+            lblReciente1.Cursor = Cursors.Hand;
+            lblReciente1.Font = new Font("Segoe UI Light", 10F);
+            lblReciente1.ForeColor = Color.White;
+            lblReciente1.Location = new Point(0, 0);
+            lblReciente1.Name = "lblReciente1";
+            lblReciente1.Padding = new Padding(12, 0, 0, 0);
+            lblReciente1.Size = new Size(729, 34);
+            lblReciente1.TabIndex = 6;
+            lblReciente1.Text = "Proyecto reciente";
+            lblReciente1.TextAlign = ContentAlignment.MiddleLeft;
+            // 
             // lblAyudaRecientes
             // 
             lblAyudaRecientes.AutoSize = true;
-            lblAyudaRecientes.Font = new Font("Segoe UI", 9F);
-            lblAyudaRecientes.ForeColor = Color.Gray;
-            lblAyudaRecientes.Location = new Point(311, 240);
+            lblAyudaRecientes.BackColor = Color.Transparent;
+            lblAyudaRecientes.Font = new Font("Segoe UI Light", 10F);
+            lblAyudaRecientes.ForeColor = Color.Gainsboro;
+            lblAyudaRecientes.Location = new Point(304, 435);
             lblAyudaRecientes.Name = "lblAyudaRecientes";
-            lblAyudaRecientes.Size = new Size(271, 25);
+            lblAyudaRecientes.Size = new Size(285, 28);
             lblAyudaRecientes.TabIndex = 14;
             lblAyudaRecientes.Text = "Doble clic para abrir un proyecto";
             lblAyudaRecientes.Click += LblAyudaRecientes_Click;
@@ -448,37 +631,42 @@
             // lblRecientesSubtitulo
             // 
             lblRecientesSubtitulo.AutoSize = true;
-            lblRecientesSubtitulo.Font = new Font("Segoe UI", 9F, FontStyle.Italic);
+            lblRecientesSubtitulo.BackColor = Color.Transparent;
+            lblRecientesSubtitulo.Font = new Font("Segoe UI Light", 10F);
             lblRecientesSubtitulo.ForeColor = Color.Silver;
-            lblRecientesSubtitulo.Location = new Point(337, 82);
+            lblRecientesSubtitulo.Location = new Point(331, 48);
             lblRecientesSubtitulo.Name = "lblRecientesSubtitulo";
-            lblRecientesSubtitulo.Size = new Size(219, 25);
+            lblRecientesSubtitulo.Size = new Size(231, 28);
             lblRecientesSubtitulo.TabIndex = 13;
             lblRecientesSubtitulo.Text = "Continúa donde lo dejaste";
             // 
             // listRecientes
             // 
-            listRecientes.BackColor = Color.FromArgb(45, 45, 48);
-            listRecientes.BorderStyle = BorderStyle.None;
-            listRecientes.Font = new Font("Segoe UI", 10F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            listRecientes.BackColor = Color.FromArgb(20, 16, 30);
+            listRecientes.BorderStyle = BorderStyle.FixedSingle;
+            listRecientes.DrawMode = DrawMode.OwnerDrawFixed;
+            listRecientes.Font = new Font("Segoe UI Light", 10F);
             listRecientes.ForeColor = Color.White;
             listRecientes.IntegralHeight = false;
-            listRecientes.ItemHeight = 28;
-            listRecientes.Location = new Point(88, 114);
+            listRecientes.ItemHeight = 34;
+            listRecientes.Location = new Point(80, 78);
             listRecientes.Name = "listRecientes";
-            listRecientes.Size = new Size(729, 116);
+            listRecientes.Size = new Size(729, 342);
             listRecientes.TabIndex = 12;
+            listRecientes.Visible = false;
+            listRecientes.DrawItem += ListRecientes_DrawItem;
             listRecientes.SelectedIndexChanged += ListRecientes_SelectedIndexChanged_1;
             listRecientes.DoubleClick += ListRecientes_DoubleClick;
             // 
             // lblRecientesTitulo
             // 
             lblRecientesTitulo.AutoSize = true;
-            lblRecientesTitulo.Font = new Font("Cooper Black", 12F);
-            lblRecientesTitulo.ForeColor = Color.White;
-            lblRecientesTitulo.Location = new Point(321, 54);
+            lblRecientesTitulo.BackColor = Color.Transparent;
+            lblRecientesTitulo.Font = new Font("Segoe UI Semibold", 20F);
+            lblRecientesTitulo.ForeColor = Color.Silver;
+            lblRecientesTitulo.Location = new Point(260, 1);
             lblRecientesTitulo.Name = "lblRecientesTitulo";
-            lblRecientesTitulo.Size = new Size(250, 27);
+            lblRecientesTitulo.Size = new Size(372, 54);
             lblRecientesTitulo.TabIndex = 11;
             lblRecientesTitulo.Text = "Proyectos recientes";
             // 
@@ -934,6 +1122,7 @@
             panelCardNuevaPractica.PerformLayout();
             panelRecientesVista.ResumeLayout(false);
             panelRecientesVista.PerformLayout();
+            panelListaRecientes.ResumeLayout(false);
             panelConfiguracionVista.ResumeLayout(false);
             panelConfiguracionVista.PerformLayout();
             panelMenu.ResumeLayout(false);
@@ -1026,5 +1215,16 @@
         private Panel panelCardConfiguracion;
         private Label lblCardConfiguracionDesc;
         private Label lblCardConfiguracionTitulo;
+        private Panel panelListaRecientes;
+        private Label lblReciente1;
+        private Label lblReciente10;
+        private Label lblReciente9;
+        private Label lblReciente8;
+        private Label lblReciente7;
+        private Label lblReciente6;
+        private Label lblReciente5;
+        private Label lblReciente4;
+        private Label lblReciente3;
+        private Label lblReciente2;
     }
 }
