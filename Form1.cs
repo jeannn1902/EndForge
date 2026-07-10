@@ -161,6 +161,13 @@ namespace ProjectCreator {
         public frmPrincipal() {
             InitializeComponent();
 
+            ActivarDobleBuffer(this);
+            ActivarDobleBuffer(panelPrincipal);
+            ActivarDobleBuffer(panelInicioVista);
+            ActivarDobleBuffer(panelRecientesVista);
+            ActivarDobleBuffer(panelConfiguracionVista);
+            ActivarDobleBuffer(panelListaRecientes);
+
             panelPrincipal.LocationChanged += (s, e) => ReaplicarFondoDinamico();
             panelPrincipal.SizeChanged += (s, e) => ReaplicarFondoDinamico();
             fondoEndForge.SizeChanged += (s, e) => ReaplicarFondoDinamico();
@@ -263,6 +270,13 @@ namespace ProjectCreator {
             panelConfiguracionVista.Visible = false;
 
             AplicarFondoDinamicoPanelPrincipal();
+        }
+
+        // Activar el doble buffer para evitar parpadeos en los controles
+        private void ActivarDobleBuffer(Control control) {
+            typeof(Control)
+                .GetProperty("DoubleBuffered", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                ?.SetValue(control, true, null);
         }
 
         private void AplicarFondoDinamicoPanelPrincipal() {

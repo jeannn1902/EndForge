@@ -155,7 +155,7 @@
             lblNombreFinal.BackColor = Color.Transparent;
             lblNombreFinal.Font = new Font("Segoe UI Light", 11F);
             lblNombreFinal.ForeColor = Color.FromArgb(168, 85, 247);
-            lblNombreFinal.Location = new Point(125, 339);
+            lblNombreFinal.Location = new Point(140, 339);
             lblNombreFinal.Name = "lblNombreFinal";
             lblNombreFinal.Size = new Size(182, 30);
             lblNombreFinal.TabIndex = 5;
