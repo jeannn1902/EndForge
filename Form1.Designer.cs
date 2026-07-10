@@ -106,11 +106,11 @@
             lblMenuSubtitulo = new Label();
             lblMenuTitulo = new Label();
             panelBarraTitulo = new Panel();
+            btnCerrar = new Button();
+            btnMaximizar = new Button();
+            btnMinimizar = new Button();
             lblBarraTitulo = new Label();
             pictureBoxBarraIcono = new PictureBox();
-            btnMinimizar = new Button();
-            btnMaximizar = new Button();
-            btnCerrar = new Button();
             panelPrincipal.SuspendLayout();
             panelInicioVista.SuspendLayout();
             panelCardConfiguracion.SuspendLayout();
@@ -1104,7 +1104,7 @@
             // 
             pictureBoxLogo.BackColor = Color.Transparent;
             pictureBoxLogo.Image = (Image)resources.GetObject("pictureBoxLogo.Image");
-            pictureBoxLogo.Location = new Point(10, 30);
+            pictureBoxLogo.Location = new Point(10, 42);
             pictureBoxLogo.Name = "pictureBoxLogo";
             pictureBoxLogo.Size = new Size(200, 70);
             pictureBoxLogo.SizeMode = PictureBoxSizeMode.Zoom;
@@ -1117,7 +1117,7 @@
             lblMenuSubtitulo.BackColor = Color.Transparent;
             lblMenuSubtitulo.Font = new Font("Segoe UI", 10F, FontStyle.Regular, GraphicsUnit.Point, 0);
             lblMenuSubtitulo.ForeColor = Color.Silver;
-            lblMenuSubtitulo.Location = new Point(26, 94);
+            lblMenuSubtitulo.Location = new Point(26, 106);
             lblMenuSubtitulo.Name = "lblMenuSubtitulo";
             lblMenuSubtitulo.Size = new Size(169, 28);
             lblMenuSubtitulo.TabIndex = 1;
@@ -1148,8 +1148,59 @@
             panelBarraTitulo.Dock = DockStyle.Top;
             panelBarraTitulo.Location = new Point(220, 0);
             panelBarraTitulo.Name = "panelBarraTitulo";
-            panelBarraTitulo.Size = new Size(980, 36);
+            panelBarraTitulo.Size = new Size(980, 38);
             panelBarraTitulo.TabIndex = 12;
+            // 
+            // btnCerrar
+            // 
+            btnCerrar.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnCerrar.Cursor = Cursors.Hand;
+            btnCerrar.FlatAppearance.BorderSize = 0;
+            btnCerrar.FlatAppearance.MouseDownBackColor = Color.FromArgb(88, 35, 155);
+            btnCerrar.FlatAppearance.MouseOverBackColor = Color.FromArgb(74, 35, 110);
+            btnCerrar.FlatStyle = FlatStyle.Flat;
+            btnCerrar.Font = new Font("Segoe UI Semibold", 10F);
+            btnCerrar.ForeColor = Color.White;
+            btnCerrar.Location = new Point(933, 3);
+            btnCerrar.Name = "btnCerrar";
+            btnCerrar.Size = new Size(42, 38);
+            btnCerrar.TabIndex = 4;
+            btnCerrar.Text = "X";
+            btnCerrar.UseVisualStyleBackColor = true;
+            // 
+            // btnMaximizar
+            // 
+            btnMaximizar.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnMaximizar.Cursor = Cursors.Hand;
+            btnMaximizar.FlatAppearance.BorderSize = 0;
+            btnMaximizar.FlatAppearance.MouseDownBackColor = Color.FromArgb(88, 35, 155);
+            btnMaximizar.FlatAppearance.MouseOverBackColor = Color.FromArgb(74, 35, 110);
+            btnMaximizar.FlatStyle = FlatStyle.Flat;
+            btnMaximizar.Font = new Font("Segoe UI Semibold", 10F);
+            btnMaximizar.ForeColor = Color.White;
+            btnMaximizar.Location = new Point(645, 8);
+            btnMaximizar.Name = "btnMaximizar";
+            btnMaximizar.Size = new Size(42, 38);
+            btnMaximizar.TabIndex = 3;
+            btnMaximizar.Text = "🗖";
+            btnMaximizar.UseVisualStyleBackColor = true;
+            // 
+            // btnMinimizar
+            // 
+            btnMinimizar.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnMinimizar.Cursor = Cursors.Hand;
+            btnMinimizar.FlatAppearance.BorderSize = 0;
+            btnMinimizar.FlatAppearance.MouseDownBackColor = Color.FromArgb(88, 35, 155);
+            btnMinimizar.FlatAppearance.MouseOverBackColor = Color.FromArgb(74, 35, 110);
+            btnMinimizar.FlatStyle = FlatStyle.Flat;
+            btnMinimizar.Font = new Font("Segoe UI Semibold", 10F);
+            btnMinimizar.ForeColor = Color.White;
+            btnMinimizar.Location = new Point(521, 6);
+            btnMinimizar.Name = "btnMinimizar";
+            btnMinimizar.Size = new Size(42, 38);
+            btnMinimizar.TabIndex = 2;
+            btnMinimizar.Text = "—";
+            btnMinimizar.UseVisualStyleBackColor = true;
             // 
             // lblBarraTitulo
             // 
@@ -1173,57 +1224,6 @@
             pictureBoxBarraIcono.SizeMode = PictureBoxSizeMode.Zoom;
             pictureBoxBarraIcono.TabIndex = 0;
             pictureBoxBarraIcono.TabStop = false;
-            // 
-            // btnMinimizar
-            // 
-            btnMinimizar.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnMinimizar.Cursor = Cursors.Hand;
-            btnMinimizar.FlatAppearance.BorderSize = 0;
-            btnMinimizar.FlatAppearance.MouseDownBackColor = Color.FromArgb(88, 35, 155);
-            btnMinimizar.FlatAppearance.MouseOverBackColor = Color.FromArgb(74, 35, 110);
-            btnMinimizar.FlatStyle = FlatStyle.Flat;
-            btnMinimizar.Font = new Font("Segoe UI Semibold", 10F);
-            btnMinimizar.ForeColor = Color.White;
-            btnMinimizar.Location = new Point(521, 6);
-            btnMinimizar.Name = "btnMinimizar";
-            btnMinimizar.Size = new Size(42, 36);
-            btnMinimizar.TabIndex = 2;
-            btnMinimizar.Text = "—";
-            btnMinimizar.UseVisualStyleBackColor = true;
-            // 
-            // btnMaximizar
-            // 
-            btnMaximizar.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnMaximizar.Cursor = Cursors.Hand;
-            btnMaximizar.FlatAppearance.BorderSize = 0;
-            btnMaximizar.FlatAppearance.MouseDownBackColor = Color.FromArgb(88, 35, 155);
-            btnMaximizar.FlatAppearance.MouseOverBackColor = Color.FromArgb(74, 35, 110);
-            btnMaximizar.FlatStyle = FlatStyle.Flat;
-            btnMaximizar.Font = new Font("Segoe UI Semibold", 10F);
-            btnMaximizar.ForeColor = Color.White;
-            btnMaximizar.Location = new Point(645, 8);
-            btnMaximizar.Name = "btnMaximizar";
-            btnMaximizar.Size = new Size(42, 36);
-            btnMaximizar.TabIndex = 3;
-            btnMaximizar.Text = "🗖";
-            btnMaximizar.UseVisualStyleBackColor = true;
-            // 
-            // btnCerrar
-            // 
-            btnCerrar.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnCerrar.Cursor = Cursors.Hand;
-            btnCerrar.FlatAppearance.BorderSize = 0;
-            btnCerrar.FlatAppearance.MouseDownBackColor = Color.FromArgb(88, 35, 155);
-            btnCerrar.FlatAppearance.MouseOverBackColor = Color.FromArgb(74, 35, 110);
-            btnCerrar.FlatStyle = FlatStyle.Flat;
-            btnCerrar.Font = new Font("Segoe UI Semibold", 10F);
-            btnCerrar.ForeColor = Color.White;
-            btnCerrar.Location = new Point(933, 3);
-            btnCerrar.Name = "btnCerrar";
-            btnCerrar.Size = new Size(42, 36);
-            btnCerrar.TabIndex = 4;
-            btnCerrar.Text = "X";
-            btnCerrar.UseVisualStyleBackColor = true;
             // 
             // frmPrincipal
             // 

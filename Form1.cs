@@ -182,22 +182,45 @@ namespace ProjectCreator {
 
             PosicionarBotonesBarraTitulo();
             panelBarraTitulo.SizeChanged += (s, e) => PosicionarBotonesBarraTitulo();
-
+            //
+            // Conexion de clicks de botones minimizar, maximizar y cerrar
+            //
             btnMinimizar.Click += BtnMinimizar_Click;
             btnMaximizar.Click += BtnMaximizar_Click;
             btnCerrar.Click += BtnCerrar_Click;
-
+            //
             btnCerrar.MouseEnter += BtnCerrar_MouseEnter;
             btnCerrar.MouseLeave += BtnCerrar_MouseLeave;
-
+            //
             btnMinimizar.MouseLeave += BtnVentana_MouseLeave;
             btnMaximizar.MouseLeave += BtnVentana_MouseLeave;
-
+            //
             panelBarraTitulo.MouseDown += PanelBarraTitulo_MouseDown;
             lblBarraTitulo.MouseDown += PanelBarraTitulo_MouseDown;
             pictureBoxBarraIcono.MouseDown += PanelBarraTitulo_MouseDown;
+            //
+            // Hover de las tarjetas del inicio
+            //
+            lblCardNuevaPracticaTitulo.MouseEnter += CardInicio_MouseEnter;
+            lblCardNuevaPracticaTitulo.MouseLeave += CardInicio_MouseLeave;
+            lblCardNuevaPracticaDesc.MouseEnter += CardInicio_MouseEnter;
+            lblCardNuevaPracticaDesc.MouseLeave += CardInicio_MouseLeave;
 
+            lblCardRecientesTitulo.MouseEnter += CardInicio_MouseEnter;
+            lblCardRecientesTitulo.MouseLeave += CardInicio_MouseLeave;
+            lblCardRecientesDesc.MouseEnter += CardInicio_MouseEnter;
+            lblCardRecientesDesc.MouseLeave += CardInicio_MouseLeave;
+
+            lblCardConfiguracionTitulo.MouseEnter += CardInicio_MouseEnter;
+            lblCardConfiguracionTitulo.MouseLeave += CardInicio_MouseLeave;
+            lblCardConfiguracionDesc.MouseEnter += CardInicio_MouseEnter;
+            lblCardConfiguracionDesc.MouseLeave += CardInicio_MouseLeave;
+            // Fin de hover de las tarjetas del inicio
+            //
+            // Activar barra de título oscura en Windows 10 y versiones posteriores
+            //
             ActivarBarraTituloOscura();
+            //
 
             timerRecalcularVista.Interval = 150;
             timerRecalcularVista.Tick += TimerRecalcularVista_Tick;
@@ -523,6 +546,22 @@ namespace ProjectCreator {
             panelConfiguracionVista.Visible = false;
 
             panelInicioVista.BringToFront();
+        }
+
+        private void CardInicio_MouseEnter(object? sender, EventArgs e) {
+            Panel? panel = sender as Panel ?? (sender as Control)?.Parent as Panel;
+
+            if (panel != null) {
+                panel.BackColor = Color.FromArgb(35, 28, 48);
+            }
+        }
+
+        private void CardInicio_MouseLeave(object? sender, EventArgs e) {
+            Panel? panel = sender as Panel ?? (sender as Control)?.Parent as Panel;
+
+            if (panel != null) {
+                panel.BackColor = Color.FromArgb(20, 16, 30);
+            }
         }
 
         private void PanelAbrirPractica_Click(object? sender, EventArgs e) {
