@@ -716,6 +716,8 @@ namespace EndForge {
 
             btnCrearProyecto.Enabled = false;
 
+            CargarConfiguracion();
+
             // panelPrincipal.BackColor = Color.FromArgb(45, 45, 48);
 
             panelInicioVista.Visible = true;
