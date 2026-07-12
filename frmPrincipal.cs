@@ -775,6 +775,14 @@ namespace EndForge {
 
                 if (nombreCarpeta.StartsWith("."))
                     continue;
+
+                string[] partes = nombreCarpeta.Split('_');
+
+                if (partes.Length < 2)
+                    continue;
+
+                if (!int.TryParse(partes[0], out _))
+                    continue;
                 txtTemas.Items.Add(nombreCarpeta);
             }
 
