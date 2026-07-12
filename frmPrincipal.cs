@@ -168,6 +168,22 @@ namespace EndForge {
                 return;
 
             string[] recientes = File.ReadAllLines(rutaRecientes);
+
+            if (recientes.Length > 0) {
+                string[] datos = recientes[0].Split('|');
+
+                if (datos.Length >= 2) {
+                    lblCardRecientesDesc.Text = datos[0];
+                    lblCardRecientesDesc.Tag = datos[1];
+
+                    lblCardContinuarDesc.Text = datos[0];
+                    lblCardContinuarDesc.Tag = datos[1];
+                }
+            } else {
+                lblCardRecientesDesc.Text = "No hay proyectos recientes.";
+                lblCardContinuarDesc.Text = "No hay prácticas recientes.";
+            }
+
             List<Label> labelsRecientes = ObtenerLabelsRecientes();
 
             int indice = 0;
@@ -537,6 +553,14 @@ namespace EndForge {
             }
         }
 
+        private void Card_MouseEnter(object sender, EventArgs e) {
+
+        }
+
+        private void Card_MouseLeave(object sender, EventArgs e) {
+
+        }
+
         private void PanelMenu_MouseLeave(object? sender, EventArgs e) {
             Panel? panel = sender as Panel ?? (sender as Control)?.Parent as Panel;
 
@@ -717,6 +741,7 @@ namespace EndForge {
             btnCrearProyecto.Enabled = false;
 
             CargarConfiguracion();
+            CargarRecientes();
 
             // panelPrincipal.BackColor = Color.FromArgb(45, 45, 48);
 
@@ -797,9 +822,10 @@ namespace EndForge {
             }
 
             try {
-                proyectoService.CrearProyecto(rutaPlantilla,rutaProyecto,nombreProyecto,temaSeleccionado,txtObjetivo.Text.Trim());
+                proyectoService.CrearProyecto(rutaPlantilla, rutaProyecto, nombreProyecto, temaSeleccionado, txtObjetivo.Text.Trim());
 
-                recientesService.GuardarProyectoReciente(rutaRecientes,rutaProyecto);
+                recientesService.GuardarProyectoReciente(rutaRecientes, rutaProyecto);
+                CargarRecientes();
 
                 txtNombreProyecto.Clear();
                 txtObjetivo.Clear();
@@ -900,7 +926,7 @@ namespace EndForge {
             }
         }
 
-        private void BtnGuardarConfiguracion_Click(object sender, EventArgs e) {    
+        private void BtnGuardarConfiguracion_Click(object sender, EventArgs e) {
             if (!Directory.Exists(txtRutaBaseConfig.Text) || !Directory.Exists(txtRutaPlantillaConfig.Text)) {
                 MessageBox.Show("Una de las rutas seleccionadas no existe.", "EndForge", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
@@ -1007,7 +1033,41 @@ namespace EndForge {
             using (Pen linea = new Pen(colorLinea)) {
                 e.Graphics.DrawLine(linea, e.Bounds.Left + 8, e.Bounds.Bottom - 1, e.Bounds.Right - 8, e.Bounds.Bottom - 1);
             }
-        }   
-          
+        }
+
+        private void LblCardRecientesDesc_Click(object sender, EventArgs e) {
+            string? rutaProyecto = lblCardRecientesDesc.Tag as string;
+
+            if (!string.IsNullOrWhiteSpace(rutaProyecto) &&
+                Directory.Exists(rutaProyecto)) {
+                proyectoService.AbrirProyecto(
+                    rutaProyecto,
+                    Path.GetFileName(rutaProyecto)
+                );
+            }
+        }
+
+        private void PanelCardRecientes_Click(object sender, EventArgs e) {
+            LblCardRecientesDesc_Click(sender, e);
+        }
+
+        private void LblCardRecientesTitulo_Click(object sender, EventArgs e) {
+            LblCardRecientesDesc_Click(sender, e);
+        }
+
+        private void PanelCardContinuar_Click(object sender, EventArgs e) {
+            string? rutaProyecto = lblCardContinuarDesc.Tag?.ToString();
+
+            MessageBox.Show(rutaProyecto ?? "NULL");
+
+            proyectoService.AbrirProyecto(
+                rutaProyecto!,
+                Path.GetFileName(rutaProyecto!)
+            );
+        }
+
+        private void panelCardContinuar_Click(object sender, EventArgs e) {
+
+        }
     }
 }

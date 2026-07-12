@@ -40,6 +40,9 @@
             lblTema = new Label();
             panelPrincipal = new Panel();
             panelInicioVista = new Panel();
+            panelCardContinuar = new Panel();
+            lblCardContinuarDesc = new Label();
+            lblCardContinuarTitulo = new Label();
             panelCardConfiguracion = new Panel();
             lblCardConfiguracionDesc = new Label();
             lblCardConfiguracionTitulo = new Label();
@@ -113,6 +116,7 @@
             pictureBoxBarraIcono = new PictureBox();
             panelPrincipal.SuspendLayout();
             panelInicioVista.SuspendLayout();
+            panelCardContinuar.SuspendLayout();
             panelCardConfiguracion.SuspendLayout();
             panelCardRecientes.SuspendLayout();
             panelCardNuevaPractica.SuspendLayout();
@@ -300,6 +304,7 @@
             // 
             panelInicioVista.BackColor = Color.Transparent;
             panelInicioVista.BackgroundImageLayout = ImageLayout.None;
+            panelInicioVista.Controls.Add(panelCardContinuar);
             panelInicioVista.Controls.Add(panelCardConfiguracion);
             panelInicioVista.Controls.Add(panelCardRecientes);
             panelInicioVista.Controls.Add(panelCardNuevaPractica);
@@ -310,16 +315,56 @@
             panelInicioVista.Size = new Size(892, 470);
             panelInicioVista.TabIndex = 16;
             // 
+            // panelCardContinuar
+            // 
+            panelCardContinuar.BackColor = Color.FromArgb(28, 22, 40);
+            panelCardContinuar.Controls.Add(lblCardContinuarDesc);
+            panelCardContinuar.Controls.Add(lblCardContinuarTitulo);
+            panelCardContinuar.Cursor = Cursors.Hand;
+            panelCardContinuar.Location = new Point(314, 195);
+            panelCardContinuar.Name = "panelCardContinuar";
+            panelCardContinuar.Size = new Size(265, 80);
+            panelCardContinuar.TabIndex = 6;
+            panelCardContinuar.Click += PanelCardContinuar_Click;
+            panelCardContinuar.MouseEnter += Card_MouseEnter;
+            panelCardContinuar.MouseLeave += Card_MouseLeave;
+            // 
+            // lblCardContinuarDesc
+            // 
+            lblCardContinuarDesc.AutoSize = true;
+            lblCardContinuarDesc.BackColor = Color.Transparent;
+            lblCardContinuarDesc.ForeColor = Color.Gray;
+            lblCardContinuarDesc.Location = new Point(18, 42);
+            lblCardContinuarDesc.Name = "lblCardContinuarDesc";
+            lblCardContinuarDesc.Size = new Size(215, 25);
+            lblCardContinuarDesc.TabIndex = 1;
+            lblCardContinuarDesc.Text = "Crea tu primera práctica.";
+            lblCardContinuarDesc.Click += PanelCardContinuar_Click;
+            // 
+            // lblCardContinuarTitulo
+            // 
+            lblCardContinuarTitulo.AutoSize = true;
+            lblCardContinuarTitulo.BackColor = Color.Transparent;
+            lblCardContinuarTitulo.ForeColor = Color.White;
+            lblCardContinuarTitulo.Location = new Point(13, 10);
+            lblCardContinuarTitulo.Name = "lblCardContinuarTitulo";
+            lblCardContinuarTitulo.Size = new Size(244, 25);
+            lblCardContinuarTitulo.TabIndex = 0;
+            lblCardContinuarTitulo.Text = "▶ Continuar última práctica";
+            lblCardContinuarTitulo.Click += PanelCardContinuar_Click;
+            // 
             // panelCardConfiguracion
             // 
             panelCardConfiguracion.BackColor = Color.FromArgb(28, 22, 40);
             panelCardConfiguracion.Controls.Add(lblCardConfiguracionDesc);
             panelCardConfiguracion.Controls.Add(lblCardConfiguracionTitulo);
             panelCardConfiguracion.Cursor = Cursors.Hand;
-            panelCardConfiguracion.Location = new Point(604, 270);
+            panelCardConfiguracion.Location = new Point(604, 300);
             panelCardConfiguracion.Name = "panelCardConfiguracion";
             panelCardConfiguracion.Size = new Size(265, 80);
             panelCardConfiguracion.TabIndex = 4;
+            panelCardConfiguracion.MouseEnter += Card_MouseEnter;
+            panelCardConfiguracion.MouseLeave += Card_MouseLeave;
             // 
             // lblCardConfiguracionDesc
             // 
@@ -351,10 +396,13 @@
             panelCardRecientes.Controls.Add(lblCardRecientesDesc);
             panelCardRecientes.Controls.Add(lblCardRecientesTitulo);
             panelCardRecientes.Cursor = Cursors.Hand;
-            panelCardRecientes.Location = new Point(314, 270);
+            panelCardRecientes.Location = new Point(314, 300);
             panelCardRecientes.Name = "panelCardRecientes";
             panelCardRecientes.Size = new Size(265, 80);
             panelCardRecientes.TabIndex = 3;
+            panelCardRecientes.Click += PanelCardRecientes_Click;
+            panelCardRecientes.MouseEnter += Card_MouseEnter;
+            panelCardRecientes.MouseLeave += Card_MouseLeave;
             // 
             // lblCardRecientesDesc
             // 
@@ -367,6 +415,7 @@
             lblCardRecientesDesc.TabIndex = 1;
             lblCardRecientesDesc.Text = "Abre tus prácticas más recientes.";
             lblCardRecientesDesc.TextAlign = ContentAlignment.TopCenter;
+            lblCardRecientesDesc.Click += LblCardRecientesDesc_Click;
             // 
             // lblCardRecientesTitulo
             // 
@@ -379,6 +428,7 @@
             lblCardRecientesTitulo.Size = new Size(117, 32);
             lblCardRecientesTitulo.TabIndex = 0;
             lblCardRecientesTitulo.Text = "Recientes";
+            lblCardRecientesTitulo.Click += LblCardRecientesTitulo_Click;
             // 
             // panelCardNuevaPractica
             // 
@@ -386,10 +436,12 @@
             panelCardNuevaPractica.Controls.Add(lblCardNuevaPracticaDesc);
             panelCardNuevaPractica.Controls.Add(lblCardNuevaPracticaTitulo);
             panelCardNuevaPractica.Cursor = Cursors.Hand;
-            panelCardNuevaPractica.Location = new Point(24, 270);
+            panelCardNuevaPractica.Location = new Point(24, 300);
             panelCardNuevaPractica.Name = "panelCardNuevaPractica";
             panelCardNuevaPractica.Size = new Size(265, 80);
             panelCardNuevaPractica.TabIndex = 2;
+            panelCardNuevaPractica.MouseEnter += Card_MouseEnter;
+            panelCardNuevaPractica.MouseLeave += Card_MouseLeave;
             // 
             // lblCardNuevaPracticaDesc
             // 
@@ -421,7 +473,7 @@
             lblInicioSubtitulo.BackColor = Color.Transparent;
             lblInicioSubtitulo.Font = new Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point, 0);
             lblInicioSubtitulo.ForeColor = Color.Gainsboro;
-            lblInicioSubtitulo.Location = new Point(225, 208);
+            lblInicioSubtitulo.Location = new Point(225, 136);
             lblInicioSubtitulo.Name = "lblInicioSubtitulo";
             lblInicioSubtitulo.Size = new Size(442, 32);
             lblInicioSubtitulo.TabIndex = 1;
@@ -433,7 +485,7 @@
             lblInicioTitulo.BackColor = Color.Transparent;
             lblInicioTitulo.Font = new Font("Segoe UI", 24F, FontStyle.Bold, GraphicsUnit.Point, 0);
             lblInicioTitulo.ForeColor = Color.White;
-            lblInicioTitulo.Location = new Point(172, 139);
+            lblInicioTitulo.Location = new Point(172, 70);
             lblInicioTitulo.Name = "lblInicioTitulo";
             lblInicioTitulo.Size = new Size(548, 65);
             lblInicioTitulo.TabIndex = 0;
@@ -811,7 +863,7 @@
             // fondoEndForge
             // 
             fondoEndForge.Dock = DockStyle.Fill;
-            fondoEndForge.ImagenFondo = Properties.Resources.fondo_endforge_892x470_optimizado;
+            fondoEndForge.ImagenFondo = (Image)resources.GetObject("fondoEndForge.ImagenFondo");
             fondoEndForge.Location = new Point(0, 0);
             fondoEndForge.Name = "fondoEndForge";
             fondoEndForge.Size = new Size(1200, 800);
@@ -1217,7 +1269,7 @@
             // pictureBoxBarraIcono
             // 
             pictureBoxBarraIcono.BackColor = Color.Transparent;
-            pictureBoxBarraIcono.Image = Properties.Resources.endforge_icono;
+            pictureBoxBarraIcono.Image = (Image)resources.GetObject("pictureBoxBarraIcono.Image");
             pictureBoxBarraIcono.Location = new Point(10, 6);
             pictureBoxBarraIcono.Name = "pictureBoxBarraIcono";
             pictureBoxBarraIcono.Size = new Size(24, 24);
@@ -1250,6 +1302,8 @@
             panelPrincipal.PerformLayout();
             panelInicioVista.ResumeLayout(false);
             panelInicioVista.PerformLayout();
+            panelCardContinuar.ResumeLayout(false);
+            panelCardContinuar.PerformLayout();
             panelCardConfiguracion.ResumeLayout(false);
             panelCardConfiguracion.PerformLayout();
             panelCardRecientes.ResumeLayout(false);
@@ -1371,5 +1425,8 @@
         private Button btnMinimizar;
         private Button btnCerrar;
         private Button btnMaximizar;
+        private Panel panelCardContinuar;
+        private Label lblCardContinuarTitulo;
+        private Label lblCardContinuarDesc;
     }
 }

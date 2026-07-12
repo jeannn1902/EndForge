@@ -130,10 +130,12 @@ public class ProyectoService {
     // Abrir el proyecto en Visual Studio
     // =============================
     public void AbrirProyecto(string rutaProyecto, string nombreProyecto) {
-        string rutaSolucion = Path.Combine(rutaProyecto, nombreProyecto + ".sln");
+        string? rutaSolucion = Directory
+            .GetFiles(rutaProyecto, "*.sln", SearchOption.TopDirectoryOnly)
+            .FirstOrDefault();
 
-        if (!File.Exists(rutaSolucion)) {
-            MessageBox.Show("No se encontró la solución:\n" + rutaSolucion);
+        if (rutaSolucion == null) {
+            MessageBox.Show("No se encontró ningún archivo .sln.");
             return;
         }
 
