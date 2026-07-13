@@ -203,7 +203,7 @@ public class ProyectoService {
             if (carpetaTemporalCreada && Directory.Exists(rutaTemporal)) {
                 try {
                     Directory.Delete(rutaTemporal, true);
-                } catch {
+                } catch (Exception) {
                     // Evita ocultar el error original de creación.
                 }
             }
