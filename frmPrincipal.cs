@@ -66,32 +66,52 @@ namespace EndForge {
         private void CargarConfiguracion() {
             string carpetaDatos = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EndForge");
             string rutaConfig = Path.Combine(carpetaDatos, "config.txt");
-
-            if (!Directory.Exists(carpetaDatos)) {
-                Directory.CreateDirectory(carpetaDatos);
-            }
-
             rutaRecientes = Path.Combine(Path.GetDirectoryName(rutaConfig)!, "recientes.txt");
 
-            if (!File.Exists(rutaConfig)) {
-                rutaBase = "";
-                rutaPlantilla = "";
+            rutaBase = "";
+            rutaPlantilla = "";
+
+            string[] lineas;
+
+            try {
+                if (!Directory.Exists(carpetaDatos)) {
+                    Directory.CreateDirectory(carpetaDatos);
+                }
+
+                lineas = File.ReadAllLines(rutaConfig);
+            } catch (FileNotFoundException) {
+                return;
+            } catch (UnauthorizedAccessException) {
+                MessageBox.Show(
+                    "No se pudo leer la configuración de EndForge porque no hay permisos para acceder a config.txt.",
+                    "EndForge",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            } catch (IOException) {
+                MessageBox.Show(
+                    "No se pudo leer la configuración de EndForge. Verifica que config.txt no esté bloqueado o en uso por otra aplicación.",
+                    "EndForge",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
                 return;
             }
 
-            string[] lineas = File.ReadAllLines(rutaConfig);
-
             if (lineas.Length < 2) {
-                MessageBox.Show("El archivo config.txt está incompleto.");
-                Application.Exit();
                 return;
             }
 
             rutaBase = lineas[0];
             rutaPlantilla = lineas[1];
 
-            if (!File.Exists(rutaRecientes)) {
-                File.Create(rutaRecientes).Close();
+            try {
+                if (!File.Exists(rutaRecientes)) {
+                    File.Create(rutaRecientes).Close();
+                }
+            } catch (UnauthorizedAccessException) {
+                MessageBox.Show("No se pudo crear recientes.txt porque no hay permisos de acceso.", "EndForge", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            } catch (IOException) {
+                MessageBox.Show("No se pudo crear recientes.txt porque el archivo está bloqueado o en uso.", "EndForge", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
 
             ValidarFormulario();
@@ -281,8 +301,6 @@ namespace EndForge {
             // panelPrincipal.LocationChanged += (s, e) => ReaplicarFondoDinamico();
             // panelPrincipal.SizeChanged += (s, e) => ReaplicarFondoDinamico();
             // fondoEndForge.SizeChanged += (s, e) => ReaplicarFondoDinamico();
-
-            CargarConfiguracion();
 
             btnCrearProyecto.MouseEnter += BtnCrearProyecto_MouseEnter;
             btnCrearProyecto.MouseLeave += BtnCrearProyecto_MouseLeave;
