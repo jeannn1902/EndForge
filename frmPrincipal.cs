@@ -8,11 +8,11 @@ namespace EndForge {
 
     public partial class frmPrincipal : Form {
         private readonly ProyectoService proyectoService = new();
-        private readonly RecientesService recientesService = new();
+        private readonly ConfiguracionService configuracionService = new();
+        private readonly RecientesService recientesService;
         private Panel panelSeleccionado;
         private string rutaBase = "";
         private string rutaPlantilla = "";
-        private string rutaRecientes = "";
 
         private System.Windows.Forms.Timer timerRecalcularVista = new System.Windows.Forms.Timer();
 
@@ -33,7 +33,6 @@ namespace EndForge {
         }
 
         private int ObtenerSiguienteNumero(string rutaTema) {
-
             if (!Directory.Exists(rutaTema))
                 return 1;
 
@@ -52,7 +51,6 @@ namespace EndForge {
                         mayorNumero = numero;
                 }
             }
-
             return mayorNumero + 1;
         }
 
@@ -64,53 +62,28 @@ namespace EndForge {
 
         // Cargar la configuración desde el archivo config.txt
         private void CargarConfiguracion() {
-            string carpetaDatos = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EndForge");
-            string rutaConfig = Path.Combine(carpetaDatos, "config.txt");
-            rutaRecientes = Path.Combine(Path.GetDirectoryName(rutaConfig)!, "recientes.txt");
+            ResultadoCargaConfiguracion resultado = configuracionService.CargarConfiguracion();
+            rutaBase = resultado.RutaBase;
+            rutaPlantilla = resultado.RutaPlantilla;
 
-            rutaBase = "";
-            rutaPlantilla = "";
-
-            string[] lineas;
-
-            try {
-                if (!Directory.Exists(carpetaDatos)) {
-                    Directory.CreateDirectory(carpetaDatos);
-                }
-
-                lineas = File.ReadAllLines(rutaConfig);
-            } catch (FileNotFoundException) {
-                return;
-            } catch (UnauthorizedAccessException) {
+            if (resultado.Estado == EstadoCargaConfiguracion.ErrorPermisosConfiguracion) {
                 MessageBox.Show(
-                    "No se pudo leer la configuración de EndForge porque no hay permisos para acceder a config.txt.",
-                    "EndForge",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
-                return;
-            } catch (IOException) {
-                MessageBox.Show(
-                    "No se pudo leer la configuración de EndForge. Verifica que config.txt no esté bloqueado o en uso por otra aplicación.",
-                    "EndForge",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
+                    "No se pudo leer la configuración de EndForge porque no hay permisos para acceder a config.txt.", "EndForge", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            if (lineas.Length < 2) {
+            if (resultado.Estado == EstadoCargaConfiguracion.ErrorLecturaConfiguracion) {
+                MessageBox.Show("No se pudo leer la configuración. Verifica que config.txt no esté bloqueado o en uso por otra aplicación.", "EndForge", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            rutaBase = lineas[0];
-            rutaPlantilla = lineas[1];
+            if (!resultado.ConfiguracionDisponible) {
+                return;
+            }
 
-            try {
-                if (!File.Exists(rutaRecientes)) {
-                    File.Create(rutaRecientes).Close();
-                }
-            } catch (UnauthorizedAccessException) {
+            if (resultado.Estado == EstadoCargaConfiguracion.ErrorPermisosRecientes) {
                 MessageBox.Show("No se pudo crear recientes.txt porque no hay permisos de acceso.", "EndForge", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            } catch (IOException) {
+            } else if (resultado.Estado == EstadoCargaConfiguracion.ErrorCreacionRecientes) {
                 MessageBox.Show("No se pudo crear recientes.txt porque el archivo está bloqueado o en uso.", "EndForge", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
 
@@ -127,7 +100,7 @@ namespace EndForge {
         }
 
         private void GuardarProyectoReciente(string rutaProyecto) {
-            recientesService.GuardarProyectoReciente(rutaRecientes, rutaProyecto);
+            recientesService.GuardarProyectoReciente(rutaProyecto);
         }
 
         private bool IntentarAbrirPractica(string rutaProyecto) {
@@ -188,10 +161,10 @@ namespace EndForge {
             listRecientes.Items.Clear();
             LimpiarLabelsRecientes();
 
-            if (!File.Exists(rutaRecientes))
+            if (!recientesService.ExisteArchivoRecientes())
                 return;
 
-            string[] recientes = File.ReadAllLines(rutaRecientes);
+            string[] recientes = recientesService.LeerProyectosRecientes();
 
             if (recientes.Length > 0) {
                 string[] datos = recientes[0].Split('|');
@@ -236,6 +209,7 @@ namespace EndForge {
         }
 
         public frmPrincipal() {
+            recientesService = new RecientesService(configuracionService.RutaRecientes);
             InitializeComponent();
 
             btnCerrar.FlatAppearance.MouseOverBackColor = Color.FromArgb(190, 40, 40);
@@ -749,15 +723,9 @@ namespace EndForge {
         }
 
         private void FrmPrincipal_Load(object sender, EventArgs e) {
-            CargarTemas();
-
-            if (txtTemas.Items.Count > 0) {
-                txtTemas.SelectedIndex = 0;
-            }
-
             btnCrearProyecto.Enabled = false;
-
             CargarConfiguracion();
+            CargarTemas();
             CargarRecientes();
 
             // panelPrincipal.BackColor = Color.FromArgb(45, 45, 48);
@@ -883,7 +851,7 @@ namespace EndForge {
             }
 
             try {
-                recientesService.GuardarProyectoReciente(rutaRecientes, rutaProyecto);
+                recientesService.GuardarProyectoReciente(rutaProyecto);
                 CargarRecientes();
             } catch (Exception ex) {
                 MessageBox.Show("La práctica se creó correctamente, pero no pudo guardarse en Recientes.\n\n" + ex.Message, "EndForge",MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -973,79 +941,31 @@ namespace EndForge {
 
         private void BtnGuardarConfiguracion_Click(object sender, EventArgs e) {
             lblEstadoConfiguracion.Visible = false;
-            if (!Directory.Exists(txtRutaBaseConfig.Text) || !Directory.Exists(txtRutaPlantillaConfig.Text)) {
-                lblEstadoConfiguracion.Text = "❌ Una de las rutas seleccionadas no existe.";
-                lblEstadoConfiguracion.ForeColor = Color.IndianRed;
-                lblEstadoConfiguracion.Visible = true;
-                return;
-            }
-
-            string[] soluciones = Directory.GetFiles(txtRutaPlantillaConfig.Text,
-                "*.sln",
-                SearchOption.TopDirectoryOnly
-                );
-
-            if (soluciones.Length == 0) {
-                lblEstadoConfiguracion.Text = "❌ Plantilla de EndForge no válida.";
-                lblEstadoConfiguracion.ForeColor = Color.LightCoral;
-                lblEstadoConfiguracion.Visible = true;
-                return;
-            }
-
-            string[] proyectos = Directory.GetFiles(txtRutaPlantillaConfig.Text,
-                "*.vcxproj",
-                SearchOption.AllDirectories
-                );
-
-            if (proyectos.Length == 0) {
-                lblEstadoConfiguracion.Text = "❌ No se encontró un proyecto C++.";
-                lblEstadoConfiguracion.ForeColor = Color.LightCoral;
-                lblEstadoConfiguracion.Visible = true;
-                return;
-            }
-
-            string[] cpp = Directory.GetFiles(txtRutaPlantillaConfig.Text,
-                "*.cpp",
-                SearchOption.AllDirectories
-                );
-
-            if (cpp.Length == 0) {
-                lblEstadoConfiguracion.Text = "❌ No se encontraron archivos C++.";
-                lblEstadoConfiguracion.ForeColor = Color.LightCoral;
-                lblEstadoConfiguracion.Visible = true;
-                return;
-            }
-
-            string carpetaDatos = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "EndForge"
+            EstadoValidacionConfiguracion validacion = configuracionService.ValidarConfiguracion(
+                txtRutaBaseConfig.Text,
+                txtRutaPlantillaConfig.Text
             );
 
-            string rutaConfig = Path.Combine(carpetaDatos, "config.txt");
-            string rutaConfigTemporal = Path.Combine(
-                carpetaDatos,
-                $".config-{Guid.NewGuid():N}.tmp"
-            );
+            if (validacion != EstadoValidacionConfiguracion.Valida) {
+                lblEstadoConfiguracion.Text = validacion switch {
+                    EstadoValidacionConfiguracion.RutasNoExistentes => "❌ Una de las rutas seleccionadas no existe.",
+                    EstadoValidacionConfiguracion.PlantillaSinSolucion => "❌ Plantilla de EndForge no válida.",
+                    EstadoValidacionConfiguracion.PlantillaSinProyectoCpp => "❌ No se encontró un proyecto C++.",
+                    _ => "❌ No se encontraron archivos C++."
+                };
+                lblEstadoConfiguracion.ForeColor = validacion == EstadoValidacionConfiguracion.RutasNoExistentes
+                    ? Color.IndianRed
+                    : Color.LightCoral;
+                lblEstadoConfiguracion.Visible = true;
+                return;
+            }
 
             try {
-                File.WriteAllLines(rutaConfigTemporal, new string[] {
-                    txtRutaBaseConfig.Text, txtRutaPlantillaConfig.Text
-                });
-
-                if (File.Exists(rutaConfig)) {
-                    File.Replace(rutaConfigTemporal, rutaConfig, null);
-                } else {
-                    File.Move(rutaConfigTemporal, rutaConfig);
-                }
+                configuracionService.GuardarConfiguracion(
+                    txtRutaBaseConfig.Text,
+                    txtRutaPlantillaConfig.Text
+                );
             } catch (Exception ex) {
-                try {
-                    if (File.Exists(rutaConfigTemporal)) {
-                        File.Delete(rutaConfigTemporal);
-                    }
-                } catch (Exception) {
-                    // Evita ocultar el error original del guardado.
-                }
-
                 lblEstadoConfiguracion.Text = "❌ No se pudieron guardar los cambios.\n" + ex.Message;
                 lblEstadoConfiguracion.ForeColor = Color.LightCoral;
                 lblEstadoConfiguracion.Visible = true;
@@ -1136,10 +1056,10 @@ namespace EndForge {
             listRecientes.Items.Clear();
             LimpiarLabelsRecientes();
 
-            if (!File.Exists(rutaRecientes))
+            if (!recientesService.ExisteArchivoRecientes())
                 return;
 
-            string[] recientes = File.ReadAllLines(rutaRecientes);
+            string[] recientes = recientesService.LeerProyectosRecientes();
             List<Label> labelsRecientes = ObtenerLabelsRecientes();
             int indice = 0;
 

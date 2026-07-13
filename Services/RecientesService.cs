@@ -7,8 +7,21 @@ using System.Linq;
 namespace EndForge.Services;
 
 public class RecientesService {
+    private readonly string rutaRecientes;
 
-    public void GuardarProyectoReciente(string rutaRecientes, string rutaProyecto) {
+    public RecientesService(string rutaRecientes) {
+        this.rutaRecientes = rutaRecientes;
+    }
+
+    public bool ExisteArchivoRecientes() {
+        return File.Exists(rutaRecientes);
+    }
+
+    public string[] LeerProyectosRecientes() {
+        return File.ReadAllLines(rutaRecientes);
+    }
+
+    public void GuardarProyectoReciente(string rutaProyecto) {
         List<string> recientes = new List<string>();
 
         if (File.Exists(rutaRecientes)) {
@@ -17,7 +30,6 @@ public class RecientesService {
 
         string nombreProyecto = Path.GetFileName(rutaProyecto);
         string registro = nombreProyecto + "|" + rutaProyecto;
-
         recientes.RemoveAll(x => x.EndsWith("|" + rutaProyecto));
         recientes.Insert(0, registro);
 
@@ -27,10 +39,7 @@ public class RecientesService {
 
         string carpetaRecientes = Path.GetDirectoryName(rutaRecientes)
             ?? throw new IOException("No se pudo determinar la carpeta de recientes.");
-        string rutaRecientesTemporal = Path.Combine(
-            carpetaRecientes,
-            $".recientes-{Guid.NewGuid():N}.tmp"
-        );
+        string rutaRecientesTemporal = Path.Combine(carpetaRecientes, $".recientes-{Guid.NewGuid():N}.tmp");
 
         try {
             File.WriteAllLines(rutaRecientesTemporal, recientes);
@@ -52,6 +61,4 @@ public class RecientesService {
             throw;
         }
     }
-
-
 }
