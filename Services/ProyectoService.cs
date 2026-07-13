@@ -4,6 +4,16 @@ namespace EndForge.Services;
 
 public class ProyectoService {
 
+    public sealed class ProyectoDestinoExistenteException : IOException {
+        public ProyectoDestinoExistenteException(string rutaProyecto)
+            : base($"La carpeta de destino ya existe: {rutaProyecto}") {
+        }
+
+        public ProyectoDestinoExistenteException(string rutaProyecto, Exception innerException)
+            : base($"La carpeta de destino ya existe: {rutaProyecto}", innerException) {
+        }
+    }
+
 
     // =============================
     // Creación de proyectos
@@ -135,8 +145,7 @@ public class ProyectoService {
             .FirstOrDefault();
 
         if (rutaSolucion == null) {
-            MessageBox.Show("No se encontró ningún archivo .sln.");
-            return;
+            throw new FileNotFoundException("No se encontró ningún archivo .sln en la práctica.");
         }
 
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo() {
@@ -147,19 +156,60 @@ public class ProyectoService {
 
 
     public void CrearProyecto(string rutaPlantilla, string rutaProyecto, string nombreProyecto, string temaSeleccionado, string objetivo) {
-        Directory.CreateDirectory(rutaProyecto);
+        if (Directory.Exists(rutaProyecto) || File.Exists(rutaProyecto)) {
+            throw new ProyectoDestinoExistenteException(rutaProyecto);
+        }
 
-        CopiarPlantilla(rutaPlantilla, rutaProyecto);
+        string? carpetaPadre = Path.GetDirectoryName(rutaProyecto);
 
-        RenombrarArchivos(rutaProyecto, nombreProyecto);
+        if (string.IsNullOrWhiteSpace(carpetaPadre) || !Directory.Exists(carpetaPadre)) {
+            throw new DirectoryNotFoundException("No existe la carpeta donde se creará la práctica.");
+        }
 
-        RenombrarCarpetas(rutaProyecto, nombreProyecto);
+        string rutaTemporal;
 
-        ActualizarReferencias(rutaProyecto, nombreProyecto);
+        do {
+            rutaTemporal = Path.Combine(carpetaPadre, $".endforge-{Guid.NewGuid():N}.tmp");
+        } while (Directory.Exists(rutaTemporal) || File.Exists(rutaTemporal));
 
-        CrearReadme(rutaProyecto, nombreProyecto, temaSeleccionado, objetivo);
+        bool carpetaTemporalCreada = false;
 
-        AbrirProyecto(rutaProyecto, nombreProyecto);
+        try {
+            Directory.CreateDirectory(rutaTemporal);
+            carpetaTemporalCreada = true;
+
+            CopiarPlantilla(rutaPlantilla, rutaTemporal);
+
+            RenombrarArchivos(rutaTemporal, nombreProyecto);
+
+            RenombrarCarpetas(rutaTemporal, nombreProyecto);
+
+            ActualizarReferencias(rutaTemporal, nombreProyecto);
+
+            CrearReadme(rutaTemporal, nombreProyecto, temaSeleccionado, objetivo);
+
+            if (Directory.Exists(rutaProyecto) || File.Exists(rutaProyecto)) {
+                throw new ProyectoDestinoExistenteException(rutaProyecto);
+            }
+
+            try {
+                Directory.Move(rutaTemporal, rutaProyecto);
+            } catch (IOException ex) when (Directory.Exists(rutaProyecto) || File.Exists(rutaProyecto)) {
+                throw new ProyectoDestinoExistenteException(rutaProyecto, ex);
+            }
+
+            carpetaTemporalCreada = false;
+        } catch {
+            if (carpetaTemporalCreada && Directory.Exists(rutaTemporal)) {
+                try {
+                    Directory.Delete(rutaTemporal, true);
+                } catch {
+                    // Evita ocultar el error original de creación.
+                }
+            }
+
+            throw;
+        }
     }
 
 }

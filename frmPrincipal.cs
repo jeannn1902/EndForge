@@ -38,20 +38,16 @@ namespace EndForge {
                 return 1;
 
             string[] carpetas = Directory.GetDirectories(rutaTema);
-
             int mayorNumero = 0;
 
             foreach (string carpeta in carpetas) {
-
                 string nombreCarpeta = Path.GetFileName(carpeta);
-
                 string[] partes = nombreCarpeta.Split('_');
 
                 if (partes.Length == 0)
                     continue;
 
                 if (int.TryParse(partes[0], out int numero)) {
-
                     if (numero > mayorNumero)
                         mayorNumero = numero;
                 }
@@ -111,7 +107,25 @@ namespace EndForge {
         }
 
         private void GuardarProyectoReciente(string rutaProyecto) {
+            recientesService.GuardarProyectoReciente(rutaRecientes, rutaProyecto);
+        }
 
+        private bool IntentarAbrirPractica(string rutaProyecto) {
+            if (!Directory.Exists(rutaProyecto)) {
+                MessageBox.Show("La carpeta de esta práctica ya no existe.", "EndForge", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+
+                return false;
+            }
+
+            try {
+                proyectoService.AbrirProyecto(rutaProyecto, Path.GetFileName(rutaProyecto));
+
+                return true;
+            } catch (Exception ex) {
+                MessageBox.Show("No se pudo abrir la práctica.\n\n" + ex.Message, "EndForge", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+                return false;
+            }
         }
 
         private List<Label> ObtenerLabelsRecientes() {
@@ -143,32 +157,8 @@ namespace EndForge {
             if (label?.Tag is not ProyectoReciente proyecto)
                 return;
 
-            if (!Directory.Exists(proyecto.Ruta)) {
-                MessageBox.Show(
-                    "La carpeta de esta práctica ya no existe.",
-                    "EndForge",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning
-                );
+            if (!IntentarAbrirPractica(proyecto.Ruta))
                 return;
-            }
-
-            string[] soluciones = Directory.GetFiles(proyecto.Ruta, "*.sln");
-
-            if (soluciones.Length == 0) {
-                MessageBox.Show(
-                    "No se encontró ningún archivo .sln en esta práctica.",
-                    "EndForge",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning
-                );
-                return;
-            }
-
-            Process.Start(new ProcessStartInfo {
-                FileName = soluciones[0],
-                UseShellExecute = true
-            });
 
             GuardarProyectoReciente(proyecto.Ruta);
             CargarRecientes();
@@ -862,43 +852,41 @@ namespace EndForge {
 
             string rutaProyecto = Path.Combine(rutaBase, temaSeleccionado, nombreProyecto);
 
-            if (Directory.Exists(rutaProyecto)) {
+            try {
+                proyectoService.CrearProyecto(rutaPlantilla, rutaProyecto, nombreProyecto, temaSeleccionado, txtObjetivo.Text.Trim());
+            } catch (ProyectoService.ProyectoDestinoExistenteException) {
                 MessageBox.Show("El proyecto ya existe.");
                 txtNombreProyecto.Focus();
+                return;
+            } catch (Exception ex) {
+                MessageBox.Show("Ocurrió un error al crear la práctica.\n\n" + ex.Message, "EndForge", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
                 return;
             }
 
             try {
-                proyectoService.CrearProyecto(rutaPlantilla, rutaProyecto, nombreProyecto, temaSeleccionado, txtObjetivo.Text.Trim());
-
                 recientesService.GuardarProyectoReciente(rutaRecientes, rutaProyecto);
                 CargarRecientes();
-
-                txtNombreProyecto.Clear();
-                txtObjetivo.Clear();
-                txtNombreProyecto.Focus();
-
-                ActualizarVistaPrevia();
-                ValidarFormulario();
-
-                MessageBox.Show(
-                    "El proyecto se creó correctamente.\n\n¡Visual Studio se abrirá automáticamente!",
-                    "EndForge",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-
             } catch (Exception ex) {
-                if (Directory.Exists(rutaProyecto)) {
-                    Directory.Delete(rutaProyecto, true);
-                }
-
-                MessageBox.Show(
-                    "Ocurrió un error al crear la práctica.\n\n" + ex.Message,
-                    "EndForge",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error
-                );
+                MessageBox.Show("La práctica se creó correctamente, pero no pudo guardarse en Recientes.\n\n" + ex.Message, "EndForge",MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
+
+            txtNombreProyecto.Clear();
+            txtObjetivo.Clear();
+            txtNombreProyecto.Focus();
+
+            ActualizarVistaPrevia();
+            ValidarFormulario();
+
+            try {
+                proyectoService.AbrirProyecto(rutaProyecto, nombreProyecto);
+            } catch (Exception ex) {
+                MessageBox.Show("La práctica se creó correctamente, pero no pudo abrirse Visual Studio.\n\n" + ex.Message, "EndForge", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+
+                return;
+            }
+
+            MessageBox.Show("El proyecto se creó correctamente.\n\n¡Visual Studio se abrirá automáticamente!", "EndForge", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void LblNombreFinal_Click(object sender, EventArgs e) {
@@ -915,19 +903,15 @@ namespace EndForge {
         }
 
         private void LblObjetivo_Click(object sender, EventArgs e) {
-
         }
 
         private void PanelControles_Paint(object sender, PaintEventArgs e) {
-
         }
 
         private void PanelMenu_Paint(object sender, PaintEventArgs e) {
-
         }
 
         private void LblInicio_Click(object sender, EventArgs e) {
-
         }
 
         private void ListRecientes_DoubleClick(object sender, EventArgs e) {
@@ -936,22 +920,8 @@ namespace EndForge {
 
             ProyectoReciente proyecto = (ProyectoReciente)listRecientes.SelectedItem;
 
-            string? rutaSolucion = Directory.GetFiles(proyecto.Ruta, "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault();
-
-            if (rutaSolucion == null) {
-                MessageBox.Show(
-                    "No se encontró la solución del proyecto.",
-                    "EndForge",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
-
+            if (!IntentarAbrirPractica(proyecto.Ruta))
                 return;
-            }
-
-            Process.Start(new ProcessStartInfo() {
-                FileName = rutaSolucion,
-                UseShellExecute = true
-            });
 
             GuardarProyectoReciente(proyecto.Ruta);
             CargarRecientes();
@@ -1090,12 +1060,8 @@ namespace EndForge {
         private void LblCardRecientesDesc_Click(object sender, EventArgs e) {
             string? rutaProyecto = lblCardRecientesDesc.Tag as string;
 
-            if (!string.IsNullOrWhiteSpace(rutaProyecto) &&
-                Directory.Exists(rutaProyecto)) {
-                proyectoService.AbrirProyecto(
-                    rutaProyecto,
-                    Path.GetFileName(rutaProyecto)
-                );
+            if (!string.IsNullOrWhiteSpace(rutaProyecto) && Directory.Exists(rutaProyecto)) {
+                IntentarAbrirPractica(rutaProyecto);
             }
         }
 
@@ -1110,10 +1076,10 @@ namespace EndForge {
         private void PanelCardContinuar_Click(object sender, EventArgs e) {
             string? rutaProyecto = lblCardContinuarDesc.Tag?.ToString();
 
-            proyectoService.AbrirProyecto(
-                rutaProyecto!,
-                Path.GetFileName(rutaProyecto!)
-            );
+            if (string.IsNullOrWhiteSpace(rutaProyecto))
+                return;
+
+            IntentarAbrirPractica(rutaProyecto);
         }
 
         private void panelCardContinuar_Click(object sender, EventArgs e) {
