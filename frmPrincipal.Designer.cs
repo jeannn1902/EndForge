@@ -785,7 +785,7 @@
             lblEstadoConfiguracion.ForeColor = Color.LawnGreen;
             lblEstadoConfiguracion.Location = new Point(180, 360);
             lblEstadoConfiguracion.Name = "lblEstadoConfiguracion";
-            lblEstadoConfiguracion.Size = new Size(330, 36);
+            lblEstadoConfiguracion.Size = new Size(330, 50);
             lblEstadoConfiguracion.TabIndex = 8;
             lblEstadoConfiguracion.Text = "Configuración válida";
             lblEstadoConfiguracion.TextAlign = ContentAlignment.MiddleCenter;

@@ -25,7 +25,32 @@ public class RecientesService {
             recientes = recientes.Take(10).ToList();
         }
 
-        File.WriteAllLines(rutaRecientes, recientes);
+        string carpetaRecientes = Path.GetDirectoryName(rutaRecientes)
+            ?? throw new IOException("No se pudo determinar la carpeta de recientes.");
+        string rutaRecientesTemporal = Path.Combine(
+            carpetaRecientes,
+            $".recientes-{Guid.NewGuid():N}.tmp"
+        );
+
+        try {
+            File.WriteAllLines(rutaRecientesTemporal, recientes);
+
+            if (File.Exists(rutaRecientes)) {
+                File.Replace(rutaRecientesTemporal, rutaRecientes, null);
+            } else {
+                File.Move(rutaRecientesTemporal, rutaRecientes);
+            }
+        } catch (Exception) {
+            try {
+                if (File.Exists(rutaRecientesTemporal)) {
+                    File.Delete(rutaRecientesTemporal);
+                }
+            } catch (Exception) {
+                // Evita ocultar el error original del guardado.
+            }
+
+            throw;
+        }
     }
 
 
