@@ -855,7 +855,7 @@ namespace EndForge {
             try {
                 proyectoService.CrearProyecto(rutaPlantilla, rutaProyecto, nombreProyecto, temaSeleccionado, txtObjetivo.Text.Trim());
             } catch (ProyectoService.ProyectoDestinoExistenteException) {
-                MessageBox.Show("El proyecto ya existe.");
+                MessageBox.Show("La práctica ya existe.");
                 txtNombreProyecto.Focus();
                 return;
             } catch (Exception ex) {
