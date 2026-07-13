@@ -1022,10 +1022,36 @@ namespace EndForge {
             );
 
             string rutaConfig = Path.Combine(carpetaDatos, "config.txt");
+            string rutaConfigTemporal = Path.Combine(
+                carpetaDatos,
+                $".config-{Guid.NewGuid():N}.tmp"
+            );
 
-            File.WriteAllLines(rutaConfig, new string[] {
-                txtRutaBaseConfig.Text, txtRutaPlantillaConfig.Text
-            });
+            try {
+                File.WriteAllLines(rutaConfigTemporal, new string[] {
+                    txtRutaBaseConfig.Text, txtRutaPlantillaConfig.Text
+                });
+
+                if (File.Exists(rutaConfig)) {
+                    File.Replace(rutaConfigTemporal, rutaConfig, null);
+                } else {
+                    File.Move(rutaConfigTemporal, rutaConfig);
+                }
+            } catch (Exception ex) {
+                try {
+                    if (File.Exists(rutaConfigTemporal)) {
+                        File.Delete(rutaConfigTemporal);
+                    }
+                } catch (Exception) {
+                    // Evita ocultar el error original del guardado.
+                }
+
+                lblEstadoConfiguracion.Text = "❌ No se pudieron guardar los cambios.\n" + ex.Message;
+                lblEstadoConfiguracion.ForeColor = Color.LightCoral;
+                lblEstadoConfiguracion.Visible = true;
+
+                return;
+            }
 
             CargarConfiguracion();
 
