@@ -26,6 +26,13 @@ public enum EstadoValidacionConfiguracion {
     Valida,
     RutasNoExistentes,
     PlantillaSinSolucion,
+    PlantillaSolucionSinMarcador,
+    PlantillaSolucionSinReferenciaMarcador,
     PlantillaSinProyectoCpp,
-    PlantillaSinArchivosCpp
+    PlantillaProyectoSinMarcador,
+    PlantillaProyectoReferenciadoNoDisponible,
+    PlantillaProyectoSinReferenciaMarcador,
+    PlantillaProyectoXmlInvalido,
+    PlantillaSinArchivosCpp,
+    ErrorLecturaPlantilla
 }
