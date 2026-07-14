@@ -113,14 +113,10 @@ public partial class frmPrincipal {
         pictureBoxAcercaDe.MouseLeave += PanelMenu_MouseLeave;
 
         panelCardNuevaPractica.Click += panelNuevaPractica_Click;
-        panelCardRecientes.Click += PanelRecientes_Click;
         panelCardConfiguracion.Click += PanelConfiguracion_Click;
 
         lblCardNuevaPracticaTitulo.Click += panelNuevaPractica_Click;
         lblCardNuevaPracticaDesc.Click += panelNuevaPractica_Click;
-
-        lblCardRecientesTitulo.Click += PanelRecientes_Click;
-        lblCardRecientesDesc.Click += PanelRecientes_Click;
 
         lblCardConfiguracionTitulo.Click += PanelConfiguracion_Click;
         lblCardConfiguracionDesc.Click += PanelConfiguracion_Click;

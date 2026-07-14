@@ -28,7 +28,10 @@ public partial class frmPrincipal {
     }
 
     private void AplicarFondoDinamicoPanelPrincipal() {
+        Image? fondoAnterior = panelPrincipal.BackgroundImage;
         panelPrincipal.BackgroundImage = CrearRecorteFondoParaPanel(panelPrincipal);
+        fondoAnterior?.Dispose();
+        
         panelPrincipal.BackgroundImageLayout = ImageLayout.Stretch;
         panelPrincipal.BackColor = Color.FromArgb(45, 45, 48);
 

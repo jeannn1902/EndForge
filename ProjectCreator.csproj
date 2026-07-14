@@ -39,4 +39,25 @@
     <Folder Include="Controls\" />
   </ItemGroup>
 
+    <ItemGroup>
+        <Compile Update="frmPrincipal.Inicializacion.cs">
+            <SubType>Code</SubType>
+        </Compile>
+        <Compile Update="frmPrincipal.Ventana.cs">
+            <SubType>Code</SubType>
+        </Compile>
+        <Compile Update="frmPrincipal.Navegacion.cs">
+            <SubType>Code</SubType>
+        </Compile>
+        <Compile Update="frmPrincipal.Practicas.cs">
+            <SubType>Code</SubType>
+        </Compile>
+        <Compile Update="frmPrincipal.Recientes.cs">
+            <SubType>Code</SubType>
+        </Compile>
+        <Compile Update="frmPrincipal.Configuracion.cs">
+            <SubType>Code</SubType>
+        </Compile>
+    </ItemGroup>
+
 </Project>
