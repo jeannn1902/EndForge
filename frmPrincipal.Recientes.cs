@@ -3,8 +3,10 @@ using EndForge.Models;
 namespace EndForge;
 
 public partial class frmPrincipal {
-    private void GuardarProyectoReciente(string rutaProyecto) {
-        recientesService.GuardarProyectoReciente(rutaProyecto);
+    private EstadoLecturaRecientes? ultimoEstadoLecturaRecientesNotificado;
+
+    private ResultadoEscrituraRecientes GuardarProyectoReciente(string rutaProyecto) {
+        return recientesService.GuardarProyectoReciente(rutaProyecto);
     }
 
     private bool IntentarAbrirPractica(string rutaProyecto, bool promoverReciente = false) {
@@ -21,10 +23,13 @@ public partial class frmPrincipal {
         }
 
         if (promoverReciente) {
-            GuardarProyectoReciente(rutaProyecto);
-            CargarRecientes();
-        }
+            ResultadoEscrituraRecientes guardado = GuardarProyectoReciente(rutaProyecto);
 
+            if (guardado.EsExitosa) {
+                CargarRecientes();
+            }
+            MostrarResultadoEscrituraRecientes(guardado, "La práctica se abrió correctamente");
+        }
         return true;
     }
 
@@ -51,6 +56,21 @@ public partial class frmPrincipal {
         }
     }
 
+    private void LimpiarVistaRecientes() {
+        listRecientes.Items.Clear();
+        LimpiarLabelsRecientes();
+
+        lblCardRecientesDesc.Text = "";
+        lblCardRecientesDesc.Tag = null;
+        lblCardContinuarDesc.Text = "";
+        lblCardContinuarDesc.Tag = null;
+    }
+
+    private void MostrarTarjetasRecientesVacias() {
+        lblCardRecientesDesc.Text = "No hay proyectos recientes.";
+        lblCardContinuarDesc.Text = "No hay prácticas recientes.";
+    }
+
     private void LabelReciente_DoubleClick(object? sender, EventArgs e) {
         Label? label = sender as Label;
 
@@ -61,51 +81,95 @@ public partial class frmPrincipal {
     }
 
     private void CargarRecientes() {
-        listRecientes.Items.Clear();
-        LimpiarLabelsRecientes();
+        ActualizarVistaRecientes();
+    }
 
-        if (!recientesService.ExisteArchivoRecientes())
+    private void ActualizarVistaRecientes(string? filtro = null) {
+        LimpiarVistaRecientes();
+
+        ResultadoLecturaRecientes resultado = recientesService.LeerProyectosRecientes();
+        NotificarResultadoLecturaRecientes(resultado);
+
+        if (!resultado.DatosDisponibles || resultado.Proyectos.Count == 0) {
+            MostrarTarjetasRecientesVacias();
             return;
+        }
 
-        string[] recientes = recientesService.LeerProyectosRecientes();
+        ProyectoReciente primerProyecto = resultado.Proyectos[0];
+        lblCardRecientesDesc.Text = primerProyecto.Nombre;
+        lblCardRecientesDesc.Tag = primerProyecto.Ruta;
+        lblCardContinuarDesc.Text = primerProyecto.Nombre;
+        lblCardContinuarDesc.Tag = primerProyecto.Ruta;
 
-        if (recientes.Length > 0) {
-            string[] datos = recientes[0].Split('|');
+        IEnumerable<ProyectoReciente> proyectosVisibles = resultado.Proyectos;
 
-            if (datos.Length >= 2) {
-                lblCardRecientesDesc.Text = datos[0];
-                lblCardRecientesDesc.Tag = datos[1];
-
-                lblCardContinuarDesc.Text = datos[0];
-                lblCardContinuarDesc.Tag = datos[1];
-            }
-        } else {
-            lblCardRecientesDesc.Text = "No hay proyectos recientes.";
-            lblCardContinuarDesc.Text = "No hay prácticas recientes.";
+        if (!string.IsNullOrEmpty(filtro)) {
+            proyectosVisibles = proyectosVisibles.Where(proyecto =>
+                proyecto.Nombre.Contains(filtro, StringComparison.CurrentCultureIgnoreCase));
         }
 
         List<Label> labelsRecientes = ObtenerLabelsRecientes();
         int indice = 0;
 
-        foreach (string reciente in recientes) {
-            string[] datos = reciente.Split('|');
+        foreach (ProyectoReciente proyecto in proyectosVisibles) {
+            listRecientes.Items.Add(proyecto);
 
-            if (datos.Length >= 2) {
-                ProyectoReciente proyecto = new ProyectoReciente {
-                    Nombre = datos[0],
-                    Ruta = datos[1]
-                };
-
-                listRecientes.Items.Add(proyecto);
-
-                if (indice < labelsRecientes.Count) {
-                    labelsRecientes[indice].Text = proyecto.Nombre;
-                    labelsRecientes[indice].Tag = proyecto;
-                    labelsRecientes[indice].Visible = true;
-                    indice++;
-                }
+            if (indice < labelsRecientes.Count) {
+                labelsRecientes[indice].Text = proyecto.Nombre;
+                labelsRecientes[indice].Tag = proyecto;
+                labelsRecientes[indice].Visible = true;
+                indice++;
             }
         }
+    }
+
+    private void NotificarResultadoLecturaRecientes(ResultadoLecturaRecientes resultado) {
+        if (resultado.Estado == EstadoLecturaRecientes.Exitosa ||
+            resultado.Estado == EstadoLecturaRecientes.ArchivoInexistente) {
+            ultimoEstadoLecturaRecientesNotificado = null;
+            return;
+        }
+
+        if (ultimoEstadoLecturaRecientesNotificado == resultado.Estado) {
+            return;
+        }
+
+        ultimoEstadoLecturaRecientesNotificado = resultado.Estado;
+
+        string mensaje = resultado.Estado switch {
+            EstadoLecturaRecientes.PermisosInsuficientes =>
+                "No se pudieron cargar los proyectos recientes porque no hay permisos para acceder a recientes.txt.",
+            EstadoLecturaRecientes.ErrorIo =>
+                "No se pudieron cargar los proyectos recientes. Verifica que recientes.txt no esté bloqueado o en uso por otra aplicación.",
+            EstadoLecturaRecientes.ContenidoInvalido =>
+                $"Se ignoraron {resultado.RegistrosInvalidos} registros dañados de recientes.txt. Los demás proyectos se cargaron correctamente.",
+            _ => "No se pudieron cargar los proyectos recientes."
+        };
+
+        MessageBox.Show(mensaje, "EndForge", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+    }
+
+    private void MostrarResultadoEscrituraRecientes(
+        ResultadoEscrituraRecientes resultado,
+        string operacionExitosa) {
+        if (resultado.EsExitosa) {
+            if (resultado.RegistrosInvalidosIgnorados > 0) {
+                MessageBox.Show(
+                    $"{operacionExitosa}, pero se ignoraron {resultado.RegistrosInvalidosIgnorados} registros dañados al actualizar Recientes.",
+                    "EndForge",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning
+                );
+            }
+
+            return;
+        }
+
+        string mensaje = resultado.Estado == EstadoEscrituraRecientes.PermisosInsuficientes
+            ? $"{operacionExitosa}, pero no pudo guardarse en Recientes porque no hay permisos para acceder a recientes.txt."
+            : $"{operacionExitosa}, pero no pudo guardarse en Recientes. Verifica que recientes.txt no esté bloqueado y que su carpeta permita crear y reemplazar archivos.";
+
+        MessageBox.Show(mensaje, "EndForge", MessageBoxButtons.OK, MessageBoxIcon.Warning);
     }
 
     private void ListRecientes_DoubleClick(object sender, EventArgs e) {
@@ -152,9 +216,9 @@ public partial class frmPrincipal {
         string? rutaProyecto = lblCardRecientesDesc.Tag as string;
 
         if (!string.IsNullOrWhiteSpace(rutaProyecto)) {
-            IntentarAbrirPractica(rutaProyecto);
+            IntentarAbrirPractica(rutaProyecto, true);
         }
-    }
+    }   
 
     private void PanelCardRecientes_Click(object sender, EventArgs e) {
         LblCardRecientesDesc_Click(sender, e);
@@ -164,54 +228,26 @@ public partial class frmPrincipal {
         LblCardRecientesDesc_Click(sender, e);
     }
 
-    private void PanelCardContinuar_Click(object sender, EventArgs e) {
-        string? rutaProyecto = lblCardContinuarDesc.Tag?.ToString();
+private void PanelCardContinuar_Click(object sender, EventArgs e) {
+    string? rutaProyecto = lblCardContinuarDesc.Tag?.ToString();
 
-        if (string.IsNullOrWhiteSpace(rutaProyecto))
-            return;
+    if (string.IsNullOrWhiteSpace(rutaProyecto))
+        return;
 
-        IntentarAbrirPractica(rutaProyecto);
-    }
+    IntentarAbrirPractica(rutaProyecto, true);
+}
 
     private void panelCardContinuar_Click(object sender, EventArgs e) {
     }
 
     private void TxtBuscarReciente_TextChanged(object sender, EventArgs e) {
-        string filtro = txtBuscarReciente.Text.Trim().ToLower();
+        string filtro = txtBuscarReciente.Text.Trim();
 
-        listRecientes.Items.Clear();
-        LimpiarLabelsRecientes();
-
-        if (!recientesService.ExisteArchivoRecientes())
-            return;
-
-        string[] recientes = recientesService.LeerProyectosRecientes();
-        List<Label> labelsRecientes = ObtenerLabelsRecientes();
-        int indice = 0;
-
-        foreach (string reciente in recientes) {
-            string[] datos = reciente.Split('|');
-
-            if (datos.Length < 2)
-                continue;
-
-            if (!datos[0].ToLower().Contains(filtro))
-                continue;
-
-            ProyectoReciente proyecto = new ProyectoReciente {
-                Nombre = datos[0],
-                Ruta = datos[1]
-            };
-
-            listRecientes.Items.Add(proyecto);
-
-            if (indice < labelsRecientes.Count) {
-                labelsRecientes[indice].Text = proyecto.Nombre;
-                labelsRecientes[indice].Tag = proyecto;
-                labelsRecientes[indice].Visible = true;
-                indice++;
-            }
+        if (filtro == "Buscar práctica...") {
+            filtro = "";
         }
+
+        ActualizarVistaRecientes(filtro);
     }
 
     private void TxtBuscarReciente_Enter(object sender, EventArgs e) {

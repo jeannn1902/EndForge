@@ -18,7 +18,7 @@ public sealed class CreacionPracticasOrquestador {
 
     public ResultadoCreacionPractica CrearPractica(
         SolicitudCreacionPractica solicitud,
-        Action<Exception?> alFinalizarRegistroReciente,
+        Action<ResultadoEscrituraRecientes> alFinalizarRegistroReciente,
         Action alPrepararApertura) {
         try {
             proyectoService.CrearProyecto(
@@ -41,13 +41,6 @@ public sealed class CreacionPracticasOrquestador {
             };
         }
 
-        try {
-            recientesService.GuardarProyectoReciente(solicitud.RutaProyecto);
-            alFinalizarRegistroReciente(null);
-        } catch (Exception ex) {
-            alFinalizarRegistroReciente(ex);
-        }
-
         alPrepararApertura();
 
         ResultadoAperturaPractica apertura = aperturaPracticasService.AbrirPractica(
@@ -61,6 +54,10 @@ public sealed class CreacionPracticasOrquestador {
                 Error = apertura.Error
             };
         }
+
+        ResultadoEscrituraRecientes registroReciente =
+            recientesService.GuardarProyectoReciente(solicitud.RutaProyecto);
+        alFinalizarRegistroReciente(registroReciente);
 
         return new ResultadoCreacionPractica {
             Estado = EstadoCreacionPractica.Exitosa

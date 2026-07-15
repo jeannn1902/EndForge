@@ -86,25 +86,12 @@ public partial class frmPrincipal {
                 return;
             }
 
-            ResultadoAperturaPractica resultado = aperturaPracticasService.AbrirPractica(
-                carpeta.SelectedPath,
-                () => SeleccionarPanelMenu(panelAbrirPractica)
-            );
+            SeleccionarPanelMenu(panelAbrirPractica);
 
-            if (resultado.Estado == EstadoAperturaPractica.SolucionInexistente) {
-                MessageBox.Show("No se encontró ningún archivo .sln en la carpeta seleccionada.", "EndForge", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            bool aperturaExitosa = IntentarAbrirPractica(carpeta.SelectedPath, promoverReciente: true);
+
+            if (!aperturaExitosa) {
                 RestaurarColorPanel(panelAbrirPractica);
-                return;
-            }
-
-            if (resultado.Estado == EstadoAperturaPractica.CarpetaInexistente) {
-                MessageBox.Show("La carpeta de esta práctica ya no existe.", "EndForge", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                RestaurarColorPanel(panelAbrirPractica);
-                return;
-            }
-
-            if (resultado.Estado == EstadoAperturaPractica.ErrorApertura) {
-                MessageBox.Show("No se pudo abrir la práctica.\n\n" + resultado.Error!.Message, "EndForge", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }

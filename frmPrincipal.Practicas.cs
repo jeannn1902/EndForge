@@ -163,12 +163,15 @@ public partial class frmPrincipal {
 
         ResultadoCreacionPractica resultado = creacionPracticasOrquestador.CrearPractica(
             solicitud,
-            errorRecientes => {
-                if (errorRecientes == null) {
+            resultadoRecientes => {
+                if (resultadoRecientes.EsExitosa) {
                     CargarRecientes();
-                } else {
-                    MessageBox.Show("La práctica se creó correctamente, pero no pudo guardarse en Recientes.\n\n" + errorRecientes.Message, "EndForge",MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
+
+                MostrarResultadoEscrituraRecientes(
+                    resultadoRecientes,
+                    "La práctica se creó y abrió correctamente"
+                );
             },
             () => {
                 txtNombreProyecto.Clear();
