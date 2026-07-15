@@ -127,6 +127,19 @@ public partial class frmPrincipal {
             return;
         }
 
+        ResultadoValidacionConfiguracion validacionConfiguracion =
+            configuracionService.ValidarConfiguracionDetallada(rutaBase, rutaPlantilla);
+
+        if (validacionConfiguracion.Estado != EstadoValidacionConfiguracion.Valida) {
+            MessageBox.Show(
+                ObtenerMensajeValidacionConfiguracion(validacionConfiguracion.Estado),
+                "EndForge",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning
+            );
+            return;
+        }
+
         ResultadoVistaPreviaPractica vistaPrevia = vistaPreviaPracticaService.Calcular(
             rutaBase,
             temaSeleccionado,
@@ -141,7 +154,11 @@ public partial class frmPrincipal {
             RutaProyecto = rutaProyecto,
             NombreProyecto = nombreProyecto,
             Tema = temaSeleccionado,
-            Objetivo = txtObjetivo.Text.Trim()
+            Objetivo = txtObjetivo.Text.Trim(),
+            RutaRelativaSolucionEsperada = seleccionSolucionesService.TransformarRutaRelativa(
+                validacionConfiguracion.RutaRelativaSolucion,
+                nombreProyecto
+            )
         };
 
         ResultadoCreacionPractica resultado = creacionPracticasOrquestador.CrearPractica(

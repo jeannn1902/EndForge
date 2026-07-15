@@ -26,7 +26,8 @@ public sealed class CreacionPracticasOrquestador {
                 solicitud.RutaProyecto,
                 solicitud.NombreProyecto,
                 solicitud.Tema,
-                solicitud.Objetivo
+                solicitud.Objetivo,
+                solicitud.RutaRelativaSolucionEsperada
             );
         } catch (ProyectoService.ProyectoDestinoExistenteException ex) {
             return new ResultadoCreacionPractica {
@@ -50,7 +51,8 @@ public sealed class CreacionPracticasOrquestador {
         alPrepararApertura();
 
         ResultadoAperturaPractica apertura = aperturaPracticasService.AbrirPractica(
-            solicitud.RutaProyecto
+            solicitud.RutaProyecto,
+            solicitud.RutaRelativaSolucionEsperada
         );
 
         if (apertura.Estado != EstadoAperturaPractica.Exitosa) {

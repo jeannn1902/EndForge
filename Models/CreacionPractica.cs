@@ -10,6 +10,8 @@ public sealed class SolicitudCreacionPractica {
     public string Tema { get; init; } = "";
 
     public string Objetivo { get; init; } = "";
+
+    public string RutaRelativaSolucionEsperada { get; init; } = "";
 }
 
 public enum EstadoCreacionPractica {
