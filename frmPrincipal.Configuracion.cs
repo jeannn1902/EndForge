@@ -74,20 +74,7 @@ public partial class frmPrincipal {
         );
 
         if (validacion != EstadoValidacionConfiguracion.Valida) {
-            lblEstadoConfiguracion.Text = validacion switch {
-                EstadoValidacionConfiguracion.RutasNoExistentes => "❌ Una de las rutas seleccionadas no existe.",
-                EstadoValidacionConfiguracion.PlantillaSinSolucion => "❌ La plantilla no contiene una solución .sln en su carpeta raíz.",
-                EstadoValidacionConfiguracion.PlantillaSolucionSinMarcador => "❌ El nombre de la solución debe contener 00_Plantilla.",
-                EstadoValidacionConfiguracion.PlantillaSolucionSinReferenciaMarcador => "❌ La solución .sln no contiene una referencia con 00_Plantilla.",
-                EstadoValidacionConfiguracion.PlantillaSinProyectoCpp => "❌ La plantilla no contiene ningún archivo .vcxproj.",
-                EstadoValidacionConfiguracion.PlantillaProyectoSinMarcador => "❌ El nombre del proyecto .vcxproj debe contener 00_Plantilla.",
-                EstadoValidacionConfiguracion.PlantillaProyectoReferenciadoNoDisponible => "❌ La solución referencia un proyecto .vcxproj inexistente o ubicado fuera de la plantilla.",
-                EstadoValidacionConfiguracion.PlantillaProyectoSinReferenciaMarcador => "❌ El proyecto .vcxproj no contiene referencias con 00_Plantilla.",
-                EstadoValidacionConfiguracion.PlantillaProyectoXmlInvalido => "❌ El archivo .vcxproj no contiene XML válido.",
-                EstadoValidacionConfiguracion.PlantillaSinArchivosCpp => "❌ No se encontraron archivos C++.",
-                EstadoValidacionConfiguracion.ErrorLecturaPlantilla => "❌ No se pudo leer la plantilla. Verifica sus permisos y que los archivos no estén bloqueados.",
-                _ => "❌ La plantilla no es compatible con EndForge."
-            };
+            lblEstadoConfiguracion.Text = ObtenerMensajeValidacionConfiguracion(validacion);
             lblEstadoConfiguracion.ForeColor = validacion == EstadoValidacionConfiguracion.RutasNoExistentes
                 ? Color.IndianRed
                 : Color.LightCoral;
@@ -117,5 +104,22 @@ public partial class frmPrincipal {
 
         // PanelInicio_Click(panelInicio, EventArgs.Empty);
         CargarRecientes();
+    }
+
+    private static string ObtenerMensajeValidacionConfiguracion(EstadoValidacionConfiguracion validacion) {
+        return validacion switch {
+            EstadoValidacionConfiguracion.RutasNoExistentes => "❌ Una de las rutas seleccionadas no existe.",
+            EstadoValidacionConfiguracion.PlantillaSinSolucion => "❌ La plantilla no contiene una solución .sln en su carpeta raíz.",
+            EstadoValidacionConfiguracion.PlantillaSolucionSinMarcador => "❌ El nombre de la solución debe contener 00_Plantilla.",
+            EstadoValidacionConfiguracion.PlantillaSolucionSinReferenciaMarcador => "❌ La solución .sln no contiene una referencia con 00_Plantilla.",
+            EstadoValidacionConfiguracion.PlantillaSinProyectoCpp => "❌ La plantilla no contiene ningún archivo .vcxproj.",
+            EstadoValidacionConfiguracion.PlantillaProyectoSinMarcador => "❌ El nombre del proyecto .vcxproj debe contener 00_Plantilla.",
+            EstadoValidacionConfiguracion.PlantillaProyectoReferenciadoNoDisponible => "❌ La solución referencia un proyecto .vcxproj inexistente o ubicado fuera de la plantilla.",
+            EstadoValidacionConfiguracion.PlantillaProyectoSinReferenciaMarcador => "❌ El proyecto .vcxproj no contiene referencias con 00_Plantilla.",
+            EstadoValidacionConfiguracion.PlantillaProyectoXmlInvalido => "❌ El archivo .vcxproj no contiene XML válido.",
+            EstadoValidacionConfiguracion.PlantillaSinArchivosCpp => "❌ No se encontraron archivos C++.",
+            EstadoValidacionConfiguracion.ErrorLecturaPlantilla => "❌ No se pudo leer la plantilla. Verifica sus permisos y que los archivos no estén bloqueados.",
+            _ => "❌ La plantilla no es compatible con EndForge."
+        };
     }
 }

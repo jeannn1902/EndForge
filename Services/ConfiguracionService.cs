@@ -4,12 +4,18 @@ using System.Xml.Linq;
 namespace EndForge.Services;
 
 public class ConfiguracionService {
-    private const string MarcadorPlantilla = "00_Plantilla";
+    private const string MarcadorPlantilla = SeleccionSolucionesService.MarcadorPlantilla;
+    private readonly SeleccionSolucionesService seleccionSolucionesService;
     private readonly string carpetaDatos;
     private readonly string rutaConfig;
     internal string RutaRecientes { get; }
 
-    public ConfiguracionService() {
+    public ConfiguracionService()
+        : this(new SeleccionSolucionesService()) {
+    }
+
+    public ConfiguracionService(SeleccionSolucionesService seleccionSolucionesService) {
+        this.seleccionSolucionesService = seleccionSolucionesService;
         carpetaDatos = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EndForge");
         rutaConfig = Path.Combine(carpetaDatos, "config.txt");
         RutaRecientes = Path.Combine(carpetaDatos, "recientes.txt");
@@ -64,23 +70,22 @@ public class ConfiguracionService {
     }
 
     public EstadoValidacionConfiguracion ValidarConfiguracion(string rutaBase, string rutaPlantilla) {
+        return ValidarConfiguracionDetallada(rutaBase, rutaPlantilla).Estado;
+    }
+
+    public ResultadoValidacionConfiguracion ValidarConfiguracionDetallada(
+        string rutaBase,
+        string rutaPlantilla) {
         if (!Directory.Exists(rutaBase) || !Directory.Exists(rutaPlantilla)) {
-            return EstadoValidacionConfiguracion.RutasNoExistentes;
+            return CrearResultadoValidacion(EstadoValidacionConfiguracion.RutasNoExistentes);
         }
 
         try {
             string rutaPlantillaNormalizada = Path.GetFullPath(rutaPlantilla);
-            string[] soluciones = BuscarArchivosPorExtension(
-                rutaPlantillaNormalizada,
-                ".sln",
-                SearchOption.TopDirectoryOnly
-            )
-                .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(Path.GetFileName, StringComparer.Ordinal)
-                .ToArray();
+            string[] soluciones = seleccionSolucionesService.ObtenerSolucionesOrdenadas(rutaPlantillaNormalizada);
 
             if (soluciones.Length == 0) {
-                return EstadoValidacionConfiguracion.PlantillaSinSolucion;
+                return CrearResultadoValidacion(EstadoValidacionConfiguracion.PlantillaSinSolucion);
             }
 
             string[] solucionesConMarcador = soluciones
@@ -88,7 +93,7 @@ public class ConfiguracionService {
                 .ToArray();
 
             if (solucionesConMarcador.Length == 0) {
-                return EstadoValidacionConfiguracion.PlantillaSolucionSinMarcador;
+                return CrearResultadoValidacion(EstadoValidacionConfiguracion.PlantillaSolucionSinMarcador);
             }
 
             string[] proyectos = BuscarArchivosPorExtension(
@@ -98,7 +103,7 @@ public class ConfiguracionService {
             );
 
             if (proyectos.Length == 0) {
-                return EstadoValidacionConfiguracion.PlantillaSinProyectoCpp;
+                return CrearResultadoValidacion(EstadoValidacionConfiguracion.PlantillaSinProyectoCpp);
             }
 
             string[] cpp = BuscarArchivosPorExtension(
@@ -108,7 +113,7 @@ public class ConfiguracionService {
             );
 
             if (cpp.Length == 0) {
-                return EstadoValidacionConfiguracion.PlantillaSinArchivosCpp;
+                return CrearResultadoValidacion(EstadoValidacionConfiguracion.PlantillaSinArchivosCpp);
             }
 
             bool existeReferenciaProyecto = false;
@@ -122,9 +127,8 @@ public class ConfiguracionService {
                 foreach (string referenciaProyecto in referenciasProyecto) {
                     existeReferenciaProyecto = true;
 
-                    if (!IntentarResolverReferenciaProyecto(
+                    if (!seleccionSolucionesService.IntentarResolverRutaRelativa(
                         rutaPlantillaNormalizada,
-                        solucion,
                         referenciaProyecto,
                         out string rutaProyecto)) {
                         continue;
@@ -147,7 +151,15 @@ public class ConfiguracionService {
                         existeProyectoReferenciadoXmlValido = true;
 
                         if (contieneReferenciaMarcada) {
-                            return EstadoValidacionConfiguracion.Valida;
+                            string rutaRelativaSolucion = seleccionSolucionesService.ObtenerRutaRelativa(
+                                rutaPlantillaNormalizada,
+                                solucion
+                            );
+
+                            return CrearResultadoValidacion(
+                                EstadoValidacionConfiguracion.Valida,
+                                rutaRelativaSolucion
+                            );
                         }
                     } catch (XmlException) {
                         // Se revisan los demás proyectos referenciados antes de rechazar la plantilla.
@@ -156,27 +168,36 @@ public class ConfiguracionService {
             }
 
             if (!existeReferenciaProyecto) {
-                return EstadoValidacionConfiguracion.PlantillaSolucionSinReferenciaMarcador;
+                return CrearResultadoValidacion(EstadoValidacionConfiguracion.PlantillaSolucionSinReferenciaMarcador);
             }
 
             if (!existeProyectoReferenciado) {
-                return EstadoValidacionConfiguracion.PlantillaProyectoReferenciadoNoDisponible;
+                return CrearResultadoValidacion(EstadoValidacionConfiguracion.PlantillaProyectoReferenciadoNoDisponible);
             }
 
             if (!existeProyectoReferenciadoConMarcador) {
-                return EstadoValidacionConfiguracion.PlantillaProyectoSinMarcador;
+                return CrearResultadoValidacion(EstadoValidacionConfiguracion.PlantillaProyectoSinMarcador);
             }
 
             if (!existeProyectoReferenciadoXmlValido) {
-                return EstadoValidacionConfiguracion.PlantillaProyectoXmlInvalido;
+                return CrearResultadoValidacion(EstadoValidacionConfiguracion.PlantillaProyectoXmlInvalido);
             }
 
-            return EstadoValidacionConfiguracion.PlantillaProyectoSinReferenciaMarcador;
+            return CrearResultadoValidacion(EstadoValidacionConfiguracion.PlantillaProyectoSinReferenciaMarcador);
         } catch (UnauthorizedAccessException) {
-            return EstadoValidacionConfiguracion.ErrorLecturaPlantilla;
+            return CrearResultadoValidacion(EstadoValidacionConfiguracion.ErrorLecturaPlantilla);
         } catch (IOException) {
-            return EstadoValidacionConfiguracion.ErrorLecturaPlantilla;
+            return CrearResultadoValidacion(EstadoValidacionConfiguracion.ErrorLecturaPlantilla);
         }
+    }
+
+    private static ResultadoValidacionConfiguracion CrearResultadoValidacion(
+        EstadoValidacionConfiguracion estado,
+        string rutaRelativaSolucion = "") {
+        return new ResultadoValidacionConfiguracion {
+            Estado = estado,
+            RutaRelativaSolucion = rutaRelativaSolucion
+        };
     }
 
     private static string[] BuscarArchivosPorExtension(
@@ -218,40 +239,6 @@ public class ConfiguracionService {
             .OrderBy(referencia => referencia, StringComparer.OrdinalIgnoreCase)
             .ThenBy(referencia => referencia, StringComparer.Ordinal)
             .ToArray();
-    }
-
-    private static bool IntentarResolverReferenciaProyecto(
-        string rutaPlantilla,
-        string rutaSolucion,
-        string referenciaProyecto,
-        out string rutaProyecto) {
-        rutaProyecto = "";
-
-        if (string.IsNullOrWhiteSpace(referenciaProyecto) || Path.IsPathRooted(referenciaProyecto)) {
-            return false;
-        }
-
-        try {
-            string carpetaSolucion = Path.GetDirectoryName(rutaSolucion)!;
-            string rutaNormalizada = Path.GetFullPath(referenciaProyecto, carpetaSolucion);
-            string rutaRelativa = Path.GetRelativePath(rutaPlantilla, rutaNormalizada);
-
-            if (Path.IsPathRooted(rutaRelativa) ||
-                rutaRelativa.Equals("..", StringComparison.Ordinal) ||
-                rutaRelativa.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal) ||
-                rutaRelativa.StartsWith($"..{Path.AltDirectorySeparatorChar}", StringComparison.Ordinal)) {
-                return false;
-            }
-
-            rutaProyecto = rutaNormalizada;
-            return true;
-        } catch (ArgumentException) {
-            return false;
-        } catch (NotSupportedException) {
-            return false;
-        } catch (PathTooLongException) {
-            return false;
-        }
     }
 
     private static bool ProyectoContieneReferenciaMarcada(string rutaProyecto) {

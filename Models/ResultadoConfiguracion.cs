@@ -1,5 +1,4 @@
 namespace EndForge.Models;
-
 public enum EstadoCargaConfiguracion {
     NoDisponible,
     Cargada,
@@ -11,15 +10,9 @@ public enum EstadoCargaConfiguracion {
 
 public sealed class ResultadoCargaConfiguracion {
     public EstadoCargaConfiguracion Estado { get; init; }
-
     public string RutaBase { get; init; } = "";
-
     public string RutaPlantilla { get; init; } = "";
-
-    public bool ConfiguracionDisponible =>
-        Estado == EstadoCargaConfiguracion.Cargada ||
-        Estado == EstadoCargaConfiguracion.ErrorPermisosRecientes ||
-        Estado == EstadoCargaConfiguracion.ErrorCreacionRecientes;
+    public bool ConfiguracionDisponible => Estado == EstadoCargaConfiguracion.Cargada || Estado == EstadoCargaConfiguracion.ErrorPermisosRecientes || Estado == EstadoCargaConfiguracion.ErrorCreacionRecientes;
 }
 
 public enum EstadoValidacionConfiguracion {
@@ -35,4 +28,9 @@ public enum EstadoValidacionConfiguracion {
     PlantillaProyectoXmlInvalido,
     PlantillaSinArchivosCpp,
     ErrorLecturaPlantilla
+}
+
+public sealed class ResultadoValidacionConfiguracion {
+    public EstadoValidacionConfiguracion Estado { get; init; }
+    public string RutaRelativaSolucion { get; init; } = "";
 }

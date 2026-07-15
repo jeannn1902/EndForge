@@ -6,6 +6,15 @@ using System.Xml.Linq;
 namespace EndForge.Services;
 
 public class ProyectoService {
+    private readonly SeleccionSolucionesService seleccionSolucionesService;
+
+    public ProyectoService()
+        : this(new SeleccionSolucionesService()) {
+    }
+
+    public ProyectoService(SeleccionSolucionesService seleccionSolucionesService) {
+        this.seleccionSolucionesService = seleccionSolucionesService;
+    }
 
     public sealed class ProyectoDestinoExistenteException : IOException {
         public ProyectoDestinoExistenteException(string rutaProyecto)
@@ -204,7 +213,29 @@ public class ProyectoService {
     }
 
 
-    public void CrearProyecto(string rutaPlantilla, string rutaProyecto, string nombreProyecto, string temaSeleccionado, string objetivo) {
+    public void CrearProyecto(
+        string rutaPlantilla,
+        string rutaProyecto,
+        string nombreProyecto,
+        string temaSeleccionado,
+        string objetivo) {
+        CrearProyecto(
+            rutaPlantilla,
+            rutaProyecto,
+            nombreProyecto,
+            temaSeleccionado,
+            objetivo,
+            ""
+        );
+    }
+
+    public void CrearProyecto(
+        string rutaPlantilla,
+        string rutaProyecto,
+        string nombreProyecto,
+        string temaSeleccionado,
+        string objetivo,
+        string rutaRelativaSolucionEsperada) {
         if (Directory.Exists(rutaProyecto) || File.Exists(rutaProyecto)) {
             throw new ProyectoDestinoExistenteException(rutaProyecto);
         }
@@ -234,6 +265,13 @@ public class ProyectoService {
             RenombrarCarpetas(rutaTemporal, nombreProyecto);
 
             ActualizarReferencias(rutaTemporal, nombreProyecto);
+
+            if (!string.IsNullOrWhiteSpace(rutaRelativaSolucionEsperada)) {
+                seleccionSolucionesService.GuardarSolucionSeleccionada(
+                    rutaTemporal,
+                    rutaRelativaSolucionEsperada
+                );
+            }
 
             CrearReadme(rutaTemporal, nombreProyecto, temaSeleccionado, objetivo);
 
