@@ -38,7 +38,7 @@ public partial class frmPrincipal {
 
     private void FrmPrincipal_Load(object sender, EventArgs e) {
         btnCrearProyecto.Enabled = false;
-        CargarConfiguracion();
+        ResultadoCargaConfiguracion cargaConfiguracion = CargarConfiguracion();
         CargarTemas();
         CargarRecientes();
 
@@ -58,13 +58,15 @@ public partial class frmPrincipal {
         if (string.IsNullOrWhiteSpace(rutaBase) || string.IsNullOrWhiteSpace(rutaPlantilla)) {
             PanelConfiguracion_Click(panelConfiguracion, EventArgs.Empty);
 
-            MessageBox.Show(
-                "¡Bienvenido a EndForge!\n\n" +
-                "Antes de comenzar, configura la carpeta de tus prácticas y la plantilla oficial.",
-                "Configuración inicial",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information
-            );
+            if (cargaConfiguracion.Estado == EstadoCargaConfiguracion.NoDisponible) {
+                MessageBox.Show(
+                    "¡Bienvenido a EndForge!\n\n" +
+                    "Antes de comenzar, configura la carpeta de tus prácticas y la plantilla oficial.",
+                    "Configuración inicial",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information
+                );
+            }
         }
 
         txtBuscarReciente.Text = "Buscar práctica...";
@@ -76,12 +78,13 @@ public partial class frmPrincipal {
 
         foreach (string tema in temasService.CargarTemas(rutaBase)) {
             txtTemas.Items.Add(tema);
-            ActualizarVistaPrevia();
         }
 
         if (txtTemas.Items.Count > 0) {
             txtTemas.SelectedIndex = 0;
         }
+
+        ActualizarVistaPrevia();
     }
 
     private void ActualizarVistaPrevia() {

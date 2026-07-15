@@ -1,4 +1,5 @@
 using EndForge.Models;
+using System.Security;
 using System.Xml;
 using System.Xml.Linq;
 namespace EndForge.Services;
@@ -38,7 +39,15 @@ public class ConfiguracionService {
             return new ResultadoCargaConfiguracion {
                 Estado = EstadoCargaConfiguracion.ErrorPermisosConfiguracion
             };
+        } catch (SecurityException) {
+            return new ResultadoCargaConfiguracion {
+                Estado = EstadoCargaConfiguracion.ErrorPermisosConfiguracion
+            };
         } catch (IOException) {
+            return new ResultadoCargaConfiguracion {
+                Estado = EstadoCargaConfiguracion.ErrorLecturaConfiguracion
+            };
+        } catch (Exception) {
             return new ResultadoCargaConfiguracion {
                 Estado = EstadoCargaConfiguracion.ErrorLecturaConfiguracion
             };
@@ -186,7 +195,11 @@ public class ConfiguracionService {
             return CrearResultadoValidacion(EstadoValidacionConfiguracion.PlantillaProyectoSinReferenciaMarcador);
         } catch (UnauthorizedAccessException) {
             return CrearResultadoValidacion(EstadoValidacionConfiguracion.ErrorLecturaPlantilla);
+        } catch (SecurityException) {
+            return CrearResultadoValidacion(EstadoValidacionConfiguracion.ErrorLecturaPlantilla);
         } catch (IOException) {
+            return CrearResultadoValidacion(EstadoValidacionConfiguracion.ErrorLecturaPlantilla);
+        } catch (Exception) {
             return CrearResultadoValidacion(EstadoValidacionConfiguracion.ErrorLecturaPlantilla);
         }
     }

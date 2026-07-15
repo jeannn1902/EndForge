@@ -1,20 +1,30 @@
-namespace EndForge.Services;
+using System.Security;
 
+namespace EndForge.Services;
 public sealed class TemasService {
+
     public IReadOnlyList<string> CargarTemas(string rutaBase) {
         if (!Directory.Exists(rutaBase)) {
             return Array.Empty<string>();
         }
 
-        return Directory
-            .GetDirectories(rutaBase)
-            .OrderBy(carpeta => carpeta)
-            .Select(Path.GetFileName)
-            .Where(nombreCarpeta =>
-                !string.IsNullOrEmpty(nombreCarpeta) &&
-                !nombreCarpeta.StartsWith(".") &&
-                EsNombreTemaValido(nombreCarpeta))
-            .ToArray()!;
+        try {
+            return Directory
+                .GetDirectories(rutaBase)
+                .OrderBy(carpeta => carpeta)
+                .Select(Path.GetFileName)
+                .Where(nombreCarpeta =>
+                    !string.IsNullOrEmpty(nombreCarpeta) &&
+                    !nombreCarpeta.StartsWith(".") &&
+                    EsNombreTemaValido(nombreCarpeta))
+                .ToArray()!;
+        } catch (UnauthorizedAccessException) {
+            return Array.Empty<string>();
+        } catch (SecurityException) {
+            return Array.Empty<string>();
+        } catch (IOException) {
+            return Array.Empty<string>();
+        }
     }
 
     public int ObtenerSiguienteNumero(string rutaBase, string temaSeleccionado) {

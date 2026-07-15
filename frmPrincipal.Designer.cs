@@ -74,6 +74,7 @@
             lblRecientesTitulo = new Label();
             panelConfiguracionVista = new Panel();
             lblEstadoConfiguracion = new Label();
+            btnRestaurarConfiguracion = new Button();
             btnGuardarConfiguracion = new Button();
             btnCambiarRutaBase = new Button();
             btnCambiarRutaPlantilla = new Button();
@@ -766,6 +767,7 @@
             panelConfiguracionVista.BackColor = Color.Transparent;
             panelConfiguracionVista.BackgroundImageLayout = ImageLayout.None;
             panelConfiguracionVista.Controls.Add(lblEstadoConfiguracion);
+            panelConfiguracionVista.Controls.Add(btnRestaurarConfiguracion);
             panelConfiguracionVista.Controls.Add(btnGuardarConfiguracion);
             panelConfiguracionVista.Controls.Add(btnCambiarRutaBase);
             panelConfiguracionVista.Controls.Add(btnCambiarRutaPlantilla);
@@ -783,14 +785,34 @@
             // lblEstadoConfiguracion
             // 
             lblEstadoConfiguracion.ForeColor = Color.LawnGreen;
-            lblEstadoConfiguracion.Location = new Point(180, 360);
+            lblEstadoConfiguracion.Location = new Point(72, 370);
             lblEstadoConfiguracion.Name = "lblEstadoConfiguracion";
-            lblEstadoConfiguracion.Size = new Size(330, 50);
-            lblEstadoConfiguracion.TabIndex = 8;
+            lblEstadoConfiguracion.Size = new Size(758, 75);
+            lblEstadoConfiguracion.TabIndex = 9;
             lblEstadoConfiguracion.Text = "Configuración válida";
             lblEstadoConfiguracion.TextAlign = ContentAlignment.MiddleCenter;
             lblEstadoConfiguracion.Visible = false;
-            // 
+            //
+            // btnRestaurarConfiguracion
+            //
+            btnRestaurarConfiguracion.AutoSize = true;
+            btnRestaurarConfiguracion.BackColor = Color.FromArgb(65, 65, 70);
+            btnRestaurarConfiguracion.Cursor = Cursors.Hand;
+            btnRestaurarConfiguracion.Enabled = false;
+            btnRestaurarConfiguracion.FlatAppearance.BorderSize = 0;
+            btnRestaurarConfiguracion.FlatAppearance.MouseDownBackColor = Color.FromArgb(50, 50, 55);
+            btnRestaurarConfiguracion.FlatAppearance.MouseOverBackColor = Color.FromArgb(80, 80, 85);
+            btnRestaurarConfiguracion.FlatStyle = FlatStyle.Flat;
+            btnRestaurarConfiguracion.Font = new Font("Segoe UI Semibold", 9F);
+            btnRestaurarConfiguracion.ForeColor = Color.White;
+            btnRestaurarConfiguracion.Location = new Point(500, 325);
+            btnRestaurarConfiguracion.Name = "btnRestaurarConfiguracion";
+            btnRestaurarConfiguracion.Size = new Size(200, 37);
+            btnRestaurarConfiguracion.TabIndex = 8;
+            btnRestaurarConfiguracion.Text = "Descartar cambios";
+            btnRestaurarConfiguracion.UseVisualStyleBackColor = false;
+            btnRestaurarConfiguracion.Click += BtnRestaurarConfiguracion_Click;
+            //
             // btnGuardarConfiguracion
             // 
             btnGuardarConfiguracion.AutoSize = true;
@@ -858,6 +880,7 @@
             txtRutaPlantillaConfig.ReadOnly = true;
             txtRutaPlantillaConfig.Size = new Size(526, 31);
             txtRutaPlantillaConfig.TabIndex = 4;
+            txtRutaPlantillaConfig.TextChanged += RutaConfiguracion_TextChanged;
             // 
             // lblRutaPlantilla
             // 
@@ -881,6 +904,7 @@
             txtRutaBaseConfig.ReadOnly = true;
             txtRutaBaseConfig.Size = new Size(526, 31);
             txtRutaBaseConfig.TabIndex = 2;
+            txtRutaBaseConfig.TextChanged += RutaConfiguracion_TextChanged;
             // 
             // lblRutaBase
             // 
@@ -1429,6 +1453,7 @@
         private Label lblAcercaDe;
         private PictureBox pictureBoxAcercaDe;
         private Panel panelConfiguracionVista;
+        private Button btnRestaurarConfiguracion;
         private Button btnGuardarConfiguracion;
         private Button btnCambiarRutaBase;
         private Button btnCambiarRutaPlantilla;

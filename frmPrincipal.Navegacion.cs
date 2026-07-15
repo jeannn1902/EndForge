@@ -124,9 +124,6 @@ public partial class frmPrincipal {
         panelConfiguracionVista.Visible = true;
 
         panelConfiguracionVista.BringToFront();
-
-        txtRutaBaseConfig.Text = rutaBase;
-        txtRutaPlantillaConfig.Text = rutaPlantilla;
     }
 
     private void PanelAcercaDe_Click(object? sender, EventArgs e) {
