@@ -3,6 +3,14 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
+    <AssemblyName>EndForge</AssemblyName>
+    <Product>EndForge</Product>
+    <Title>EndForge</Title>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <InformationalVersion>1.0.0</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -10,14 +18,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="Recursos\FondodeProyectoAutocpp.png" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Content Include="Recursos\endforge.ico" />
-    <Content Include="Recursos\FondodeProyectoAutocpp.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
   </ItemGroup>
 
   <ItemGroup>
