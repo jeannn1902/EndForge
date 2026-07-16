@@ -40,10 +40,15 @@ public sealed class SeleccionSolucionesService {
 
     public string? LeerSolucionSeleccionada(string rutaCarpeta) {
         string rutaSeleccion = Path.Combine(rutaCarpeta, NombreArchivoSeleccion);
-        return File.Exists(rutaSeleccion)
-            ? File.ReadAllText(rutaSeleccion)
-            : null;
-    }
+
+        try {
+            return File.ReadAllText(rutaSeleccion);
+        } catch (FileNotFoundException) {
+            return null;
+        } catch (DirectoryNotFoundException) {
+            return null;
+        }
+    }   
 
     public bool IntentarResolverRutaRelativa(
         string rutaRaiz,

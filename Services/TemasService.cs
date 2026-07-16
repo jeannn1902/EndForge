@@ -34,18 +34,26 @@ public sealed class TemasService {
             return 1;
         }
 
-        int mayorNumero = 0;
+        try {
+            int mayorNumero = 0;
 
-        foreach (string carpeta in Directory.GetDirectories(rutaTema)) {
-            string nombreCarpeta = Path.GetFileName(carpeta);
-            string[] partes = nombreCarpeta.Split('_');
+            foreach (string carpeta in Directory.GetDirectories(rutaTema)) {
+                string nombreCarpeta = Path.GetFileName(carpeta);
+                string[] partes = nombreCarpeta.Split('_');
 
-            if (partes.Length > 0 && int.TryParse(partes[0], out int numero)) {
-                mayorNumero = Math.Max(mayorNumero, numero);
+                if (partes.Length > 0 && int.TryParse(partes[0], out int numero)) {
+                    mayorNumero = Math.Max(mayorNumero, numero);
+                }
             }
-        }
 
-        return mayorNumero + 1;
+            return mayorNumero + 1;
+        } catch (UnauthorizedAccessException) {
+            return 1;
+        } catch (SecurityException) {
+            return 1;
+        } catch (IOException) {
+            return 1;
+        }
     }
 
     public bool ExisteTema(string rutaBase, string temaSeleccionado) {
