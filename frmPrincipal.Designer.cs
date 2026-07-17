@@ -28,6 +28,10 @@
         /// </summary>
         private void InitializeComponent() {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmPrincipal));
+            panelVistaNuevaPractica = new Panel();
+            panelNuevaPracticaTarjeta = new Panel();
+            lblNuevaPracticaSubtitulo = new Label();
+            panelVistaPreviaNuevaPractica = new Panel();
             btnCrearProyecto = new Button();
             lblNombreFinal = new Label();
             lblVistaPrevia = new Label();
@@ -118,6 +122,9 @@
             btnMinimizar = new Button();
             lblBarraTitulo = new Label();
             pictureBoxBarraIcono = new PictureBox();
+            panelVistaNuevaPractica.SuspendLayout();
+            panelNuevaPracticaTarjeta.SuspendLayout();
+            panelVistaPreviaNuevaPractica.SuspendLayout();
             panelPrincipal.SuspendLayout();
             panelInicioVista.SuspendLayout();
             panelCardContinuar.SuspendLayout();
@@ -145,143 +152,207 @@
             panelBarraTitulo.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)pictureBoxBarraIcono).BeginInit();
             SuspendLayout();
+            //
+            // panelVistaNuevaPractica
+            //
+            panelVistaNuevaPractica.BackColor = Color.Transparent;
+            panelVistaNuevaPractica.Controls.Add(panelNuevaPracticaTarjeta);
+            panelVistaNuevaPractica.Location = new Point(0, 0);
+            panelVistaNuevaPractica.Name = "panelVistaNuevaPractica";
+            panelVistaNuevaPractica.Size = new Size(624, 470);
+            panelVistaNuevaPractica.TabIndex = 17;
+            panelVistaNuevaPractica.Visible = false;
+            //
+            // panelNuevaPracticaTarjeta
+            //
+            panelNuevaPracticaTarjeta.BackColor = Color.Transparent;
+            panelNuevaPracticaTarjeta.Controls.Add(btnCrearProyecto);
+            panelNuevaPracticaTarjeta.Controls.Add(panelVistaPreviaNuevaPractica);
+            panelNuevaPracticaTarjeta.Controls.Add(txtObjetivo);
+            panelNuevaPracticaTarjeta.Controls.Add(lblObjetivo);
+            panelNuevaPracticaTarjeta.Controls.Add(txtNombreProyecto);
+            panelNuevaPracticaTarjeta.Controls.Add(lblNombre);
+            panelNuevaPracticaTarjeta.Controls.Add(txtTemas);
+            panelNuevaPracticaTarjeta.Controls.Add(lblTema);
+            panelNuevaPracticaTarjeta.Controls.Add(lblNuevaPracticaSubtitulo);
+            panelNuevaPracticaTarjeta.Controls.Add(lblTitulo);
+            panelNuevaPracticaTarjeta.Location = new Point(20, 10);
+            panelNuevaPracticaTarjeta.Name = "panelNuevaPracticaTarjeta";
+            panelNuevaPracticaTarjeta.Size = new Size(584, 446);
+            panelNuevaPracticaTarjeta.TabIndex = 17;
+            panelNuevaPracticaTarjeta.Paint += PanelNuevaPracticaTarjeta_Paint;
+            //
+            // lblNuevaPracticaSubtitulo
+            //
+            lblNuevaPracticaSubtitulo.AutoSize = false;
+            lblNuevaPracticaSubtitulo.BackColor = Color.Transparent;
+            lblNuevaPracticaSubtitulo.Font = new Font("Segoe UI", 9.5F);
+            lblNuevaPracticaSubtitulo.ForeColor = Color.FromArgb(184, 174, 198);
+            lblNuevaPracticaSubtitulo.Location = new Point(32, 65);
+            lblNuevaPracticaSubtitulo.Name = "lblNuevaPracticaSubtitulo";
+            lblNuevaPracticaSubtitulo.Size = new Size(520, 26);
+            lblNuevaPracticaSubtitulo.TabIndex = 10;
+            lblNuevaPracticaSubtitulo.Text = "Configura tu siguiente ejercicio de C++";
+            lblNuevaPracticaSubtitulo.TextAlign = ContentAlignment.MiddleLeft;
+            //
+            // panelVistaPreviaNuevaPractica
+            //
+            panelVistaPreviaNuevaPractica.BackColor = Color.Transparent;
+            panelVistaPreviaNuevaPractica.Controls.Add(lblNombreFinal);
+            panelVistaPreviaNuevaPractica.Controls.Add(lblVistaPrevia);
+            panelVistaPreviaNuevaPractica.Location = new Point(32, 332);
+            panelVistaPreviaNuevaPractica.Name = "panelVistaPreviaNuevaPractica";
+            panelVistaPreviaNuevaPractica.Size = new Size(520, 55);
+            panelVistaPreviaNuevaPractica.TabIndex = 11;
+            panelVistaPreviaNuevaPractica.Paint += PanelVistaPreviaNuevaPractica_Paint;
             // 
             // btnCrearProyecto
             // 
-            btnCrearProyecto.BackColor = Color.FromArgb(111, 45, 189);
-            btnCrearProyecto.Cursor = Cursors.Hand;
+            btnCrearProyecto.BackColor = Color.FromArgb(48, 43, 58);
+            btnCrearProyecto.Cursor = Cursors.Default;
+            btnCrearProyecto.Enabled = false;
             btnCrearProyecto.FlatAppearance.BorderSize = 0;
-            btnCrearProyecto.FlatAppearance.MouseDownBackColor = Color.FromArgb(88, 35, 155);
-            btnCrearProyecto.FlatAppearance.MouseOverBackColor = Color.FromArgb(126, 55, 210);
+            btnCrearProyecto.FlatAppearance.MouseDownBackColor = Color.FromArgb(48, 43, 58);
+            btnCrearProyecto.FlatAppearance.MouseOverBackColor = Color.FromArgb(48, 43, 58);
             btnCrearProyecto.FlatStyle = FlatStyle.Flat;
-            btnCrearProyecto.Font = new Font("Segoe UI Semibold", 10F);
-            btnCrearProyecto.ForeColor = Color.White;
-            btnCrearProyecto.Location = new Point(123, 385);
+            btnCrearProyecto.Font = new Font("Segoe UI Semibold", 10.5F);
+            btnCrearProyecto.ForeColor = Color.FromArgb(174, 168, 184);
+            btnCrearProyecto.Location = new Point(32, 399);
             btnCrearProyecto.Name = "btnCrearProyecto";
-            btnCrearProyecto.Size = new Size(180, 42);
+            btnCrearProyecto.Size = new Size(520, 42);
             btnCrearProyecto.TabIndex = 6;
             btnCrearProyecto.Text = "Crear práctica";
             btnCrearProyecto.UseVisualStyleBackColor = false;
             btnCrearProyecto.Click += BtnCrearProyecto_Click;
+            btnCrearProyecto.EnabledChanged += BtnCrearProyecto_EnabledChanged;
             btnCrearProyecto.MouseEnter += BtnCrearProyecto_MouseEnter;
             btnCrearProyecto.MouseLeave += BtnCrearProyecto_MouseLeave;
+            btnCrearProyecto.Paint += BtnCrearProyecto_Paint;
             // 
             // lblNombreFinal
             // 
             lblNombreFinal.BackColor = Color.Transparent;
-            lblNombreFinal.Font = new Font("Segoe UI Light", 11F);
-            lblNombreFinal.ForeColor = Color.FromArgb(168, 85, 247);
-            lblNombreFinal.Location = new Point(35, 339);
+            lblNombreFinal.Font = new Font("Segoe UI Semibold", 11F);
+            lblNombreFinal.ForeColor = Color.FromArgb(196, 128, 255);
+            lblNombreFinal.Location = new Point(18, 25);
             lblNombreFinal.Name = "lblNombreFinal";
-            lblNombreFinal.Size = new Size(350, 30);
+            lblNombreFinal.Size = new Size(444, 30);
             lblNombreFinal.TabIndex = 5;
             lblNombreFinal.Text = "Esperando datos...";
-            lblNombreFinal.TextAlign = ContentAlignment.MiddleCenter;
+            lblNombreFinal.TextAlign = ContentAlignment.MiddleLeft;
             lblNombreFinal.Click += LblNombreFinal_Click;
             // 
             // lblVistaPrevia
             // 
-            lblVistaPrevia.AutoSize = true;
+            lblVistaPrevia.AutoSize = false;
             lblVistaPrevia.BackColor = Color.Transparent;
-            lblVistaPrevia.Font = new Font("Segoe UI Semibold", 9F);
-            lblVistaPrevia.ForeColor = Color.White;
-            lblVistaPrevia.Location = new Point(160, 313);
+            lblVistaPrevia.Font = new Font("Segoe UI Semibold", 7.5F);
+            lblVistaPrevia.ForeColor = Color.FromArgb(176, 156, 198);
+            lblVistaPrevia.Location = new Point(18, 5);
             lblVistaPrevia.Name = "lblVistaPrevia";
-            lblVistaPrevia.Size = new Size(113, 25);
+            lblVistaPrevia.Size = new Size(444, 20);
             lblVistaPrevia.TabIndex = 4;
-            lblVistaPrevia.Text = "Vista previa:";
+            lblVistaPrevia.Text = "NOMBRE GENERADO";
+            lblVistaPrevia.TextAlign = ContentAlignment.MiddleLeft;
             lblVistaPrevia.Click += LblVistaPrevia_Click;
             // 
             // txtObjetivo
             // 
-            txtObjetivo.BackColor = Color.FromArgb(35, 35, 38);
+            txtObjetivo.BackColor = Color.FromArgb(28, 24, 38);
             txtObjetivo.BorderStyle = BorderStyle.FixedSingle;
-            txtObjetivo.Font = new Font("Segoe UI Light", 9F);
+            txtObjetivo.Font = new Font("Segoe UI", 9.5F);
             txtObjetivo.ForeColor = Color.White;
-            txtObjetivo.Location = new Point(88, 252);
+            txtObjetivo.Location = new Point(32, 248);
             txtObjetivo.Multiline = true;
             txtObjetivo.Name = "txtObjetivo";
             txtObjetivo.ScrollBars = ScrollBars.Vertical;
-            txtObjetivo.Size = new Size(250, 60);
+            txtObjetivo.Size = new Size(520, 72);
             txtObjetivo.TabIndex = 9;
             txtObjetivo.TextChanged += TxtObjetivo_TextChanged;
             // 
             // lblObjetivo
             // 
-            lblObjetivo.AutoSize = true;
+            lblObjetivo.AutoSize = false;
             lblObjetivo.BackColor = Color.Transparent;
-            lblObjetivo.Font = new Font("Segoe UI Semibold", 9F);
-            lblObjetivo.ForeColor = Color.White;
-            lblObjetivo.Location = new Point(115, 226);
+            lblObjetivo.Font = new Font("Segoe UI Semibold", 8.5F);
+            lblObjetivo.ForeColor = Color.FromArgb(224, 218, 233);
+            lblObjetivo.Location = new Point(32, 220);
             lblObjetivo.Name = "lblObjetivo";
-            lblObjetivo.Size = new Size(193, 25);
+            lblObjetivo.Size = new Size(480, 20);
             lblObjetivo.TabIndex = 8;
             lblObjetivo.Text = "Objetivo del ejercicio:";
             lblObjetivo.Click += LblObjetivo_Click;
+            lblObjetivo.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // txtNombreProyecto
             // 
-            txtNombreProyecto.BackColor = Color.FromArgb(35, 35, 38);
+            txtNombreProyecto.BackColor = Color.FromArgb(28, 24, 38);
             txtNombreProyecto.BorderStyle = BorderStyle.FixedSingle;
-            txtNombreProyecto.Font = new Font("Segoe UI Light", 9F);
+            txtNombreProyecto.Font = new Font("Segoe UI", 9.5F);
             txtNombreProyecto.ForeColor = Color.White;
-            txtNombreProyecto.Location = new Point(88, 179);
+            txtNombreProyecto.Location = new Point(32, 182);
             txtNombreProyecto.MaxLength = 35;
             txtNombreProyecto.Name = "txtNombreProyecto";
-            txtNombreProyecto.Size = new Size(250, 31);
+            txtNombreProyecto.Size = new Size(520, 31);
             txtNombreProyecto.TabIndex = 3;
             txtNombreProyecto.TextChanged += TxtNombreProyecto_TextChanged;
             // 
             // lblNombre
             // 
-            lblNombre.AutoSize = true;
+            lblNombre.AutoSize = false;
             lblNombre.BackColor = Color.Transparent;
-            lblNombre.Font = new Font("Segoe UI Semibold", 9F);
-            lblNombre.ForeColor = Color.White;
-            lblNombre.Location = new Point(117, 152);
+            lblNombre.Font = new Font("Segoe UI Semibold", 8.5F);
+            lblNombre.ForeColor = Color.FromArgb(224, 218, 233);
+            lblNombre.Location = new Point(32, 158);
             lblNombre.Name = "lblNombre";
-            lblNombre.Size = new Size(190, 25);
+            lblNombre.Size = new Size(480, 20);
             lblNombre.TabIndex = 2;
             lblNombre.Text = "Nombre del ejercicio:";
+            lblNombre.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // lblTitulo
             // 
+            lblTitulo.AutoSize = false;
             lblTitulo.BackColor = Color.Transparent;
-            lblTitulo.Font = new Font("Segoe UI Semibold", 15F);
+            lblTitulo.Font = new Font("Segoe UI Semibold", 18F);
             lblTitulo.ForeColor = Color.White;
-            lblTitulo.Location = new Point(23, 11);
+            lblTitulo.Location = new Point(32, 20);
             lblTitulo.Name = "lblTitulo";
-            lblTitulo.Size = new Size(415, 93);
+            lblTitulo.Size = new Size(520, 52);
             lblTitulo.TabIndex = 7;
-            lblTitulo.Text = "Automatiza la creación de proyectos de C++";
-            lblTitulo.TextAlign = ContentAlignment.MiddleCenter;
+            lblTitulo.Text = "Nueva práctica";
+            lblTitulo.TextAlign = ContentAlignment.MiddleLeft;
             lblTitulo.Click += Label1_Click_2;
             // 
             // txtTemas
             // 
-            txtTemas.BackColor = Color.FromArgb(35, 35, 38);
+            txtTemas.BackColor = Color.FromArgb(28, 24, 38);
+            txtTemas.DrawMode = DrawMode.OwnerDrawFixed;
             txtTemas.DropDownStyle = ComboBoxStyle.DropDownList;
             txtTemas.FlatStyle = FlatStyle.Flat;
-            txtTemas.Font = new Font("Segoe UI Light", 9F);
+            txtTemas.Font = new Font("Segoe UI", 9.5F);
             txtTemas.ForeColor = Color.White;
             txtTemas.FormattingEnabled = true;
-            txtTemas.Location = new Point(88, 107);
+            txtTemas.ItemHeight = 25;
+            txtTemas.Location = new Point(32, 116);
             txtTemas.Name = "txtTemas";
-            txtTemas.Size = new Size(250, 33);
+            txtTemas.Size = new Size(520, 33);
             txtTemas.TabIndex = 1;
+            txtTemas.DrawItem += TxtTemas_DrawItem;
             txtTemas.SelectedIndexChanged += CmbTemas_SelectedIndexChanged;
             // 
             // lblTema
             // 
-            lblTema.AutoSize = true;
+            lblTema.AutoSize = false;
             lblTema.BackColor = Color.Transparent;
-            lblTema.Font = new Font("Segoe UI Semibold", 9F);
-            lblTema.ForeColor = Color.White;
-            lblTema.Location = new Point(182, 79);
+            lblTema.Font = new Font("Segoe UI Semibold", 8.5F);
+            lblTema.ForeColor = Color.FromArgb(224, 218, 233);
+            lblTema.Location = new Point(32, 92);
             lblTema.Name = "lblTema";
-            lblTema.Size = new Size(59, 25);
+            lblTema.Size = new Size(480, 20);
             lblTema.TabIndex = 0;
             lblTema.Text = "Tema:";
+            lblTema.TextAlign = ContentAlignment.MiddleLeft;
             lblTema.Click += Label1_Click_1;
             // 
             // panelPrincipal
@@ -290,16 +361,7 @@
             panelPrincipal.Controls.Add(panelInicioVista);
             panelPrincipal.Controls.Add(panelRecientesVista);
             panelPrincipal.Controls.Add(panelConfiguracionVista);
-            panelPrincipal.Controls.Add(lblTitulo);
-            panelPrincipal.Controls.Add(txtTemas);
-            panelPrincipal.Controls.Add(lblObjetivo);
-            panelPrincipal.Controls.Add(lblNombreFinal);
-            panelPrincipal.Controls.Add(txtNombreProyecto);
-            panelPrincipal.Controls.Add(btnCrearProyecto);
-            panelPrincipal.Controls.Add(lblVistaPrevia);
-            panelPrincipal.Controls.Add(txtObjetivo);
-            panelPrincipal.Controls.Add(lblNombre);
-            panelPrincipal.Controls.Add(lblTema);
+            panelPrincipal.Controls.Add(panelVistaNuevaPractica);
             panelPrincipal.Location = new Point(264, 134);
             panelPrincipal.Name = "panelPrincipal";
             panelPrincipal.Size = new Size(892, 470);
@@ -323,7 +385,7 @@
             // 
             // panelCardContinuar
             // 
-            panelCardContinuar.BackColor = Color.FromArgb(28, 22, 41);
+            panelCardContinuar.BackColor = Color.FromArgb(20, 16, 30);
             panelCardContinuar.Controls.Add(lblCardContinuarDesc);
             panelCardContinuar.Controls.Add(lblCardContinuarTitulo);
             panelCardContinuar.Cursor = Cursors.Hand;
@@ -361,7 +423,7 @@
             // 
             // panelCardConfiguracion
             // 
-            panelCardConfiguracion.BackColor = Color.FromArgb(28, 22, 40);
+            panelCardConfiguracion.BackColor = Color.FromArgb(20, 16, 30);
             panelCardConfiguracion.Controls.Add(lblCardConfiguracionDesc);
             panelCardConfiguracion.Controls.Add(lblCardConfiguracionTitulo);
             panelCardConfiguracion.Cursor = Cursors.Hand;
@@ -398,7 +460,7 @@
             // 
             // panelCardRecientes
             // 
-            panelCardRecientes.BackColor = Color.FromArgb(28, 22, 40);
+            panelCardRecientes.BackColor = Color.FromArgb(20, 16, 30);
             panelCardRecientes.Controls.Add(lblCardRecientesDesc);
             panelCardRecientes.Controls.Add(lblCardRecientesTitulo);
             panelCardRecientes.Cursor = Cursors.Hand;
@@ -438,7 +500,7 @@
             // 
             // panelCardNuevaPractica
             // 
-            panelCardNuevaPractica.BackColor = Color.FromArgb(28, 22, 40);
+            panelCardNuevaPractica.BackColor = Color.FromArgb(20, 16, 30);
             panelCardNuevaPractica.Controls.Add(lblCardNuevaPracticaDesc);
             panelCardNuevaPractica.Controls.Add(lblCardNuevaPracticaTitulo);
             panelCardNuevaPractica.Cursor = Cursors.Hand;
@@ -795,19 +857,19 @@
             //
             // btnRestaurarConfiguracion
             //
-            btnRestaurarConfiguracion.AutoSize = true;
+            btnRestaurarConfiguracion.AutoSize = false;
             btnRestaurarConfiguracion.BackColor = Color.FromArgb(65, 65, 70);
             btnRestaurarConfiguracion.Cursor = Cursors.Hand;
-            btnRestaurarConfiguracion.Enabled = false;
+            btnRestaurarConfiguracion.Enabled = true;
             btnRestaurarConfiguracion.FlatAppearance.BorderSize = 0;
             btnRestaurarConfiguracion.FlatAppearance.MouseDownBackColor = Color.FromArgb(50, 50, 55);
             btnRestaurarConfiguracion.FlatAppearance.MouseOverBackColor = Color.FromArgb(80, 80, 85);
             btnRestaurarConfiguracion.FlatStyle = FlatStyle.Flat;
             btnRestaurarConfiguracion.Font = new Font("Segoe UI Semibold", 9F);
             btnRestaurarConfiguracion.ForeColor = Color.White;
-            btnRestaurarConfiguracion.Location = new Point(500, 325);
+            btnRestaurarConfiguracion.Location = new Point(345, 325);
             btnRestaurarConfiguracion.Name = "btnRestaurarConfiguracion";
-            btnRestaurarConfiguracion.Size = new Size(200, 37);
+            btnRestaurarConfiguracion.Size = new Size(253, 37);
             btnRestaurarConfiguracion.TabIndex = 8;
             btnRestaurarConfiguracion.Text = "Descartar cambios";
             btnRestaurarConfiguracion.UseVisualStyleBackColor = false;
@@ -815,19 +877,19 @@
             //
             // btnGuardarConfiguracion
             // 
-            btnGuardarConfiguracion.AutoSize = true;
+            btnGuardarConfiguracion.AutoSize = false;
             btnGuardarConfiguracion.BackColor = Color.FromArgb(111, 45, 189);
             btnGuardarConfiguracion.Cursor = Cursors.Hand;
-            btnGuardarConfiguracion.Enabled = false;
+            btnGuardarConfiguracion.Enabled = true;
             btnGuardarConfiguracion.FlatAppearance.BorderSize = 0;
             btnGuardarConfiguracion.FlatAppearance.MouseDownBackColor = Color.FromArgb(88, 35, 155);
             btnGuardarConfiguracion.FlatAppearance.MouseOverBackColor = Color.FromArgb(126, 55, 210);
             btnGuardarConfiguracion.FlatStyle = FlatStyle.Flat;
             btnGuardarConfiguracion.Font = new Font("Segoe UI Semibold", 9F);
             btnGuardarConfiguracion.ForeColor = Color.White;
-            btnGuardarConfiguracion.Location = new Point(208, 325);
+            btnGuardarConfiguracion.Location = new Point(72, 325);
             btnGuardarConfiguracion.Name = "btnGuardarConfiguracion";
-            btnGuardarConfiguracion.Size = new Size(270, 37);
+            btnGuardarConfiguracion.Size = new Size(253, 37);
             btnGuardarConfiguracion.TabIndex = 7;
             btnGuardarConfiguracion.Text = "Guardar cambios";
             btnGuardarConfiguracion.UseVisualStyleBackColor = false;
@@ -1366,8 +1428,11 @@
             StartPosition = FormStartPosition.CenterScreen;
             Text = "EndForge";
             Load += FrmPrincipal_Load;
+            panelVistaNuevaPractica.ResumeLayout(false);
+            panelNuevaPracticaTarjeta.ResumeLayout(false);
+            panelNuevaPracticaTarjeta.PerformLayout();
+            panelVistaPreviaNuevaPractica.ResumeLayout(false);
             panelPrincipal.ResumeLayout(false);
-            panelPrincipal.PerformLayout();
             panelInicioVista.ResumeLayout(false);
             panelInicioVista.PerformLayout();
             panelCardContinuar.ResumeLayout(false);
@@ -1412,6 +1477,10 @@
         }
 
         #endregion
+        private Panel panelVistaNuevaPractica;
+        private Panel panelNuevaPracticaTarjeta;
+        private Label lblNuevaPracticaSubtitulo;
+        private Panel panelVistaPreviaNuevaPractica;
         private Button btnCrearProyecto;
         private Label lblNombreFinal;
         private Label lblVistaPrevia;

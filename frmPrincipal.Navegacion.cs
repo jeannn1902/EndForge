@@ -48,6 +48,9 @@ public partial class frmPrincipal {
         panelInicioVista.Visible = false;
         panelRecientesVista.Visible = false;
         panelConfiguracionVista.Visible = false;
+        panelVistaNuevaPractica.Visible = true;
+
+        panelVistaNuevaPractica.BringToFront();
         fondoEndForge.SendToBack();
     }
 
@@ -57,6 +60,7 @@ public partial class frmPrincipal {
         panelInicioVista.Visible = true;
         panelRecientesVista.Visible = false;
         panelConfiguracionVista.Visible = false;
+        panelVistaNuevaPractica.Visible = false;
 
         panelInicioVista.BringToFront();
     }
@@ -87,6 +91,7 @@ public partial class frmPrincipal {
             }
 
             SeleccionarPanelMenu(panelAbrirPractica);
+            panelVistaNuevaPractica.Visible = false;
 
             bool aperturaExitosa = IntentarAbrirPractica(carpeta.SelectedPath, promoverReciente: true);
 
@@ -110,6 +115,7 @@ public partial class frmPrincipal {
         panelInicioVista.Visible = false;
         panelRecientesVista.Visible = true;
         panelConfiguracionVista.Visible = false;
+        panelVistaNuevaPractica.Visible = false;
 
         panelRecientesVista.BringToFront();
 
@@ -122,12 +128,14 @@ public partial class frmPrincipal {
         panelInicioVista.Visible = false;
         panelRecientesVista.Visible = false;
         panelConfiguracionVista.Visible = true;
+        panelVistaNuevaPractica.Visible = false;
 
         panelConfiguracionVista.BringToFront();
     }
 
     private void PanelAcercaDe_Click(object? sender, EventArgs e) {
         SeleccionarPanelMenu(panelAcercaDe);
+        panelVistaNuevaPractica.Visible = false;
 
         MessageBox.Show(
             "EndForge 1.0\n\n" +

@@ -187,8 +187,39 @@ public partial class frmPrincipal {
 
     private bool ActualizarEstadoCambiosConfiguracion() {
         bool hayCambios = HayCambiosConfiguracion();
-        btnGuardarConfiguracion.Enabled = hayCambios;
-        btnRestaurarConfiguracion.Enabled = hayCambios;
+
+        btnGuardarConfiguracion.Enabled = true;
+        btnRestaurarConfiguracion.Enabled = true;
+
+        if (hayCambios) {
+            btnGuardarConfiguracion.BackColor = Color.FromArgb(111, 45, 189);
+            btnGuardarConfiguracion.ForeColor = Color.White;
+            btnGuardarConfiguracion.Cursor = Cursors.Hand;
+            btnGuardarConfiguracion.FlatAppearance.MouseOverBackColor = Color.FromArgb(126, 55, 210);
+            btnGuardarConfiguracion.FlatAppearance.MouseDownBackColor = Color.FromArgb(88, 35, 155);
+
+            btnRestaurarConfiguracion.BackColor = Color.FromArgb(65, 65, 70);
+            btnRestaurarConfiguracion.ForeColor = Color.White;
+            btnRestaurarConfiguracion.Cursor = Cursors.Hand;
+            btnRestaurarConfiguracion.FlatAppearance.MouseOverBackColor = Color.FromArgb(80, 80, 85);
+            btnRestaurarConfiguracion.FlatAppearance.MouseDownBackColor = Color.FromArgb(50, 50, 55);
+        } else {
+            Color fondoInactivo = Color.FromArgb(45, 45, 50);
+            Color textoInactivo = Color.FromArgb(150, 150, 155);
+
+            btnGuardarConfiguracion.BackColor = fondoInactivo;
+            btnGuardarConfiguracion.ForeColor = textoInactivo;
+            btnGuardarConfiguracion.Cursor = Cursors.Default;
+            btnGuardarConfiguracion.FlatAppearance.MouseOverBackColor = fondoInactivo;
+            btnGuardarConfiguracion.FlatAppearance.MouseDownBackColor = fondoInactivo;
+
+            btnRestaurarConfiguracion.BackColor = fondoInactivo;
+            btnRestaurarConfiguracion.ForeColor = textoInactivo;
+            btnRestaurarConfiguracion.Cursor = Cursors.Default;
+            btnRestaurarConfiguracion.FlatAppearance.MouseOverBackColor = fondoInactivo;
+            btnRestaurarConfiguracion.FlatAppearance.MouseDownBackColor = fondoInactivo;
+        }
+
         return hayCambios;
     }
 

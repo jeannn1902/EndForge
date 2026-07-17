@@ -47,6 +47,15 @@ public partial class frmPrincipal {
 
         lblCardContinuarDesc.MouseEnter += CardInicio_MouseEnter;
         lblCardContinuarDesc.MouseLeave += CardInicio_MouseLeave;
+
+        panelCardNuevaPractica.MouseEnter += CardInicio_MouseEnter;
+        panelCardNuevaPractica.MouseLeave += CardInicio_MouseLeave;
+
+        panelCardRecientes.MouseEnter += CardInicio_MouseEnter;
+        panelCardRecientes.MouseLeave += CardInicio_MouseLeave;
+
+        panelCardConfiguracion.MouseEnter += CardInicio_MouseEnter;
+        panelCardConfiguracion.MouseLeave += CardInicio_MouseLeave;
     }
 
     private void ConfigurarVentana() {
@@ -133,6 +142,7 @@ public partial class frmPrincipal {
         panelInicio.BackColor = Color.FromArgb(111, 45, 189);
         panelRecientesVista.Visible = false;
         panelConfiguracionVista.Visible = false;
+        panelVistaNuevaPractica.Visible = false;
 
         CentrarPanelPrincipal();
         AplicarFondoDinamicoPanelPrincipal();

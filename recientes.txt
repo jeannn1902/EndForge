@@ -1,5 +1,0 @@
-03_Pruebapro|C:\Users\jeanc\source\repos\AprendiendoCpp\01_Variables\03_Pruebapro
-02_PruebaCreaPractica|C:\Users\jeanc\source\repos\AprendiendoCpp\01_Variables\02_PruebaCreaPractica
-04_pruebaidentidad|C:\Users\jeanc\source\repos\AprendiendoCpp\01_Variables\04_pruebaidentidad
-03_wewds|C:\Users\jeanc\source\repos\AprendiendoCpp\01_Variables\03_wewds
-02_e|C:\Users\jeanc\source\repos\AprendiendoCpp\01_Variables\02_e
