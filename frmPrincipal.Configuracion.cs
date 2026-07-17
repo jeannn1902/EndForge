@@ -6,8 +6,10 @@ namespace EndForge;
 public partial class frmPrincipal {
     private bool actualizandoCamposConfiguracion;
 
-    private ResultadoCargaConfiguracion CargarConfiguracion() {
-        ResultadoCargaConfiguracion resultado = configuracionService.CargarConfiguracion();
+    private ResultadoCargaConfiguracion CargarConfiguracion(
+        ResultadoCargaConfiguracion? resultadoPrecargado = null) {
+        ResultadoCargaConfiguracion resultado =
+            resultadoPrecargado ?? configuracionService.CargarConfiguracion();
 
         if (resultado.Estado == EstadoCargaConfiguracion.ErrorPermisosConfiguracion) {
             MessageBox.Show(

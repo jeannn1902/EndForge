@@ -9,5 +9,7 @@ public sealed class ProgresoPractica {
 
     public DateTimeOffset FechaCreacion { get; set; }
 
+    public DateTimeOffset? FechaActualizacion { get; set; }
+
     public DateTimeOffset? FechaFinalizacion { get; set; }
 }

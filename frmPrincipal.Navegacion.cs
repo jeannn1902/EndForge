@@ -43,7 +43,7 @@ public partial class frmPrincipal {
     }
 
     private void panelNuevaPractica_Click(object? sender, EventArgs e) {
-        MostrarNavegacionPrincipal();
+        MostrarNavegacionPrincipal(DistribucionPanelPrincipal.NuevaPractica);
         SeleccionarPanelMenu(panelNuevaPractica);
 
         panelInicioVista.Visible = false;

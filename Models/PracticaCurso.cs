@@ -21,5 +21,11 @@ public sealed class PracticaCurso {
 
     public string Dificultad { get; init; } = "";
 
+    public string DuracionEstimada { get; init; } = "";
+
+    public IReadOnlyList<string> RequisitosPrevios { get; init; } = Array.Empty<string>();
+
+    public EstadoPracticaCurso EstadoInicial { get; init; } = EstadoPracticaCurso.Pendiente;
+
     public string NombreProyecto { get; init; } = "";
 }

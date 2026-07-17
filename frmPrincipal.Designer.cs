@@ -35,7 +35,7 @@
             btnCrearProyecto = new Button();
             lblNombreFinal = new Label();
             lblVistaPrevia = new Label();
-            txtObjetivo = new TextBox();
+            txtObjetivo = new RichTextBox();
             lblObjetivo = new Label();
             txtNombreProyecto = new TextBox();
             lblNombre = new Label();
@@ -265,7 +265,7 @@
             txtObjetivo.Location = new Point(32, 248);
             txtObjetivo.Multiline = true;
             txtObjetivo.Name = "txtObjetivo";
-            txtObjetivo.ScrollBars = ScrollBars.Vertical;
+            txtObjetivo.ScrollBars = RichTextBoxScrollBars.None;
             txtObjetivo.Size = new Size(520, 72);
             txtObjetivo.TabIndex = 9;
             txtObjetivo.TextChanged += TxtObjetivo_TextChanged;
@@ -1485,7 +1485,7 @@
         private Button btnCrearProyecto;
         private Label lblNombreFinal;
         private Label lblVistaPrevia;
-        private TextBox txtObjetivo;
+        private RichTextBox txtObjetivo;
         private Label lblObjetivo;
         private TextBox txtNombreProyecto;
         private Label lblNombre;

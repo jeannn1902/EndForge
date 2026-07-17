@@ -6,6 +6,67 @@ using System.Drawing.Drawing2D;
 namespace EndForge;
 
 public partial class frmPrincipal {
+    private sealed class PresentacionTarjetaTema {
+        public PresentacionTarjetaTema(
+            Label numero,
+            Label nombre,
+            Label descripcion,
+            Label porcentaje,
+            Label progreso,
+            Label estado,
+            Panel fondoProgreso,
+            Panel rellenoProgreso,
+            int valorPorcentaje) {
+            Numero = numero;
+            Nombre = nombre;
+            Descripcion = descripcion;
+            Porcentaje = porcentaje;
+            Progreso = progreso;
+            Estado = estado;
+            FondoProgreso = fondoProgreso;
+            RellenoProgreso = rellenoProgreso;
+            ValorPorcentaje = valorPorcentaje;
+        }
+
+        public Label Numero { get; }
+        public Label Nombre { get; }
+        public Label Descripcion { get; }
+        public Label Porcentaje { get; }
+        public Label Progreso { get; }
+        public Label Estado { get; }
+        public Panel FondoProgreso { get; }
+        public Panel RellenoProgreso { get; }
+        public int ValorPorcentaje { get; }
+    }
+
+    private static class TamanoFuenteCurso {
+        public const float TituloPerfil = 16F;
+        public const float NombrePerfil = 12F;
+        public const float TextoPerfil = 10.5F;
+        public const float ProgresoPerfil = 9.8F;
+        public const float EncabezadoPerfil = 9F;
+        public const float TextoSecundarioPerfil = 9.5F;
+        public const float RecomendacionPerfil = 9.3F;
+        public const float AvisoPerfil = 8.5F;
+        public const float TituloSeccion = 16F;
+        public const float NumeroCabecera = 10F;
+        public const float TituloPrincipal = 22F;
+        public const float DescripcionCabecera = 10.5F;
+        public const float NumeroTarjeta = 13F;
+        public const float TituloTarjetaTema = 13.5F;
+        public const float DescripcionTarjetaTema = 9F;
+        public const float ProgresoTarjetaTema = 9.5F;
+        public const float MetadatoTarjetaTema = 9F;
+        public const float TituloTarjetaPractica = 13F;
+        public const float DescripcionTarjetaPractica = 9.8F;
+        public const float EstadoTarjetaPractica = 10F;
+        public const float MetadatoTarjetaPractica = 9F;
+        public const float EncabezadoDetalle = 11F;
+        public const float TextoDetalle = 10.2F;
+        public const float BotonPrimario = 10.5F;
+        public const float BotonSecundario = 10F;
+    }
+
     private static readonly Color ColorTarjetaCurso = Color.FromArgb(24, 19, 36);
     private static readonly Color ColorTarjetaCursoHover = Color.FromArgb(41, 31, 58);
     private static readonly Color ColorBordeCurso = Color.FromArgb(116, 67, 163);
@@ -13,8 +74,8 @@ public partial class frmPrincipal {
     private static readonly Color ColorMoradoClaroCurso = Color.FromArgb(202, 151, 247);
     private static readonly Color ColorTextoSecundarioCurso = Color.FromArgb(190, 181, 204);
 
-    private readonly CursoService cursoService = new();
-    private readonly ProgresoCursoService progresoCursoService = new();
+    private CursoService cursoService = null!;
+    private ProgresoCursoService progresoCursoService = null!;
     private ProgresoCurso progresoCurso = new();
     private TemaCurso? temaCursoSeleccionado;
     private PracticaCurso? practicaCursoSeleccionada;
@@ -27,6 +88,7 @@ public partial class frmPrincipal {
     private Panel panelCursoVista = null!;
     private Panel panelPracticasTemaVista = null!;
     private Panel panelDetallePracticaVista = null!;
+    private PanelDesplazableSinBarras desplazamientoCursoPrincipal = null!;
     private PanelDesplazableSinBarras desplazamientoTemasCurso = null!;
     private PanelDesplazableSinBarras desplazamientoPracticasTema = null!;
     private PanelDesplazableSinBarras desplazamientoDetallePractica = null!;
@@ -35,31 +97,179 @@ public partial class frmPrincipal {
     private FlowLayoutPanel listaTemasCurso = null!;
     private FlowLayoutPanel listaPracticasTema = null!;
     private FlowLayoutPanel contenidoDetallePractica = null!;
+    private Label lblTituloPerfilCurso = null!;
+    private Label lblNombrePerfilCurso = null!;
+    private Label lblNivelPerfilCurso = null!;
     private Label lblProgresoGeneralCurso = null!;
+    private Panel panelFondoProgresoCurso = null!;
+    private Label lblSiguientePasoCurso = null!;
     private Label lblUltimaPracticaCurso = null!;
     private Label lblAvisoProgresoCurso = null!;
     private Panel panelRellenoProgresoCurso = null!;
     private Button btnContinuarAprendizaje = null!;
+    private Label lblTituloRecomendacionCurso = null!;
+    private Label lblPracticaRecomendadaCurso = null!;
+    private Button btnVerPracticaRecomendadaCurso = null!;
+    private Button btnVolverTemasCurso = null!;
+    private Button btnVolverPracticasCurso = null!;
     private Label lblNumeroTemaCurso = null!;
     private Label lblNombreTemaCurso = null!;
     private Label lblDescripcionTemaCurso = null!;
     private Size tamanoPanelPrincipalNormal;
     private bool modoCursoInmersivo;
+    private bool cursoModoCompacto;
+    private bool jerarquiaCursoPrincipalInicializada;
+    private bool estructuraCursoInicializada;
+    private bool inicializandoCurso;
+    private bool cursoInicializado;
+    private bool preparandoCurso;
+    private bool cursoPreparado;
+    private bool tarjetasTemasActualizadas;
+    private Task? tareaPreparacionCurso;
+    private CursoService? cursoServicePrecargado;
+    private ProgresoCursoService? progresoCursoServicePrecargado;
+    private ResultadoCargaProgreso? resultadoProgresoCursoPrecargado;
+    private int ultimoAnchoTarjetasTemas = -1;
+    private int ultimoDpiTarjetasTemas = -1;
+    private bool ultimoModoCompactoTarjetasTemas;
 
-    private void InicializarCurso() {
+    private void InicializarEstructuraCurso() {
+        if (estructuraCursoInicializada) {
+            return;
+        }
+
         tamanoPanelPrincipalNormal = panelPrincipal.Size;
         InicializarOpcionCursoMenu();
-        InicializarVistasCurso();
-        ConstruirResumenCurso();
-        ConstruirVistaPracticasTema();
-        ConstruirVistaDetallePractica();
+        estructuraCursoInicializada = true;
+    }
 
-        ActivarDobleBuffer(panelCursoVista);
-        ActivarDobleBuffer(panelPracticasTemaVista);
-        ActivarDobleBuffer(panelDetallePracticaVista);
-        ActivarDobleBuffer(desplazamientoTemasCurso);
-        ActivarDobleBuffer(desplazamientoPracticasTema);
-        ActivarDobleBuffer(desplazamientoDetallePractica);
+    private void EstablecerDatosPrecargadosCurso(
+        CursoService servicioCurso,
+        ProgresoCursoService servicioProgreso,
+        ResultadoCargaProgreso resultadoProgreso) {
+        if (cursoInicializado || inicializandoCurso) {
+            return;
+        }
+
+        cursoServicePrecargado = servicioCurso;
+        progresoCursoServicePrecargado = servicioProgreso;
+        resultadoProgresoCursoPrecargado = resultadoProgreso;
+    }
+
+    private Task PrepararCursoDiferidoAsync() {
+        if (cursoPreparado || IsDisposed || Disposing) {
+            return Task.CompletedTask;
+        }
+
+        tareaPreparacionCurso ??= PrepararCursoDiferidoNucleoAsync();
+        return tareaPreparacionCurso;
+    }
+
+    private async Task PrepararCursoDiferidoNucleoAsync() {
+        if (cursoPreparado || preparandoCurso || IsDisposed || Disposing) {
+            return;
+        }
+
+        preparandoCurso = true;
+        inicializandoCurso = true;
+        RegistrarTiempoInicio("Curso UI: inicio de construcción diferida");
+
+        try {
+            if (!await EsperarFinalizacionTransicionBienvenidaAsync() ||
+                !PuedeContinuarConstruccionCurso()) {
+                return;
+            }
+
+            cursoService = cursoServicePrecargado ?? new CursoService();
+            progresoCursoService =
+                progresoCursoServicePrecargado ?? new ProgresoCursoService();
+            cursoServicePrecargado = null;
+            progresoCursoServicePrecargado = null;
+
+            EjecutarFaseConstruccionCurso(
+                InicializarVistasCurso,
+                "Curso UI: estructura base creada");
+            if (!await CederCicloConstruccionCursoAsync()) {
+                return;
+            }
+
+            EjecutarFaseConstruccionCurso(
+                ConstruirResumenCurso,
+                "Curso UI: perfil y contenedor de temas creados");
+            if (!await CederCicloConstruccionCursoAsync()) {
+                return;
+            }
+
+            EjecutarFaseConstruccionCurso(
+                ConstruirVistaPracticasTema,
+                "Curso UI: vista de prácticas creada");
+            if (!await CederCicloConstruccionCursoAsync()) {
+                return;
+            }
+
+            EjecutarFaseConstruccionCurso(
+                ConstruirVistaDetallePractica,
+                "Curso UI: vista de detalle creada");
+            if (!await CederCicloConstruccionCursoAsync()) {
+                return;
+            }
+
+            ActivarDobleBuffer(panelCursoVista);
+            ActivarDobleBuffer(panelPracticasTemaVista);
+            ActivarDobleBuffer(panelDetallePracticaVista);
+            ActivarDobleBuffer(desplazamientoCursoPrincipal);
+            ActivarDobleBuffer(desplazamientoTemasCurso);
+            ActivarDobleBuffer(desplazamientoPracticasTema);
+            ActivarDobleBuffer(desplazamientoDetallePractica);
+
+            KeyDown += FrmPrincipal_CursoKeyDown;
+            cursoInicializado = true;
+            inicializandoCurso = false;
+            RegistrarTiempoInicio("Curso UI: controles base finalizados");
+
+            CargarProgresoCurso(
+                mostrarAvisoInmediato: false,
+                resultadoProgresoCursoPrecargado);
+            resultadoProgresoCursoPrecargado = null;
+            RegistrarTiempoInicio("Curso UI: progreso visual aplicado");
+            if (!await CederCicloConstruccionCursoAsync()) {
+                return;
+            }
+
+            ReconstruirTarjetasTemas();
+            cursoPreparado = true;
+            RegistrarTiempoInicio("Curso UI: tarjetas de temas finalizadas");
+        } finally {
+            inicializandoCurso = false;
+            preparandoCurso = false;
+            tareaPreparacionCurso = null;
+        }
+    }
+
+    private void EjecutarFaseConstruccionCurso(Action fase, string etapa) {
+        panelPrincipal.SuspendLayout();
+
+        try {
+            fase();
+        } finally {
+            panelPrincipal.ResumeLayout(performLayout: false);
+        }
+
+        RegistrarTiempoInicio(etapa);
+    }
+
+    private bool PuedeContinuarConstruccionCurso() {
+        return !IsDisposed && !Disposing && !inicializacionSecundariaCancelada;
+    }
+
+    private async Task<bool> CederCicloConstruccionCursoAsync() {
+        await Task.Yield();
+
+        if (!PuedeContinuarConstruccionCurso()) {
+            return false;
+        }
+
+        return await EsperarFinalizacionTransicionBienvenidaAsync();
     }
 
     private void InicializarOpcionCursoMenu() {
@@ -135,10 +345,6 @@ public partial class frmPrincipal {
         panelPrincipal.Controls.Add(panelCursoVista);
         panelPrincipal.Controls.Add(panelPracticasTemaVista);
         panelPrincipal.Controls.Add(panelDetallePracticaVista);
-
-        panelCursoVista.Visible = false;
-        panelPracticasTemaVista.Visible = false;
-        panelDetallePracticaVista.Visible = false;
     }
 
     private static Panel CrearVistaCurso(string nombre) {
@@ -147,7 +353,8 @@ public partial class frmPrincipal {
             BackColor = Color.Transparent,
             Dock = DockStyle.Fill,
             Location = Point.Empty,
-            Size = new Size(892, 470)
+            Size = new Size(892, 470),
+            Visible = false
         };
     }
 
@@ -171,98 +378,131 @@ public partial class frmPrincipal {
 
     private void ConstruirResumenCurso() {
         panelPerfilCurso = CrearTarjetaCurso(new Point(18, 18), new Size(278, 434), 18);
+        panelPerfilCurso.TabIndex = 0;
 
-        Label lblTituloPerfil = CrearLabelCurso(
+        lblTituloPerfilCurso = CrearLabelCurso(
             "Curso de C++",
-            new Point(22, 24),
-            new Size(232, 38),
-            15F,
+            new Point(22, 18),
+            new Size(232, 34),
+            TamanoFuenteCurso.TituloPerfil,
             FontStyle.Bold,
             Color.White);
-        Label lblNombrePerfil = CrearLabelCurso(
+        lblNombrePerfilCurso = CrearLabelCurso(
             "Jean Pérez",
-            new Point(22, 72),
-            new Size(232, 27),
-            11F,
+            new Point(22, 54),
+            new Size(232, 24),
+            TamanoFuenteCurso.NombrePerfil,
             FontStyle.Bold,
             ColorMoradoClaroCurso);
-        Label lblNivelPerfil = CrearLabelCurso(
+        lblNivelPerfilCurso = CrearLabelCurso(
             "Nivel actual: Pre-Junior",
-            new Point(22, 106),
-            new Size(232, 24),
-            9.5F,
+            new Point(22, 80),
+            new Size(232, 22),
+            TamanoFuenteCurso.TextoPerfil,
             FontStyle.Regular,
             ColorTextoSecundarioCurso);
 
         lblProgresoGeneralCurso = CrearLabelCurso(
-            "Progreso general\n0 de 50 prácticas",
-            new Point(22, 140),
-            new Size(232, 52),
-            8.8F,
+            $"Progreso general\n0 de {cursoService.TotalPracticasDisponibles} prácticas disponibles",
+            new Point(22, 106),
+            new Size(232, 42),
+            TamanoFuenteCurso.ProgresoPerfil,
             FontStyle.Bold,
             Color.White,
             ContentAlignment.TopLeft);
 
-        Panel fondoBarra = new() {
+        panelFondoProgresoCurso = new Panel {
             BackColor = Color.FromArgb(55, 45, 70),
-            Location = new Point(22, 199),
-            Size = new Size(232, 11)
+            Location = new Point(22, 151),
+            Size = new Size(232, 9)
         };
         panelRellenoProgresoCurso = new Panel {
             BackColor = ColorMoradoCurso,
             Location = Point.Empty,
-            Size = new Size(0, 11)
+            Size = new Size(0, 9)
         };
-        fondoBarra.Controls.Add(panelRellenoProgresoCurso);
+        panelFondoProgresoCurso.Controls.Add(panelRellenoProgresoCurso);
 
-        Label lblSeparador = CrearLabelCurso(
+        lblSiguientePasoCurso = CrearLabelCurso(
             "TU SIGUIENTE PASO",
-            new Point(22, 228),
-            new Size(232, 22),
-            8F,
+            new Point(22, 171),
+            new Size(232, 18),
+            TamanoFuenteCurso.EncabezadoPerfil,
             FontStyle.Bold,
             Color.FromArgb(157, 135, 181));
 
         lblUltimaPracticaCurso = CrearLabelCurso(
             "Aún no hay prácticas iniciadas.",
-            new Point(22, 259),
-            new Size(232, 57),
-            9F,
+            new Point(22, 191),
+            new Size(232, 50),
+            TamanoFuenteCurso.TextoSecundarioPerfil,
             FontStyle.Regular,
             ColorTextoSecundarioCurso);
 
         btnContinuarAprendizaje = CrearBotonCurso(
             "Continuar aprendizaje",
-            new Point(22, 323),
-            new Size(232, 40),
+            new Point(22, 244),
+            new Size(232, 34),
             ColorMoradoCurso);
+        btnContinuarAprendizaje.TabIndex = 0;
+        btnContinuarAprendizaje.AccessibleDescription =
+            "Abre el detalle de la última práctica en progreso sin iniciar Visual Studio.";
         btnContinuarAprendizaje.Visible = false;
         btnContinuarAprendizaje.Click += BtnContinuarAprendizaje_Click;
 
+        lblTituloRecomendacionCurso = CrearLabelCurso(
+            "PRÁCTICA RECOMENDADA",
+            new Point(22, 290),
+            new Size(232, 18),
+            TamanoFuenteCurso.EncabezadoPerfil,
+            FontStyle.Bold,
+            Color.FromArgb(157, 135, 181));
+
+        lblPracticaRecomendadaCurso = CrearLabelCurso(
+            "Tema 01 · Práctica 01\nDatos personales\nFácil · 15–20 min",
+            new Point(22, 310),
+            new Size(232, 50),
+            TamanoFuenteCurso.RecomendacionPerfil,
+            FontStyle.Regular,
+            ColorTextoSecundarioCurso,
+            ContentAlignment.TopLeft);
+
+        btnVerPracticaRecomendadaCurso = CrearBotonSecundarioCurso(
+            "Ver práctica",
+            new Point(22, 363),
+            new Size(232, 34));
+        btnVerPracticaRecomendadaCurso.TabIndex = 1;
+        btnVerPracticaRecomendadaCurso.AccessibleDescription =
+            "Abre el detalle de la práctica recomendada sin crear ni abrir el proyecto.";
+        btnVerPracticaRecomendadaCurso.Click += BtnVerPracticaRecomendadaCurso_Click;
+
         lblAvisoProgresoCurso = CrearLabelCurso(
             string.Empty,
-            new Point(22, 373),
-            new Size(232, 44),
-            8F,
+            new Point(22, 400),
+            new Size(232, 29),
+            TamanoFuenteCurso.AvisoPerfil,
             FontStyle.Regular,
             Color.FromArgb(235, 181, 89));
         lblAvisoProgresoCurso.Visible = false;
 
-        panelPerfilCurso.Controls.Add(lblTituloPerfil);
-        panelPerfilCurso.Controls.Add(lblNombrePerfil);
-        panelPerfilCurso.Controls.Add(lblNivelPerfil);
+        panelPerfilCurso.Controls.Add(lblTituloPerfilCurso);
+        panelPerfilCurso.Controls.Add(lblNombrePerfilCurso);
+        panelPerfilCurso.Controls.Add(lblNivelPerfilCurso);
         panelPerfilCurso.Controls.Add(lblProgresoGeneralCurso);
-        panelPerfilCurso.Controls.Add(fondoBarra);
-        panelPerfilCurso.Controls.Add(lblSeparador);
+        panelPerfilCurso.Controls.Add(panelFondoProgresoCurso);
+        panelPerfilCurso.Controls.Add(lblSiguientePasoCurso);
         panelPerfilCurso.Controls.Add(lblUltimaPracticaCurso);
         panelPerfilCurso.Controls.Add(btnContinuarAprendizaje);
+        panelPerfilCurso.Controls.Add(lblTituloRecomendacionCurso);
+        panelPerfilCurso.Controls.Add(lblPracticaRecomendadaCurso);
+        panelPerfilCurso.Controls.Add(btnVerPracticaRecomendadaCurso);
         panelPerfilCurso.Controls.Add(lblAvisoProgresoCurso);
 
         lblTituloTemasCurso = CrearLabelCurso(
             "TEMAS DEL CURSO",
             new Point(320, 20),
             new Size(554, 30),
-            14F,
+            TamanoFuenteCurso.TituloSeccion,
             FontStyle.Bold,
             Color.White);
 
@@ -273,38 +513,58 @@ public partial class frmPrincipal {
             new Size(560, 396),
             new Padding(4, 3, 4, 4));
         listaTemasCurso = desplazamientoTemasCurso.Contenido;
+        desplazamientoTemasCurso.TabIndex = 1;
+        desplazamientoTemasCurso.BackColor = Color.FromArgb(18, 14, 27);
+        desplazamientoTemasCurso.Padding = Padding.Empty;
+        desplazamientoTemasCurso.MostrarBordeFoco = false;
 
+        desplazamientoCursoPrincipal = new PanelDesplazableSinBarras {
+            Name = "desplazamientoCursoPrincipal",
+            BackColor = Color.FromArgb(18, 14, 27),
+            ColorFondoContenido = Color.FromArgb(18, 14, 27),
+            Location = Point.Empty,
+            Padding = Padding.Empty,
+            Size = panelCursoVista.ClientSize,
+            TabIndex = 0,
+            TabStop = false,
+            Visible = false
+        };
+        desplazamientoCursoPrincipal.MostrarBordeFoco = false;
+        desplazamientoCursoPrincipal.Contenido.Name = "contenidoCursoPrincipal";
+
+        panelCursoVista.Controls.Add(desplazamientoCursoPrincipal);
         panelCursoVista.Controls.Add(panelPerfilCurso);
         panelCursoVista.Controls.Add(lblTituloTemasCurso);
         panelCursoVista.Controls.Add(desplazamientoTemasCurso);
     }
 
     private void ConstruirVistaPracticasTema() {
-        Button btnVolverTemas = CrearBotonSecundarioCurso(
+        btnVolverTemasCurso = CrearBotonSecundarioCurso(
             "← Volver a temas",
             new Point(18, 14),
             new Size(182, 32));
-        btnVolverTemas.Click += (_, _) => MostrarCursoPrincipal();
+        btnVolverTemasCurso.TabIndex = 0;
+        btnVolverTemasCurso.Click += (_, _) => MostrarCursoPrincipal();
 
         lblNumeroTemaCurso = CrearLabelCurso(
             "Tema 01",
             new Point(20, 58),
             new Size(150, 24),
-            9F,
+            TamanoFuenteCurso.NumeroCabecera,
             FontStyle.Bold,
             ColorMoradoClaroCurso);
         lblNombreTemaCurso = CrearLabelCurso(
             "Variables",
             new Point(20, 79),
             new Size(850, 47),
-            21F,
+            TamanoFuenteCurso.TituloPrincipal,
             FontStyle.Bold,
             Color.White);
         lblDescripcionTemaCurso = CrearLabelCurso(
             string.Empty,
             new Point(20, 125),
             new Size(850, 34),
-            9.5F,
+            TamanoFuenteCurso.DescripcionCabecera,
             FontStyle.Regular,
             ColorTextoSecundarioCurso);
 
@@ -316,7 +576,8 @@ public partial class frmPrincipal {
             new Padding(4, 2, 4, 4));
         listaPracticasTema = desplazamientoPracticasTema.Contenido;
 
-        panelPracticasTemaVista.Controls.Add(btnVolverTemas);
+        desplazamientoPracticasTema.TabIndex = 1;
+        panelPracticasTemaVista.Controls.Add(btnVolverTemasCurso);
         panelPracticasTemaVista.Controls.Add(lblNumeroTemaCurso);
         panelPracticasTemaVista.Controls.Add(lblNombreTemaCurso);
         panelPracticasTemaVista.Controls.Add(lblDescripcionTemaCurso);
@@ -324,11 +585,12 @@ public partial class frmPrincipal {
     }
 
     private void ConstruirVistaDetallePractica() {
-        Button btnVolverPracticas = CrearBotonSecundarioCurso(
+        btnVolverPracticasCurso = CrearBotonSecundarioCurso(
             "← Volver a prácticas",
             new Point(18, 14),
             new Size(202, 32));
-        btnVolverPracticas.Click += (_, _) => {
+        btnVolverPracticasCurso.TabIndex = 0;
+        btnVolverPracticasCurso.Click += (_, _) => {
             if (temaCursoSeleccionado is not null) {
                 MostrarPracticasTema(temaCursoSeleccionado);
             } else {
@@ -344,11 +606,18 @@ public partial class frmPrincipal {
             new Padding(12, 10, 12, 18));
         contenidoDetallePractica = desplazamientoDetallePractica.Contenido;
 
-        panelDetallePracticaVista.Controls.Add(btnVolverPracticas);
+        desplazamientoDetallePractica.TabIndex = 1;
+        panelDetallePracticaVista.Controls.Add(btnVolverPracticasCurso);
         panelDetallePracticaVista.Controls.Add(desplazamientoDetallePractica);
     }
 
-    private void PanelCurso_Click(object? sender, EventArgs e) {
+    private async void PanelCurso_Click(object? sender, EventArgs e) {
+        await PrepararCursoParaInteraccionAsync();
+
+        if (!cursoPreparado || IsDisposed || Disposing) {
+            return;
+        }
+
         SeleccionarPanelMenu(panelCurso);
 
         panelInicioVista.Visible = false;
@@ -356,14 +625,21 @@ public partial class frmPrincipal {
         panelConfiguracionVista.Visible = false;
         panelVistaNuevaPractica.Visible = false;
 
-        CargarProgresoCurso(mostrarAvisoInmediato: false);
         MostrarCursoPrincipal();
     }
 
     private void MostrarCursoPrincipal() {
-        MostrarNavegacionPrincipal();
+        if (!cursoPreparado) {
+            return;
+        }
+
+        MostrarNavegacionPrincipal(DistribucionPanelPrincipal.Curso);
         ActualizarResumenCurso();
-        ReconstruirTarjetasTemas();
+
+        if (!tarjetasTemasActualizadas) {
+            ReconstruirTarjetasTemas();
+        }
+
         MostrarSubvistaCurso(panelCursoVista);
     }
 
@@ -371,6 +647,15 @@ public partial class frmPrincipal {
         if (tema.EsProximamente) {
             MessageBox.Show(
                 tema.MensajeDisponibilidad,
+                "EndForge",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            return;
+        }
+
+        if (tema.Practicas.Count == 0) {
+            MessageBox.Show(
+                "Este tema todavía no tiene prácticas disponibles.",
                 "EndForge",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
@@ -394,39 +679,57 @@ public partial class frmPrincipal {
         MostrarSubvistaCurso(panelDetallePracticaVista);
     }
 
-    private void MostrarNavegacionPrincipal() {
+    private void FrmPrincipal_CursoKeyDown(object? sender, KeyEventArgs e) {
+        if (!entradaAplicacionRealizada || e.KeyCode != Keys.Escape) {
+            return;
+        }
+
+        if (panelDetallePracticaVista.Visible) {
+            if (temaCursoSeleccionado is not null) {
+                MostrarPracticasTema(temaCursoSeleccionado);
+            } else {
+                MostrarCursoPrincipal();
+            }
+        } else if (panelPracticasTemaVista.Visible) {
+            MostrarCursoPrincipal();
+        } else {
+            return;
+        }
+
+        e.Handled = true;
+        e.SuppressKeyPress = true;
+    }
+
+    private void MostrarNavegacionPrincipal(
+        DistribucionPanelPrincipal distribucion = DistribucionPanelPrincipal.Normal) {
         timerRecalcularVista.Stop();
         modoCursoInmersivo = false;
+        distribucionPanelPrincipal = distribucion;
         panelMenu.Visible = true;
         panelPrincipal.Visible = true;
 
-        CentrarPanelPrincipal();
-        SincronizarVistaPrincipalCurso();
-        AjustarGeometriaVistasCurso();
+        if (transicionandoDesdeBienvenida) {
+            recalculoPendienteDuranteTransicion = true;
+        } else {
+            RecalcularDistribucionActual();
+        }
 
         panelMenu.BringToFront();
         panelBarraTitulo.BringToFront();
-        InvalidarFondoContinuo();
-    }
 
-    private void SincronizarVistaPrincipalCurso() {
-        Rectangle areaDisponible = panelPrincipal.ClientRectangle;
-
-        panelCursoVista.SetBounds(
-            areaDisponible.Left,
-            areaDisponible.Top,
-            Math.Max(1, areaDisponible.Width),
-            Math.Max(1, areaDisponible.Height));
+        if (!transicionandoDesdeBienvenida) {
+            InvalidarFondoContinuo();
+        }
     }
 
     private void MostrarModoCursoInmersivo() {
         timerRecalcularVista.Stop();
         modoCursoInmersivo = true;
+        distribucionPanelPrincipal = DistribucionPanelPrincipal.Curso;
         panelMenu.Visible = false;
         panelPrincipal.Visible = true;
         panelBarraTitulo.BringToFront();
-        CentrarPanelPrincipal();
-        AjustarGeometriaVistasCurso();
+        RecalcularDistribucionActual();
         InvalidarFondoContinuo();
     }
 
@@ -438,13 +741,18 @@ public partial class frmPrincipal {
     }
 
     private void OcultarVistasCurso() {
+        if (!cursoInicializado) {
+            return;
+        }
+
         panelCursoVista.Visible = false;
         panelPracticasTemaVista.Visible = false;
         panelDetallePracticaVista.Visible = false;
     }
 
-    private void AjustarGeometriaVistasCurso() {
-        if (desplazamientoTemasCurso is null ||
+    private void RecalcularDistribucionCurso() {
+        if (!cursoInicializado ||
+            desplazamientoTemasCurso is null ||
             desplazamientoPracticasTema is null ||
             desplazamientoDetallePractica is null ||
             panelPerfilCurso is null ||
@@ -454,99 +762,373 @@ public partial class frmPrincipal {
 
         int ancho = Math.Max(1, panelPrincipal.ClientSize.Width);
         int alto = Math.Max(1, panelPrincipal.ClientSize.Height);
-        int anchoVistaCurso = Math.Max(1, panelCursoVista.ClientSize.Width);
-        int altoVistaCurso = Math.Max(1, panelCursoVista.ClientSize.Height);
-        const int margenHorizontalCurso = 16;
-        const int margenVerticalCurso = 12;
-        const int anchoPerfilPreferido = 278;
-        const int anchoTemasPreferido = 560;
-        const int separacionColumnas = 20;
-        const int altoBloquePreferido = 434;
-        const int altoTituloTemas = 30;
-        const int separacionTituloLista = 8;
 
-        int anchoBloqueDisponible = Math.Max(1, anchoVistaCurso - margenHorizontalCurso * 2);
-        int anchoBloque = Math.Min(
-            anchoPerfilPreferido + separacionColumnas + anchoTemasPreferido,
-            anchoBloqueDisponible);
-        int separacionReal = Math.Min(separacionColumnas, Math.Max(0, anchoBloque - 2));
-        int anchoPerfil = Math.Min(
-            anchoPerfilPreferido,
-            Math.Max(1, anchoBloque - separacionReal - 1));
-        int anchoTemas = Math.Max(1, anchoBloque - anchoPerfil - separacionReal);
-        int xBloque = Math.Max(0, (anchoVistaCurso - anchoBloque) / 2);
-        int xTemas = xBloque + anchoPerfil + separacionReal;
-        int altoBloque = Math.Min(
-            altoBloquePreferido,
-            Math.Max(1, altoVistaCurso - margenVerticalCurso * 2));
-        int yBloque = Math.Max(0, (altoVistaCurso - altoBloque) / 2);
-        int altoTituloReal = Math.Min(altoTituloTemas, altoBloque);
-        int separacionTituloReal = Math.Min(
-            separacionTituloLista,
-            Math.Max(0, altoBloque - altoTituloReal - 1));
-        int altoLista = Math.Max(1, altoBloque - altoTituloReal - separacionTituloReal);
+        if (!modoCursoInmersivo &&
+            (distribucionPanelPrincipal == DistribucionPanelPrincipal.Curso ||
+             panelCursoVista.Visible)) {
+            RecalcularVistaPrincipalCurso();
+            ActualizarGeometriaTarjetasTemas(volverAlInicio: false);
+        }
 
-        panelPerfilCurso.SetBounds(xBloque, yBloque, anchoPerfil, altoBloque);
-        lblTituloTemasCurso.SetBounds(
-            xTemas,
-            yBloque,
-            anchoTemas,
-            altoTituloReal);
-        desplazamientoTemasCurso.SetBounds(
-            xTemas,
-            yBloque + altoTituloReal + separacionTituloReal,
-            anchoTemas,
-            altoLista);
-
-        lblNombreTemaCurso.Width = Math.Max(120, ancho - 40);
-        lblDescripcionTemaCurso.Width = Math.Max(120, ancho - 40);
+        int margenVistaInmersiva = EscalarDiseno(16);
+        int anchoVistaInmersiva = Math.Max(1, ancho - margenVistaInmersiva * 2);
+        int altoBotonVolver = EscalarDiseno(32);
+        btnVolverTemasCurso.SetBounds(
+            EscalarDiseno(18),
+            EscalarDiseno(14),
+            EscalarDiseno(182),
+            altoBotonVolver);
+        int yNumeroTema = btnVolverTemasCurso.Bottom + EscalarDiseno(12);
+        int altoNumeroTema = CalcularAltoTextoCurso(
+            lblNumeroTemaCurso,
+            anchoVistaInmersiva,
+            24);
+        lblNumeroTemaCurso.SetBounds(
+            EscalarDiseno(20),
+            yNumeroTema,
+            anchoVistaInmersiva,
+            altoNumeroTema);
+        int yNombreTema = lblNumeroTemaCurso.Bottom - EscalarDiseno(3);
+        int altoNombreTema = CalcularAltoTextoCurso(
+            lblNombreTemaCurso,
+            anchoVistaInmersiva,
+            47);
+        lblNombreTemaCurso.SetBounds(
+            EscalarDiseno(20),
+            yNombreTema,
+            anchoVistaInmersiva,
+            altoNombreTema);
+        int yDescripcionTema = lblNombreTemaCurso.Bottom - EscalarDiseno(1);
+        int altoDescripcionTema = CalcularAltoTextoCurso(
+            lblDescripcionTemaCurso,
+            anchoVistaInmersiva,
+            34);
+        lblDescripcionTemaCurso.SetBounds(
+            EscalarDiseno(20),
+            yDescripcionTema,
+            anchoVistaInmersiva,
+            altoDescripcionTema);
+        int yListaPracticas = lblDescripcionTemaCurso.Bottom + EscalarDiseno(4);
         desplazamientoPracticasTema.SetBounds(
-            16,
-            163,
-            Math.Max(120, ancho - 32),
-            Math.Max(120, alto - 181));
+            margenVistaInmersiva,
+            yListaPracticas,
+            anchoVistaInmersiva,
+            Math.Max(1, alto - yListaPracticas - EscalarDiseno(18)));
 
+        btnVolverPracticasCurso.SetBounds(
+            EscalarDiseno(18),
+            EscalarDiseno(14),
+            EscalarDiseno(202),
+            altoBotonVolver);
+        int yDetalle = btnVolverPracticasCurso.Bottom + EscalarDiseno(8);
         desplazamientoDetallePractica.SetBounds(
-            16,
-            54,
-            Math.Max(120, ancho - 32),
-            Math.Max(120, alto - 72));
+            margenVistaInmersiva,
+            yDetalle,
+            anchoVistaInmersiva,
+            Math.Max(1, alto - yDetalle - EscalarDiseno(18)));
 
-        desplazamientoTemasCurso.ActualizarContenido(volverAlInicio: false);
-        desplazamientoPracticasTema.ActualizarContenido(volverAlInicio: false);
-        desplazamientoDetallePractica.ActualizarContenido(volverAlInicio: false);
+        if (panelPracticasTemaVista.Visible) {
+            desplazamientoPracticasTema.ActualizarContenido(volverAlInicio: false);
+        }
+
+        if (panelDetallePracticaVista.Visible) {
+            desplazamientoDetallePractica.ActualizarContenido(volverAlInicio: false);
+        }
     }
 
-    private void ActualizarDisenoCursoTrasRedimensionar() {
-        AjustarGeometriaVistasCurso();
+    private void RecalcularVistaPrincipalCurso() {
+        int anchoVista = Math.Max(1, panelCursoVista.ClientSize.Width);
+        int altoVista = Math.Max(1, panelCursoVista.ClientSize.Height);
+        int margenHorizontal = EscalarDiseno(18);
+        int margenVertical = EscalarDiseno(12);
+        int anchoDisponible = Math.Max(1, anchoVista - margenHorizontal * 2);
+        int altoDisponible = Math.Max(1, altoVista - margenVertical * 2);
+        int separacionColumnas = EscalarDiseno(24);
+        int anchoMinimoPerfil = EscalarDiseno(300);
+        int anchoMinimoTemas = EscalarDiseno(620);
+        int anchoMinimoAmplio = anchoMinimoPerfil + separacionColumnas + anchoMinimoTemas;
+        bool usarModoCompacto =
+            anchoDisponible < anchoMinimoAmplio ||
+            altoDisponible < EscalarDiseno(470);
 
-        if (panelDetallePracticaVista.Visible && practicaCursoSeleccionada is not null) {
-            ReconstruirDetallePractica(practicaCursoSeleccionada, volverAlInicio: false);
-        } else if (panelPracticasTemaVista.Visible && temaCursoSeleccionado is not null) {
-            ReconstruirTarjetasPracticas(temaCursoSeleccionado, volverAlInicio: false);
+        EstablecerJerarquiaCursoPrincipal(usarModoCompacto);
+
+        if (usarModoCompacto) {
+            RecalcularVistaPrincipalCursoCompacta(anchoVista, altoVista);
+            return;
         }
+
+        int anchoBloque = Math.Min(EscalarDiseno(1280), anchoDisponible);
+        int altoBloque = Math.Min(EscalarDiseno(720), altoDisponible);
+        int anchoPerfil = Math.Clamp(
+            (int)Math.Round(anchoBloque * 0.28D),
+            anchoMinimoPerfil,
+            EscalarDiseno(360));
+        int anchoTemas = Math.Max(1, anchoBloque - anchoPerfil - separacionColumnas);
+        int xBloque = Math.Max(0, (anchoVista - anchoBloque) / 2);
+        int yBloque = Math.Max(0, (altoVista - altoBloque) / 2);
+        int altoTitulo = Math.Min(
+            altoBloque,
+            CalcularAltoTextoCurso(lblTituloTemasCurso, anchoTemas, 30));
+        int separacionTitulo = Math.Min(
+            EscalarDiseno(8),
+            Math.Max(0, altoBloque - altoTitulo - 1));
+        int altoLista = Math.Max(1, altoBloque - altoTitulo - separacionTitulo);
+        int xTemas = xBloque + anchoPerfil + separacionColumnas;
+
+        panelPerfilCurso.SetBounds(xBloque, yBloque, anchoPerfil, altoBloque);
+        lblTituloTemasCurso.SetBounds(xTemas, yBloque, anchoTemas, altoTitulo);
+        desplazamientoTemasCurso.SetBounds(
+            xTemas,
+            yBloque + altoTitulo + separacionTitulo,
+            anchoTemas,
+            altoLista);
+        AjustarContenidoPerfilCurso();
+    }
+
+    private void RecalcularVistaPrincipalCursoCompacta(int anchoVista, int altoVista) {
+        desplazamientoCursoPrincipal.SetBounds(0, 0, anchoVista, altoVista);
+        FlowLayoutPanel contenido = desplazamientoCursoPrincipal.Contenido;
+        contenido.SuspendLayout();
+        listaTemasCurso.SuspendLayout();
+
+        try {
+            contenido.Padding = new Padding(
+                EscalarDiseno(18),
+                EscalarDiseno(12),
+                EscalarDiseno(18),
+                EscalarDiseno(22));
+
+            int anchoContenido = Math.Max(
+                1,
+                contenido.ClientSize.Width - contenido.Padding.Horizontal);
+            panelPerfilCurso.Width = anchoContenido;
+            int altoPerfil = AjustarContenidoPerfilCurso();
+            panelPerfilCurso.Size = new Size(anchoContenido, altoPerfil);
+
+            int altoTitulo = CalcularAltoTextoCurso(lblTituloTemasCurso, anchoContenido, 30);
+            lblTituloTemasCurso.Size = new Size(anchoContenido, altoTitulo);
+
+            int altoTemas = CalcularAltoListaTemasCompacta();
+            listaTemasCurso.Size = new Size(anchoContenido, altoTemas);
+        } finally {
+            listaTemasCurso.ResumeLayout(performLayout: false);
+            contenido.ResumeLayout(performLayout: false);
+        }
+    }
+
+    private void EstablecerJerarquiaCursoPrincipal(bool usarModoCompacto) {
+        if (jerarquiaCursoPrincipalInicializada && cursoModoCompacto == usarModoCompacto) {
+            return;
+        }
+
+        FlowLayoutPanel contenidoCompacto = desplazamientoCursoPrincipal.Contenido;
+        bool propietarioTeniaFocoDirecto =
+            desplazamientoCursoPrincipal.Focused ||
+            desplazamientoTemasCurso.Focused;
+        Control? controlContenidoEnfocado = ObtenerControlEnfocado(listaTemasCurso);
+        panelCursoVista.SuspendLayout();
+        contenidoCompacto.SuspendLayout();
+
+        try {
+            cursoModoCompacto = usarModoCompacto;
+            desplazamientoCursoPrincipal.CancelarInteraccion();
+            desplazamientoTemasCurso.CancelarInteraccion();
+
+            if (usarModoCompacto) {
+                MoverControlCurso(panelPerfilCurso, contenidoCompacto);
+                MoverControlCurso(lblTituloTemasCurso, contenidoCompacto);
+                desplazamientoTemasCurso.TransferirContenidoA(contenidoCompacto);
+                panelPerfilCurso.Margin = new Padding(0, 0, 0, EscalarDiseno(18));
+                lblTituloTemasCurso.Margin = new Padding(0, 0, 0, EscalarDiseno(8));
+                listaTemasCurso.Margin = Padding.Empty;
+                desplazamientoTemasCurso.Visible = false;
+                desplazamientoCursoPrincipal.TabStop = true;
+                desplazamientoCursoPrincipal.Visible = true;
+                desplazamientoCursoPrincipal.BringToFront();
+            } else {
+                desplazamientoCursoPrincipal.Visible = false;
+                desplazamientoCursoPrincipal.TabStop = false;
+                desplazamientoTemasCurso.RestaurarContenido();
+                desplazamientoTemasCurso.Visible = true;
+                desplazamientoTemasCurso.TabStop = true;
+                MoverControlCurso(panelPerfilCurso, panelCursoVista);
+                MoverControlCurso(lblTituloTemasCurso, panelCursoVista);
+                MoverControlCurso(desplazamientoTemasCurso, panelCursoVista);
+                panelPerfilCurso.Margin = Padding.Empty;
+                lblTituloTemasCurso.Margin = Padding.Empty;
+                listaTemasCurso.Margin = Padding.Empty;
+                desplazamientoTemasCurso.Margin = Padding.Empty;
+            }
+        } finally {
+            jerarquiaCursoPrincipalInicializada = true;
+            contenidoCompacto.ResumeLayout(performLayout: false);
+            panelCursoVista.ResumeLayout(performLayout: false);
+        }
+
+        if (controlContenidoEnfocado is { IsDisposed: false, Visible: true } &&
+            controlContenidoEnfocado.CanFocus) {
+            controlContenidoEnfocado.Focus();
+        } else if (propietarioTeniaFocoDirecto) {
+            PanelDesplazableSinBarras propietarioActual = usarModoCompacto
+                ? desplazamientoCursoPrincipal
+                : desplazamientoTemasCurso;
+
+            if (propietarioActual.CanFocus) {
+                propietarioActual.Focus();
+            }
+        }
+    }
+
+    private static Control? ObtenerControlEnfocado(Control contenedor) {
+        if (contenedor.Focused) {
+            return contenedor;
+        }
+
+        foreach (Control control in contenedor.Controls) {
+            if (control.ContainsFocus) {
+                return ObtenerControlEnfocado(control);
+            }
+        }
+
+        return null;
+    }
+
+    private static void MoverControlCurso(Control control, Control nuevoParent) {
+        if (!ReferenceEquals(control.Parent, nuevoParent)) {
+            nuevoParent.Controls.Add(control);
+        }
+    }
+
+    private int CalcularAltoListaTemasCompacta() {
+        int altoContenido = listaTemasCurso.Padding.Vertical;
+
+        foreach (Control control in listaTemasCurso.Controls) {
+            if (control.Visible) {
+                altoContenido += control.Height + control.Margin.Vertical;
+            }
+        }
+
+        return Math.Max(
+            EscalarDiseno(160),
+            altoContenido);
+    }
+
+    private void ActualizarAlturaTemasCursoCompacto(bool volverAlInicio) {
+        if (!cursoModoCompacto ||
+            !ReferenceEquals(listaTemasCurso.Parent, desplazamientoCursoPrincipal.Contenido)) {
+            return;
+        }
+
+        listaTemasCurso.Height = CalcularAltoListaTemasCompacta();
+        desplazamientoCursoPrincipal.ActualizarContenido(volverAlInicio);
+    }
+
+    private int AjustarContenidoPerfilCurso() {
+        int anchoPerfil = Math.Max(1, panelPerfilCurso.ClientSize.Width);
+        int margenHorizontal = Math.Min(EscalarDiseno(26), Math.Max(EscalarDiseno(16), anchoPerfil / 13));
+        int anchoContenido = Math.Max(1, anchoPerfil - margenHorizontal * 2);
+        int y = EscalarDiseno(16);
+
+        int altoTitulo = CalcularAltoTextoCurso(lblTituloPerfilCurso, anchoContenido, 34);
+        lblTituloPerfilCurso.SetBounds(margenHorizontal, y, anchoContenido, altoTitulo);
+        y = lblTituloPerfilCurso.Bottom + EscalarDiseno(2);
+
+        int altoNombre = CalcularAltoTextoCurso(lblNombrePerfilCurso, anchoContenido, 24);
+        lblNombrePerfilCurso.SetBounds(margenHorizontal, y, anchoContenido, altoNombre);
+        y = lblNombrePerfilCurso.Bottom;
+
+        int altoNivel = CalcularAltoTextoCurso(lblNivelPerfilCurso, anchoContenido, 22);
+        lblNivelPerfilCurso.SetBounds(margenHorizontal, y, anchoContenido, altoNivel);
+        y = lblNivelPerfilCurso.Bottom + EscalarDiseno(6);
+
+        int altoProgreso = CalcularAltoTextoCurso(lblProgresoGeneralCurso, anchoContenido, 42);
+        lblProgresoGeneralCurso.SetBounds(margenHorizontal, y, anchoContenido, altoProgreso);
+        y = lblProgresoGeneralCurso.Bottom + EscalarDiseno(7);
+
+        int altoBarra = EscalarDiseno(9);
+        panelFondoProgresoCurso.SetBounds(margenHorizontal, y, anchoContenido, altoBarra);
+        panelRellenoProgresoCurso.Height = altoBarra;
+        y = panelFondoProgresoCurso.Bottom + EscalarDiseno(11);
+
+        int altoSiguientePaso = CalcularAltoTextoCurso(lblSiguientePasoCurso, anchoContenido, 18);
+        lblSiguientePasoCurso.SetBounds(margenHorizontal, y, anchoContenido, altoSiguientePaso);
+        y = lblSiguientePasoCurso.Bottom + EscalarDiseno(4);
+
+        int altoUltimaPractica = CalcularAltoTextoCurso(lblUltimaPracticaCurso, anchoContenido, 50);
+        lblUltimaPracticaCurso.SetBounds(margenHorizontal, y, anchoContenido, altoUltimaPractica);
+        y = lblUltimaPracticaCurso.Bottom + EscalarDiseno(6);
+
+        int altoBoton = EscalarDiseno(34);
+        btnContinuarAprendizaje.SetBounds(margenHorizontal, y, anchoContenido, altoBoton);
+        y = btnContinuarAprendizaje.Bottom + EscalarDiseno(10);
+
+        int altoTituloRecomendacion = CalcularAltoTextoCurso(
+            lblTituloRecomendacionCurso,
+            anchoContenido,
+            18);
+        lblTituloRecomendacionCurso.SetBounds(
+            margenHorizontal,
+            y,
+            anchoContenido,
+            altoTituloRecomendacion);
+        y = lblTituloRecomendacionCurso.Bottom + EscalarDiseno(4);
+
+        int altoRecomendacion = CalcularAltoTextoCurso(
+            lblPracticaRecomendadaCurso,
+            anchoContenido,
+            50);
+        lblPracticaRecomendadaCurso.SetBounds(
+            margenHorizontal,
+            y,
+            anchoContenido,
+            altoRecomendacion);
+        y = lblPracticaRecomendadaCurso.Bottom + EscalarDiseno(6);
+
+        btnVerPracticaRecomendadaCurso.SetBounds(margenHorizontal, y, anchoContenido, altoBoton);
+        y = btnVerPracticaRecomendadaCurso.Bottom + EscalarDiseno(5);
+
+        int altoAviso = CalcularAltoTextoCurso(lblAvisoProgresoCurso, anchoContenido, 29);
+        lblAvisoProgresoCurso.SetBounds(margenHorizontal, y, anchoContenido, altoAviso);
+
+        ActualizarAnchoProgresoGeneral(ContarPracticasDisponiblesRealizadas());
+        return lblAvisoProgresoCurso.Bottom + EscalarDiseno(16);
+    }
+
+    private int CalcularAltoTextoCurso(Label label, int ancho, int altoMinimo) {
+        int altoTexto = TextRenderer.MeasureText(
+            label.Text,
+            label.Font,
+            new Size(Math.Max(1, ancho), int.MaxValue),
+            TextFormatFlags.WordBreak | TextFormatFlags.NoPadding).Height;
+        return Math.Max(EscalarDiseno(altoMinimo), altoTexto + EscalarDiseno(4));
     }
 
     private void CargarProgresoCurso() {
         CargarProgresoCurso(mostrarAvisoInmediato: false);
     }
 
-    private void CargarProgresoCurso(bool mostrarAvisoInmediato) {
-        ResultadoCargaProgreso resultado = progresoCursoService.CargarProgreso();
+    private void CargarProgresoCurso(
+        bool mostrarAvisoInmediato,
+        ResultadoCargaProgreso? resultadoPrecargado = null) {
+        ResultadoCargaProgreso resultado =
+            resultadoPrecargado ?? progresoCursoService.CargarProgreso();
 
         if (resultado.DatosDisponibles) {
             progresoCurso = resultado.Progreso;
         }
 
+        tarjetasTemasActualizadas = false;
+
         mensajeEstadoProgresoCurso = resultado.Estado switch {
             EstadoCargaProgreso.ContenidoInvalido when resultado.Progreso.Practicas.Count > 0 =>
-                $"Se ignoraron {resultado.RegistrosInvalidos} registros de progreso dañados.",
+                $"Se ignoraron {resultado.RegistrosInvalidos} registros dañados; el resto del progreso se conservó.",
             EstadoCargaProgreso.ContenidoInvalido =>
-                "No se pudo leer progreso.json porque su contenido está dañado.",
+                "progreso.json está dañado. No se modificará su contenido.",
             EstadoCargaProgreso.PermisosInsuficientes =>
-                "No hay permisos para leer progreso.json. Se muestra un progreso vacío seguro.",
+                "Sin permisos para leer progreso.json. EndForge continuará de forma segura.",
             EstadoCargaProgreso.ErrorIo =>
-                "No se pudo leer progreso.json porque está bloqueado o no está disponible.",
+                "progreso.json está bloqueado o no está disponible.",
             _ => string.Empty
         };
 
@@ -564,115 +1146,707 @@ public partial class frmPrincipal {
     }
 
     private void ActualizarResumenCurso() {
-        int realizadas = progresoCurso.Practicas.Count(progreso =>
-            progreso.Estado == EstadoPracticaCurso.Realizada &&
-            cursoService.ObtenerPractica(progreso.PracticaId) is not null);
+        int realizadas = ContarPracticasDisponiblesRealizadas();
+        int totalDisponibles = cursoService.TotalPracticasDisponibles;
 
         lblProgresoGeneralCurso.Text =
-            $"Progreso general\n{realizadas} de {CursoService.TotalPracticasPlaneadas} prácticas";
+            $"Progreso general\n{realizadas} de {totalDisponibles} prácticas disponibles";
+        ActualizarAnchoProgresoGeneral(realizadas);
 
-        int anchoDisponible = panelRellenoProgresoCurso.Parent?.ClientSize.Width ?? 232;
-        int anchoBarra = (int)Math.Round(
-            anchoDisponible * realizadas / (double)CursoService.TotalPracticasPlaneadas);
-        panelRellenoProgresoCurso.Width = Math.Clamp(anchoBarra, 0, anchoDisponible);
-
-        ProgresoPractica? siguiente = progresoCurso.Practicas
+        ProgresoPractica? ultimaEnProgreso = progresoCurso.Practicas
             .Where(progreso =>
-                progreso.Estado != EstadoPracticaCurso.Realizada &&
-                cursoService.ObtenerPractica(progreso.PracticaId) is not null &&
-                !string.IsNullOrWhiteSpace(progreso.RutaProyecto) &&
-                Directory.Exists(progreso.RutaProyecto))
-            .OrderByDescending(progreso => progreso.FechaCreacion)
+                progreso.Estado == EstadoPracticaCurso.EnProgreso &&
+                cursoService.ObtenerPractica(progreso.PracticaId) is not null)
+            .OrderByDescending(ObtenerFechaActividad)
+            .ThenBy(progreso => progreso.PracticaId, StringComparer.OrdinalIgnoreCase)
             .FirstOrDefault();
 
-        if (siguiente is null) {
+        if (ultimaEnProgreso is null) {
             lblUltimaPracticaCurso.Text = realizadas > 0
-                ? $"Has completado {realizadas} práctica{(realizadas == 1 ? string.Empty : "s")}."
-                : "Aún no hay prácticas iniciadas.";
+                ? $"No hay práctica en progreso.\n{realizadas} práctica{(realizadas == 1 ? string.Empty : "s")} completada{(realizadas == 1 ? string.Empty : "s")}."
+                : "No hay práctica en progreso.";
             btnContinuarAprendizaje.Visible = false;
             btnContinuarAprendizaje.Tag = null;
         } else {
-            PracticaCurso practica = cursoService.ObtenerPractica(siguiente.PracticaId)!;
+            PracticaCurso practica = cursoService.ObtenerPractica(ultimaEnProgreso.PracticaId)!;
             TemaCurso? tema = cursoService.ObtenerTema(practica.TemaId);
             lblUltimaPracticaCurso.Text =
-                $"Última práctica: {practica.Nombre}\nTema actual: {tema?.Nombre ?? "Curso"}";
+                $"Última: {practica.Nombre}\n" +
+                $"Tema: {tema?.Nombre ?? "Curso"}\n" +
+                $"Estado: {ObtenerTextoEstadoPractica(ultimaEnProgreso.Estado)}";
             btnContinuarAprendizaje.Visible = true;
             btnContinuarAprendizaje.Tag = practica;
         }
 
+        ActualizarPracticaRecomendada();
         lblAvisoProgresoCurso.Text = mensajeEstadoProgresoCurso;
         lblAvisoProgresoCurso.Visible = !string.IsNullOrWhiteSpace(mensajeEstadoProgresoCurso);
+        AjustarContenidoPerfilCurso();
+    }
+
+    private int ContarPracticasDisponiblesRealizadas() {
+        HashSet<string> identificadoresDisponibles = cursoService.CargarTemas()
+            .Where(tema => !tema.EsProximamente)
+            .SelectMany(tema => tema.Practicas)
+            .Select(practica => practica.Id)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return progresoCurso.Practicas
+            .Where(progreso =>
+                progreso.Estado == EstadoPracticaCurso.Realizada &&
+                identificadoresDisponibles.Contains(progreso.PracticaId))
+            .Select(progreso => progreso.PracticaId)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+    }
+
+    private void ActualizarAnchoProgresoGeneral(int realizadas) {
+        int totalDisponibles = cursoService.TotalPracticasDisponibles;
+        int anchoDisponible = Math.Max(0, panelFondoProgresoCurso.ClientSize.Width);
+        int anchoBarra = totalDisponibles == 0
+            ? 0
+            : (int)Math.Round(anchoDisponible * realizadas / (double)totalDisponibles);
+        panelRellenoProgresoCurso.Width = Math.Clamp(anchoBarra, 0, anchoDisponible);
     }
 
     private void BtnContinuarAprendizaje_Click(object? sender, EventArgs e) {
         if (btnContinuarAprendizaje.Tag is PracticaCurso practica) {
+            ProgresoPractica? progreso = ObtenerProgresoPractica(practica.Id);
+
+            if (string.IsNullOrWhiteSpace(progreso?.RutaProyecto) ||
+                !Directory.Exists(progreso.RutaProyecto)) {
+                MessageBox.Show(
+                    "La carpeta guardada para esta práctica ya no existe o no está disponible. " +
+                    "Puedes revisar el detalle sin perder tu progreso.",
+                    "EndForge",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+            }
+
             MostrarDetallePractica(practica);
         }
     }
 
-    private void ReconstruirTarjetasTemas() {
+    private void BtnVerPracticaRecomendadaCurso_Click(object? sender, EventArgs e) {
+        if (btnVerPracticaRecomendadaCurso.Tag is PracticaCurso practica) {
+            MostrarDetallePractica(practica);
+        }
+    }
+
+    private void ActualizarPracticaRecomendada() {
+        (TemaCurso Tema, PracticaCurso Practica)? recomendacion = ObtenerPracticaRecomendada();
+
+        if (recomendacion is null) {
+            bool hayContenido = cursoService.CargarTemas().Any(tema =>
+                !tema.EsProximamente && tema.Practicas.Count > 0);
+            lblPracticaRecomendadaCurso.Text = hayContenido
+                ? "Curso completado"
+                : "No hay una práctica recomendada disponible.";
+            btnVerPracticaRecomendadaCurso.Visible = false;
+            btnVerPracticaRecomendadaCurso.Tag = null;
+            return;
+        }
+
+        TemaCurso tema = recomendacion.Value.Tema;
+        PracticaCurso practica = recomendacion.Value.Practica;
+        lblPracticaRecomendadaCurso.Text =
+            $"Tema {tema.Numero:00} · Práctica {practica.Numero:00}\n" +
+            $"{practica.Nombre}\n" +
+            $"{NormalizarDificultad(practica.Dificultad)} · {practica.DuracionEstimada}";
+        btnVerPracticaRecomendadaCurso.Visible = true;
+        btnVerPracticaRecomendadaCurso.Tag = practica;
+    }
+
+    private (TemaCurso Tema, PracticaCurso Practica)? ObtenerPracticaRecomendada() {
+        TemaCurso[] temasDisponibles = cursoService.CargarTemas()
+            .Where(tema => !tema.EsProximamente && tema.Practicas.Count > 0)
+            .OrderBy(tema => tema.Numero)
+            .ToArray();
+
+        if (temasDisponibles.Length == 0) {
+            return null;
+        }
+
+        bool cursoCompletado = temasDisponibles
+            .SelectMany(tema => tema.Practicas)
+            .All(practica => ObtenerEstadoPractica(practica.Id) == EstadoPracticaCurso.Realizada);
+
+        if (cursoCompletado) {
+            return null;
+        }
+
+        TemaCurso? temaAvanzadoConPendientes = temasDisponibles
+            .Where(TemaTieneProgreso)
+            .Where(tema => tema.Practicas.Any(practica =>
+                ObtenerEstadoPractica(practica.Id) == EstadoPracticaCurso.Pendiente))
+            .OrderByDescending(tema => tema.Numero)
+            .FirstOrDefault();
+
+        if (temaAvanzadoConPendientes is not null) {
+            PracticaCurso pendiente = temaAvanzadoConPendientes.Practicas
+                .OrderBy(practica => practica.Numero)
+                .First(practica =>
+                    ObtenerEstadoPractica(practica.Id) == EstadoPracticaCurso.Pendiente);
+            return (temaAvanzadoConPendientes, pendiente);
+        }
+
+        TemaCurso? ultimoTemaIniciado = temasDisponibles
+            .Where(TemaTieneProgreso)
+            .OrderByDescending(tema => tema.Numero)
+            .FirstOrDefault();
+
+        if (ultimoTemaIniciado is null) {
+            return (temasDisponibles[0], temasDisponibles[0].Practicas.OrderBy(
+                practica => practica.Numero).First());
+        }
+
+        TemaCurso? siguienteTema = temasDisponibles
+            .FirstOrDefault(tema =>
+                tema.Numero > ultimoTemaIniciado.Numero &&
+                tema.Practicas.Any(practica =>
+                    ObtenerEstadoPractica(practica.Id) != EstadoPracticaCurso.Realizada));
+
+        if (siguienteTema is not null) {
+            PracticaCurso siguiente = siguienteTema.Practicas
+                .OrderBy(practica => practica.Numero)
+                .First(practica =>
+                    ObtenerEstadoPractica(practica.Id) != EstadoPracticaCurso.Realizada);
+            return (siguienteTema, siguiente);
+        }
+
+        foreach (TemaCurso tema in temasDisponibles.OrderByDescending(tema => tema.Numero)) {
+            PracticaCurso? pendiente = tema.Practicas
+                .OrderBy(practica => practica.Numero)
+                .FirstOrDefault(practica =>
+                    ObtenerEstadoPractica(practica.Id) != EstadoPracticaCurso.Realizada);
+
+            if (pendiente is not null) {
+                return (tema, pendiente);
+            }
+        }
+
+        return null;
+    }
+
+    private bool TemaTieneProgreso(TemaCurso tema) {
+        HashSet<string> ids = tema.Practicas
+            .Select(practica => practica.Id)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return progresoCurso.Practicas.Any(progreso =>
+            ids.Contains(progreso.PracticaId) &&
+            (progreso.Estado != EstadoPracticaCurso.Pendiente ||
+             !string.IsNullOrWhiteSpace(progreso.RutaProyecto)));
+    }
+
+    private static DateTimeOffset ObtenerFechaActividad(ProgresoPractica progreso) {
+        return progreso.FechaActualizacion ??
+            progreso.FechaFinalizacion ??
+            progreso.FechaCreacion;
+    }
+
+    private void ReconstruirTarjetasTemas(bool volverAlInicio = true) {
         listaTemasCurso.SuspendLayout();
 
         try {
             VaciarYDisponerControles(listaTemasCurso);
 
-        foreach (TemaCurso tema in cursoService.CargarTemas()) {
-            int realizadas = ContarPracticasRealizadas(tema);
-            EstadoPracticaCurso estadoTema = ObtenerEstadoTema(tema, realizadas);
-            Panel tarjeta = CrearTarjetaCurso(Point.Empty, new Size(526, 112), 14);
-            tarjeta.Margin = new Padding(0, 0, 0, 10);
+            int anchoTarjeta = Math.Max(
+                1,
+                listaTemasCurso.ClientSize.Width -
+                listaTemasCurso.Padding.Horizontal -
+                EscalarDiseno(4));
+            int margenIzquierdo = EscalarDiseno(18);
+            int margenDerecho = EscalarDiseno(18);
+            int anchoNumero = EscalarDiseno(42);
+            int xTexto = margenIzquierdo + anchoNumero + EscalarDiseno(4);
+            int separacionColumnas = EscalarDiseno(16);
+            int anchoInterior = Math.Max(1, anchoTarjeta - margenIzquierdo - margenDerecho);
+            int anchoMaximoEstadisticas = Math.Max(
+                1,
+                anchoTarjeta - xTexto - separacionColumnas - margenDerecho);
+            int anchoMinimoEstadisticas = Math.Min(EscalarDiseno(150), anchoMaximoEstadisticas);
+            int limiteEstadisticas = Math.Min(EscalarDiseno(190), anchoMaximoEstadisticas);
+            int anchoEstadisticas = Math.Clamp(
+                (int)Math.Round(anchoTarjeta * 0.28D),
+                anchoMinimoEstadisticas,
+                limiteEstadisticas);
+            int xEstadisticas = anchoTarjeta - margenDerecho - anchoEstadisticas;
+            int anchoTextoAmplio = Math.Max(1, xEstadisticas - separacionColumnas - xTexto);
+            bool presentacionCompacta =
+                cursoModoCompacto ||
+                anchoTarjeta < EscalarDiseno(680) ||
+                anchoTextoAmplio < EscalarDiseno(260);
+            int anchoTitulo = presentacionCompacta
+                ? Math.Max(1, anchoTarjeta - margenDerecho - xTexto)
+                : anchoTextoAmplio;
+            int anchoDescripcion = presentacionCompacta
+                ? anchoInterior
+                : anchoTextoAmplio;
 
-            Label numero = CrearLabelCurso(
-                tema.Numero.ToString("00"),
-                new Point(18, 14),
-                new Size(42, 26),
-                12F,
-                FontStyle.Bold,
-                ColorMoradoClaroCurso);
-            Label nombre = CrearLabelCurso(
-                tema.Nombre,
-                new Point(64, 11),
-                new Size(260, 28),
-                12.5F,
-                FontStyle.Bold,
-                Color.White);
-            Label descripcion = CrearLabelCurso(
-                PrepararDescripcionTarjeta(tema.Descripcion),
-                new Point(64, 40),
-                new Size(300, 65),
-                8F,
-                FontStyle.Regular,
-                ColorTextoSecundarioCurso,
-                ContentAlignment.TopLeft);
-            Label progreso = CrearLabelCurso(
-                $"{realizadas} de {tema.TotalPracticasPlaneadas} prácticas",
-                new Point(368, 18),
-                new Size(140, 21),
-                8.5F,
-                FontStyle.Bold,
-                Color.White,
-                ContentAlignment.MiddleRight);
-            Label estado = CrearLabelCurso(
-                ObtenerTextoEstadoTema(estadoTema),
-                new Point(348, 48),
-                new Size(160, 23),
-                8.5F,
-                FontStyle.Bold,
-                ObtenerColorEstado(estadoTema),
-                ContentAlignment.MiddleRight);
+            foreach (TemaCurso tema in cursoService.CargarTemas()) {
+                int realizadas = ContarPracticasRealizadas(tema);
+                int porcentaje = (int)Math.Round(
+                    realizadas * 100D / Math.Max(1, tema.TotalPracticasPlaneadas));
+                EstadoPracticaCurso estadoTema = ObtenerEstadoTema(tema, realizadas);
+                Panel tarjeta = CrearTarjetaCurso(
+                    Point.Empty,
+                    new Size(anchoTarjeta, EscalarDiseno(112)),
+                    14,
+                    interactiva: true);
+                tarjeta.Margin = new Padding(0, 0, 0, EscalarDiseno(10));
+                tarjeta.TabIndex = Math.Max(0, tema.Numero - 1);
+                tarjeta.AccessibleName = $"Tema {tema.Numero:00}: {tema.Nombre}";
+                tarjeta.AccessibleDescription = tema.EsProximamente
+                    ? tema.MensajeDisponibilidad
+                    : $"{porcentaje}% completado. {realizadas} de {tema.TotalPracticasPlaneadas} prácticas.";
 
-            tarjeta.Controls.Add(numero);
-            tarjeta.Controls.Add(nombre);
-            tarjeta.Controls.Add(descripcion);
-            tarjeta.Controls.Add(progreso);
-            tarjeta.Controls.Add(estado);
-            ConfigurarInteraccionTarjeta(tarjeta, () => MostrarPracticasTema(tema));
-            listaTemasCurso.Controls.Add(tarjeta);
+                Label numero = CrearLabelCurso(
+                    tema.Numero.ToString("00"),
+                    Point.Empty,
+                    new Size(anchoNumero, 1),
+                    TamanoFuenteCurso.NumeroTarjeta,
+                    FontStyle.Bold,
+                    ColorMoradoClaroCurso,
+                    ContentAlignment.TopLeft);
+                Label nombre = CrearLabelCurso(
+                    tema.Nombre,
+                    Point.Empty,
+                    new Size(anchoTitulo, 1),
+                    TamanoFuenteCurso.TituloTarjetaTema,
+                    FontStyle.Bold,
+                    Color.White,
+                    ContentAlignment.TopLeft);
+                Label descripcion = CrearLabelCurso(
+                    tema.Descripcion,
+                    Point.Empty,
+                    new Size(anchoDescripcion, 1),
+                    TamanoFuenteCurso.DescripcionTarjetaTema,
+                    FontStyle.Regular,
+                    ColorTextoSecundarioCurso,
+                    ContentAlignment.TopLeft);
+                Label porcentajeCompletado = CrearLabelCurso(
+                    $"{porcentaje}% completado",
+                    Point.Empty,
+                    new Size(anchoEstadisticas, 1),
+                    TamanoFuenteCurso.ProgresoTarjetaTema,
+                    FontStyle.Bold,
+                    ColorMoradoClaroCurso,
+                    ContentAlignment.MiddleRight);
+                Label progreso = CrearLabelCurso(
+                    $"{realizadas} de {tema.TotalPracticasPlaneadas} prácticas",
+                    Point.Empty,
+                    new Size(anchoEstadisticas, 1),
+                    TamanoFuenteCurso.MetadatoTarjetaTema,
+                    FontStyle.Regular,
+                    Color.White,
+                    ContentAlignment.MiddleRight);
+                Label estado = CrearLabelCurso(
+                    tema.EsProximamente
+                        ? tema.MensajeDisponibilidad
+                        : ObtenerTextoEstadoTema(estadoTema),
+                    Point.Empty,
+                    new Size(anchoEstadisticas, 1),
+                    TamanoFuenteCurso.MetadatoTarjetaTema,
+                    FontStyle.Bold,
+                    tema.EsProximamente
+                        ? ColorTextoSecundarioCurso
+                        : ObtenerColorEstado(estadoTema),
+                    ContentAlignment.MiddleRight);
+
+                int ySuperior = EscalarDiseno(10);
+                int altoNumero = CalcularAltoTextoCurso(numero, anchoNumero, 26);
+                int altoNombre = CalcularAltoTextoCurso(nombre, anchoTitulo, 28);
+                int altoBarra = EscalarDiseno(8);
+                numero.SetBounds(margenIzquierdo, ySuperior, anchoNumero, altoNumero);
+                nombre.SetBounds(xTexto, ySuperior, anchoTitulo, altoNombre);
+
+                int xBarra;
+                int yBarra;
+                int anchoBarra;
+                int altoTarjeta;
+
+                if (presentacionCompacta) {
+                    int altoFilaTitulo = Math.Max(altoNumero, altoNombre);
+                    int yDescripcion = ySuperior + altoFilaTitulo + EscalarDiseno(5);
+                    int altoDescripcion = CalcularAltoTextoCurso(
+                        descripcion,
+                        anchoDescripcion,
+                        36);
+                    descripcion.SetBounds(
+                        margenIzquierdo,
+                        yDescripcion,
+                        anchoDescripcion,
+                        altoDescripcion);
+
+                    int separacionEstadisticas = EscalarDiseno(8);
+                    int anchoColumnaEstadisticas = Math.Max(
+                        1,
+                        (anchoInterior - separacionEstadisticas * 2) / 3);
+                    int xPorcentaje = margenIzquierdo;
+                    int xProgreso = xPorcentaje + anchoColumnaEstadisticas + separacionEstadisticas;
+                    int xEstado = xProgreso + anchoColumnaEstadisticas + separacionEstadisticas;
+                    int anchoEstado = Math.Max(
+                        1,
+                        margenIzquierdo + anchoInterior - xEstado);
+                    int yEstadisticas = yDescripcion + altoDescripcion + EscalarDiseno(7);
+                    int altoPorcentaje = CalcularAltoTextoCurso(
+                        porcentajeCompletado,
+                        anchoColumnaEstadisticas,
+                        21);
+                    int altoProgreso = CalcularAltoTextoCurso(
+                        progreso,
+                        anchoColumnaEstadisticas,
+                        21);
+                    int altoEstado = CalcularAltoTextoCurso(estado, anchoEstado, 23);
+                    int altoFilaEstadisticas = Math.Max(
+                        altoPorcentaje,
+                        Math.Max(altoProgreso, altoEstado));
+
+                    porcentajeCompletado.TextAlign = ContentAlignment.MiddleLeft;
+                    progreso.TextAlign = ContentAlignment.MiddleCenter;
+                    estado.TextAlign = ContentAlignment.MiddleRight;
+                    porcentajeCompletado.SetBounds(
+                        xPorcentaje,
+                        yEstadisticas,
+                        anchoColumnaEstadisticas,
+                        altoFilaEstadisticas);
+                    progreso.SetBounds(
+                        xProgreso,
+                        yEstadisticas,
+                        anchoColumnaEstadisticas,
+                        altoFilaEstadisticas);
+                    estado.SetBounds(
+                        xEstado,
+                        yEstadisticas,
+                        anchoEstado,
+                        altoFilaEstadisticas);
+
+                    xBarra = margenIzquierdo;
+                    anchoBarra = anchoInterior;
+                    yBarra = yEstadisticas + altoFilaEstadisticas + EscalarDiseno(7);
+                    altoTarjeta = yBarra + altoBarra + EscalarDiseno(12);
+                } else {
+                    int yDescripcion = ySuperior + altoNombre + EscalarDiseno(4);
+                    int altoDescripcion = CalcularAltoTextoCurso(
+                        descripcion,
+                        anchoDescripcion,
+                        36);
+                    int altoPorcentaje = CalcularAltoTextoCurso(
+                        porcentajeCompletado,
+                        anchoEstadisticas,
+                        21);
+                    int yProgreso = ySuperior + altoPorcentaje + EscalarDiseno(2);
+                    int altoProgreso = CalcularAltoTextoCurso(
+                        progreso,
+                        anchoEstadisticas,
+                        21);
+                    int yEstado = yProgreso + altoProgreso + EscalarDiseno(3);
+                    int altoEstado = CalcularAltoTextoCurso(estado, anchoEstadisticas, 23);
+
+                    descripcion.SetBounds(
+                        xTexto,
+                        yDescripcion,
+                        anchoDescripcion,
+                        altoDescripcion);
+                    porcentajeCompletado.SetBounds(
+                        xEstadisticas,
+                        ySuperior,
+                        anchoEstadisticas,
+                        altoPorcentaje);
+                    progreso.SetBounds(
+                        xEstadisticas,
+                        yProgreso,
+                        anchoEstadisticas,
+                        altoProgreso);
+                    estado.SetBounds(xEstadisticas, yEstado, anchoEstadisticas, altoEstado);
+
+                    xBarra = xEstadisticas;
+                    anchoBarra = anchoEstadisticas;
+                    yBarra = yEstado + altoEstado + EscalarDiseno(7);
+                    altoTarjeta = Math.Max(
+                        yDescripcion + altoDescripcion,
+                        yBarra + altoBarra) + EscalarDiseno(12);
+                }
+
+                tarjeta.Size = new Size(anchoTarjeta, altoTarjeta);
+
+                Panel fondoProgresoTema = new() {
+                    BackColor = Color.FromArgb(55, 45, 70),
+                    Location = new Point(xBarra, yBarra),
+                    Size = new Size(anchoBarra, altoBarra)
+                };
+                Panel rellenoProgresoTema = new() {
+                    BackColor = ColorMoradoCurso,
+                    Location = Point.Empty,
+                    Size = new Size(
+                        (int)Math.Round(anchoBarra * porcentaje / 100D),
+                        altoBarra)
+                };
+                fondoProgresoTema.Controls.Add(rellenoProgresoTema);
+
+                tarjeta.Controls.Add(numero);
+                tarjeta.Controls.Add(nombre);
+                tarjeta.Controls.Add(descripcion);
+                tarjeta.Controls.Add(porcentajeCompletado);
+                tarjeta.Controls.Add(progreso);
+                tarjeta.Controls.Add(estado);
+                tarjeta.Controls.Add(fondoProgresoTema);
+                tarjeta.Tag = new PresentacionTarjetaTema(
+                    numero,
+                    nombre,
+                    descripcion,
+                    porcentajeCompletado,
+                    progreso,
+                    estado,
+                    fondoProgresoTema,
+                    rellenoProgresoTema,
+                    porcentaje);
+                ConfigurarInteraccionTarjeta(tarjeta, () => MostrarPracticasTema(tema));
+                listaTemasCurso.Controls.Add(tarjeta);
             }
         } finally {
-            listaTemasCurso.ResumeLayout(performLayout: true);
-            desplazamientoTemasCurso.ActualizarContenido(volverAlInicio: true);
+            listaTemasCurso.ResumeLayout(performLayout: false);
         }
+
+        ultimoAnchoTarjetasTemas = Math.Max(
+            1,
+            listaTemasCurso.ClientSize.Width -
+            listaTemasCurso.Padding.Horizontal -
+            EscalarDiseno(4));
+        ultimoDpiTarjetasTemas = DeviceDpi;
+        ultimoModoCompactoTarjetasTemas = cursoModoCompacto;
+
+        if (cursoModoCompacto) {
+            listaTemasCurso.PerformLayout();
+            ActualizarAlturaTemasCursoCompacto(volverAlInicio);
+        } else {
+            desplazamientoTemasCurso.ActualizarContenido(volverAlInicio);
+        }
+
+        tarjetasTemasActualizadas = true;
+    }
+
+    private void ActualizarGeometriaTarjetasTemas(bool volverAlInicio) {
+        if (listaTemasCurso is null || listaTemasCurso.IsDisposed) {
+            return;
+        }
+
+        int anchoTarjeta = Math.Max(
+            1,
+            listaTemasCurso.ClientSize.Width -
+            listaTemasCurso.Padding.Horizontal -
+            EscalarDiseno(4));
+        bool geometriaCambio =
+            anchoTarjeta != ultimoAnchoTarjetasTemas ||
+            DeviceDpi != ultimoDpiTarjetasTemas ||
+            cursoModoCompacto != ultimoModoCompactoTarjetasTemas;
+
+        if (geometriaCambio) {
+            listaTemasCurso.SuspendLayout();
+
+            try {
+                foreach (Panel tarjeta in listaTemasCurso.Controls.OfType<Panel>()) {
+                    if (tarjeta.Tag is PresentacionTarjetaTema presentacion) {
+                        AplicarGeometriaTarjetaTema(tarjeta, presentacion, anchoTarjeta);
+                    }
+                }
+            } finally {
+                listaTemasCurso.ResumeLayout(performLayout: false);
+            }
+
+            ultimoAnchoTarjetasTemas = anchoTarjeta;
+            ultimoDpiTarjetasTemas = DeviceDpi;
+            ultimoModoCompactoTarjetasTemas = cursoModoCompacto;
+        }
+
+        if (cursoModoCompacto) {
+            if (geometriaCambio) {
+                listaTemasCurso.PerformLayout();
+            }
+
+            ActualizarAlturaTemasCursoCompacto(volverAlInicio);
+        } else {
+            desplazamientoTemasCurso.ActualizarContenido(volverAlInicio);
+        }
+    }
+
+    private void AplicarGeometriaTarjetaTema(
+        Panel tarjeta,
+        PresentacionTarjetaTema presentacion,
+        int anchoTarjeta) {
+        int margenIzquierdo = EscalarDiseno(18);
+        int margenDerecho = EscalarDiseno(18);
+        int anchoNumero = EscalarDiseno(42);
+        int xTexto = margenIzquierdo + anchoNumero + EscalarDiseno(4);
+        int separacionColumnas = EscalarDiseno(16);
+        int anchoInterior = Math.Max(1, anchoTarjeta - margenIzquierdo - margenDerecho);
+        int anchoMaximoEstadisticas = Math.Max(
+            1,
+            anchoTarjeta - xTexto - separacionColumnas - margenDerecho);
+        int anchoMinimoEstadisticas = Math.Min(EscalarDiseno(150), anchoMaximoEstadisticas);
+        int limiteEstadisticas = Math.Min(EscalarDiseno(190), anchoMaximoEstadisticas);
+        int anchoEstadisticas = Math.Clamp(
+            (int)Math.Round(anchoTarjeta * 0.28D),
+            anchoMinimoEstadisticas,
+            limiteEstadisticas);
+        int xEstadisticas = anchoTarjeta - margenDerecho - anchoEstadisticas;
+        int anchoTextoAmplio = Math.Max(1, xEstadisticas - separacionColumnas - xTexto);
+        bool presentacionCompacta =
+            cursoModoCompacto ||
+            anchoTarjeta < EscalarDiseno(680) ||
+            anchoTextoAmplio < EscalarDiseno(260);
+        int anchoTitulo = presentacionCompacta
+            ? Math.Max(1, anchoTarjeta - margenDerecho - xTexto)
+            : anchoTextoAmplio;
+        int anchoDescripcion = presentacionCompacta
+            ? anchoInterior
+            : anchoTextoAmplio;
+        int ySuperior = EscalarDiseno(10);
+        int altoNumero = CalcularAltoTextoCurso(presentacion.Numero, anchoNumero, 26);
+        int altoNombre = CalcularAltoTextoCurso(presentacion.Nombre, anchoTitulo, 28);
+        int altoBarra = EscalarDiseno(8);
+        int xBarra;
+        int yBarra;
+        int anchoBarra;
+        int altoTarjeta;
+
+        tarjeta.SuspendLayout();
+
+        try {
+            presentacion.Numero.SetBounds(
+                margenIzquierdo,
+                ySuperior,
+                anchoNumero,
+                altoNumero);
+            presentacion.Nombre.SetBounds(xTexto, ySuperior, anchoTitulo, altoNombre);
+
+            if (presentacionCompacta) {
+                int altoFilaTitulo = Math.Max(altoNumero, altoNombre);
+                int yDescripcion = ySuperior + altoFilaTitulo + EscalarDiseno(5);
+                int altoDescripcion = CalcularAltoTextoCurso(
+                    presentacion.Descripcion,
+                    anchoDescripcion,
+                    36);
+                presentacion.Descripcion.SetBounds(
+                    margenIzquierdo,
+                    yDescripcion,
+                    anchoDescripcion,
+                    altoDescripcion);
+
+                int separacionEstadisticas = EscalarDiseno(8);
+                int anchoColumnaEstadisticas = Math.Max(
+                    1,
+                    (anchoInterior - separacionEstadisticas * 2) / 3);
+                int xPorcentaje = margenIzquierdo;
+                int xProgreso = xPorcentaje + anchoColumnaEstadisticas + separacionEstadisticas;
+                int xEstado = xProgreso + anchoColumnaEstadisticas + separacionEstadisticas;
+                int anchoEstado = Math.Max(1, margenIzquierdo + anchoInterior - xEstado);
+                int yEstadisticas = yDescripcion + altoDescripcion + EscalarDiseno(7);
+                int altoPorcentaje = CalcularAltoTextoCurso(
+                    presentacion.Porcentaje,
+                    anchoColumnaEstadisticas,
+                    21);
+                int altoProgreso = CalcularAltoTextoCurso(
+                    presentacion.Progreso,
+                    anchoColumnaEstadisticas,
+                    21);
+                int altoEstado = CalcularAltoTextoCurso(
+                    presentacion.Estado,
+                    anchoEstado,
+                    23);
+                int altoFilaEstadisticas = Math.Max(
+                    altoPorcentaje,
+                    Math.Max(altoProgreso, altoEstado));
+
+                presentacion.Porcentaje.TextAlign = ContentAlignment.MiddleLeft;
+                presentacion.Progreso.TextAlign = ContentAlignment.MiddleCenter;
+                presentacion.Estado.TextAlign = ContentAlignment.MiddleRight;
+                presentacion.Porcentaje.SetBounds(
+                    xPorcentaje,
+                    yEstadisticas,
+                    anchoColumnaEstadisticas,
+                    altoFilaEstadisticas);
+                presentacion.Progreso.SetBounds(
+                    xProgreso,
+                    yEstadisticas,
+                    anchoColumnaEstadisticas,
+                    altoFilaEstadisticas);
+                presentacion.Estado.SetBounds(
+                    xEstado,
+                    yEstadisticas,
+                    anchoEstado,
+                    altoFilaEstadisticas);
+
+                xBarra = margenIzquierdo;
+                anchoBarra = anchoInterior;
+                yBarra = yEstadisticas + altoFilaEstadisticas + EscalarDiseno(7);
+                altoTarjeta = yBarra + altoBarra + EscalarDiseno(12);
+            } else {
+                int yDescripcion = ySuperior + altoNombre + EscalarDiseno(4);
+                int altoDescripcion = CalcularAltoTextoCurso(
+                    presentacion.Descripcion,
+                    anchoDescripcion,
+                    36);
+                int altoPorcentaje = CalcularAltoTextoCurso(
+                    presentacion.Porcentaje,
+                    anchoEstadisticas,
+                    21);
+                int yProgreso = ySuperior + altoPorcentaje + EscalarDiseno(2);
+                int altoProgreso = CalcularAltoTextoCurso(
+                    presentacion.Progreso,
+                    anchoEstadisticas,
+                    21);
+                int yEstado = yProgreso + altoProgreso + EscalarDiseno(3);
+                int altoEstado = CalcularAltoTextoCurso(
+                    presentacion.Estado,
+                    anchoEstadisticas,
+                    23);
+
+                presentacion.Descripcion.SetBounds(
+                    xTexto,
+                    yDescripcion,
+                    anchoDescripcion,
+                    altoDescripcion);
+                presentacion.Porcentaje.TextAlign = ContentAlignment.MiddleRight;
+                presentacion.Progreso.TextAlign = ContentAlignment.MiddleRight;
+                presentacion.Estado.TextAlign = ContentAlignment.MiddleRight;
+                presentacion.Porcentaje.SetBounds(
+                    xEstadisticas,
+                    ySuperior,
+                    anchoEstadisticas,
+                    altoPorcentaje);
+                presentacion.Progreso.SetBounds(
+                    xEstadisticas,
+                    yProgreso,
+                    anchoEstadisticas,
+                    altoProgreso);
+                presentacion.Estado.SetBounds(
+                    xEstadisticas,
+                    yEstado,
+                    anchoEstadisticas,
+                    altoEstado);
+
+                xBarra = xEstadisticas;
+                anchoBarra = anchoEstadisticas;
+                yBarra = yEstado + altoEstado + EscalarDiseno(7);
+                altoTarjeta = Math.Max(
+                    yDescripcion + altoDescripcion,
+                    yBarra + altoBarra) + EscalarDiseno(12);
+            }
+
+            tarjeta.Size = new Size(anchoTarjeta, altoTarjeta);
+            presentacion.FondoProgreso.SetBounds(xBarra, yBarra, anchoBarra, altoBarra);
+            presentacion.RellenoProgreso.SetBounds(
+                0,
+                0,
+                (int)Math.Round(anchoBarra * presentacion.ValorPorcentaje / 100D),
+                altoBarra);
+        } finally {
+            tarjeta.ResumeLayout(performLayout: false);
+        }
+
+        tarjeta.Invalidate();
     }
 
     private void ReconstruirTarjetasPracticas(TemaCurso tema, bool volverAlInicio = true) {
@@ -681,52 +1855,108 @@ public partial class frmPrincipal {
         try {
             VaciarYDisponerControles(listaPracticasTema);
             int anchoTarjeta = Math.Max(
-                420,
+                1,
                 listaPracticasTema.ClientSize.Width - listaPracticasTema.Padding.Horizontal - 4);
-            int xEstado = Math.Max(210, anchoTarjeta - 202);
-            int anchoTexto = Math.Max(120, xEstado - 84);
+            int margenIzquierdo = EscalarDiseno(18);
+            int margenDerecho = EscalarDiseno(18);
+            int anchoNumero = EscalarDiseno(45);
+            int xTexto = margenIzquierdo + anchoNumero + EscalarDiseno(5);
+            int separacionColumnas = EscalarDiseno(16);
+            int anchoMaximoMetadatos = Math.Max(
+                1,
+                anchoTarjeta - xTexto - separacionColumnas - margenDerecho);
+            int anchoMinimoMetadatos = Math.Min(EscalarDiseno(180), anchoMaximoMetadatos);
+            int anchoMetadatos = Math.Min(EscalarDiseno(210), anchoMaximoMetadatos);
+            anchoMetadatos = Math.Max(anchoMinimoMetadatos, anchoMetadatos);
+            int xMetadatos = anchoTarjeta - margenDerecho - anchoMetadatos;
+            int anchoTexto = Math.Max(1, xMetadatos - separacionColumnas - xTexto);
 
-        foreach (PracticaCurso practica in tema.Practicas.OrderBy(item => item.Numero)) {
-            EstadoPracticaCurso estadoPractica = ObtenerEstadoPractica(practica.Id);
-            Panel tarjeta = CrearTarjetaCurso(Point.Empty, new Size(anchoTarjeta, 86), 14);
-            tarjeta.Margin = new Padding(0, 0, 0, 10);
+            foreach (PracticaCurso practica in tema.Practicas.OrderBy(item => item.Numero)) {
+                EstadoPracticaCurso estadoPractica = ObtenerEstadoPractica(practica.Id);
+                Panel tarjeta = CrearTarjetaCurso(
+                    Point.Empty,
+                    new Size(anchoTarjeta, EscalarDiseno(86)),
+                    14,
+                    interactiva: true);
+                tarjeta.Margin = new Padding(0, 0, 0, EscalarDiseno(10));
+                tarjeta.TabIndex = Math.Max(0, practica.Numero - 1);
+                tarjeta.AccessibleName = $"Práctica {practica.Numero:00}: {practica.Nombre}";
+                tarjeta.AccessibleDescription =
+                    $"{NormalizarDificultad(practica.Dificultad)}. " +
+                    $"Duración {practica.DuracionEstimada}. " +
+                    $"Estado {ObtenerTextoEstadoPractica(estadoPractica)}.";
 
-            Label numero = CrearLabelCurso(
-                practica.Numero.ToString("00"),
-                new Point(18, 14),
-                new Size(45, 26),
-                12F,
-                FontStyle.Bold,
-                ColorMoradoClaroCurso);
-            Label nombre = CrearLabelCurso(
-                practica.Nombre,
-                new Point(68, 10),
-                new Size(anchoTexto, 28),
-                12F,
-                FontStyle.Bold,
-                Color.White);
-            Label descripcion = CrearLabelCurso(
-                practica.Objetivo,
-                new Point(68, 39),
-                new Size(anchoTexto, 35),
-                8.8F,
-                FontStyle.Regular,
-                ColorTextoSecundarioCurso);
-            Label estado = CrearLabelCurso(
-                ObtenerTextoEstadoPractica(estadoPractica),
-                new Point(xEstado, 27),
-                new Size(180, 28),
-                9F,
-                FontStyle.Bold,
-                ObtenerColorEstado(estadoPractica),
-                ContentAlignment.MiddleRight);
+                Label numero = CrearLabelCurso(
+                    practica.Numero.ToString("00"),
+                    Point.Empty,
+                    new Size(anchoNumero, 1),
+                    TamanoFuenteCurso.NumeroTarjeta,
+                    FontStyle.Bold,
+                    ColorMoradoClaroCurso,
+                    ContentAlignment.TopLeft);
+                Label nombre = CrearLabelCurso(
+                    practica.Nombre,
+                    Point.Empty,
+                    new Size(anchoTexto, 1),
+                    TamanoFuenteCurso.TituloTarjetaPractica,
+                    FontStyle.Bold,
+                    Color.White,
+                    ContentAlignment.TopLeft);
+                Label descripcion = CrearLabelCurso(
+                    practica.Objetivo,
+                    Point.Empty,
+                    new Size(anchoTexto, 1),
+                    TamanoFuenteCurso.DescripcionTarjetaPractica,
+                    FontStyle.Regular,
+                    ColorTextoSecundarioCurso,
+                    ContentAlignment.TopLeft);
+                Label estado = CrearLabelCurso(
+                    ObtenerTextoEstadoPractica(estadoPractica),
+                    Point.Empty,
+                    new Size(anchoMetadatos, 1),
+                    TamanoFuenteCurso.EstadoTarjetaPractica,
+                    FontStyle.Bold,
+                    ObtenerColorEstado(estadoPractica),
+                    ContentAlignment.MiddleRight);
+                Label metadatos = CrearLabelCurso(
+                    $"{NormalizarDificultad(practica.Dificultad)} · {practica.DuracionEstimada}",
+                    Point.Empty,
+                    new Size(anchoMetadatos, 1),
+                    TamanoFuenteCurso.MetadatoTarjetaPractica,
+                    FontStyle.Regular,
+                    ColorTextoSecundarioCurso,
+                    ContentAlignment.MiddleRight);
 
-            tarjeta.Controls.Add(numero);
-            tarjeta.Controls.Add(nombre);
-            tarjeta.Controls.Add(descripcion);
-            tarjeta.Controls.Add(estado);
-            ConfigurarInteraccionTarjeta(tarjeta, () => MostrarDetallePractica(practica));
-            listaPracticasTema.Controls.Add(tarjeta);
+                int ySuperior = EscalarDiseno(10);
+                int altoNumero = CalcularAltoTextoCurso(numero, anchoNumero, 26);
+                int altoNombre = CalcularAltoTextoCurso(nombre, anchoTexto, 28);
+                int yDescripcion = ySuperior + altoNombre + EscalarDiseno(3);
+                int altoDescripcion = CalcularAltoTextoCurso(descripcion, anchoTexto, 35);
+                int altoEstado = CalcularAltoTextoCurso(estado, anchoMetadatos, 25);
+                int yMetadatos = ySuperior + altoEstado + EscalarDiseno(3);
+                int altoMetadatos = CalcularAltoTextoCurso(metadatos, anchoMetadatos, 24);
+                int altoTarjeta = Math.Max(
+                    yDescripcion + altoDescripcion,
+                    yMetadatos + altoMetadatos) + EscalarDiseno(12);
+
+                tarjeta.Size = new Size(anchoTarjeta, altoTarjeta);
+                numero.SetBounds(margenIzquierdo, ySuperior, anchoNumero, altoNumero);
+                nombre.SetBounds(xTexto, ySuperior, anchoTexto, altoNombre);
+                descripcion.SetBounds(xTexto, yDescripcion, anchoTexto, altoDescripcion);
+                estado.SetBounds(xMetadatos, ySuperior, anchoMetadatos, altoEstado);
+                metadatos.SetBounds(
+                    xMetadatos,
+                    yMetadatos,
+                    anchoMetadatos,
+                    altoMetadatos);
+
+                tarjeta.Controls.Add(numero);
+                tarjeta.Controls.Add(nombre);
+                tarjeta.Controls.Add(descripcion);
+                tarjeta.Controls.Add(estado);
+                tarjeta.Controls.Add(metadatos);
+                ConfigurarInteraccionTarjeta(tarjeta, () => MostrarDetallePractica(practica));
+                listaPracticasTema.Controls.Add(tarjeta);
             }
         } finally {
             listaPracticasTema.ResumeLayout(performLayout: true);
@@ -740,91 +1970,126 @@ public partial class frmPrincipal {
         try {
             VaciarYDisponerControles(contenidoDetallePractica);
             int anchoContenido = Math.Max(
-                320,
+                1,
                 contenidoDetallePractica.ClientSize.Width -
                 contenidoDetallePractica.Padding.Horizontal -
                 4);
+            EstadoPracticaCurso estado = ObtenerEstadoPractica(practica.Id);
 
-        AgregarLabelFluido(
-            contenidoDetallePractica,
-            $"Práctica No. {practica.Numero}",
-            anchoContenido,
-            23,
-            9F,
-            FontStyle.Bold,
-            ColorMoradoClaroCurso);
-        AgregarLabelFluido(
-            contenidoDetallePractica,
-            practica.Nombre,
-            anchoContenido,
-            50,
-            21F,
-            FontStyle.Bold,
-            Color.White);
-        AgregarTextoDetalle(contenidoDetallePractica, practica.Descripcion, anchoContenido, 10F);
+            AgregarLabelFluido(
+                contenidoDetallePractica,
+                $"Práctica No. {practica.Numero}",
+                anchoContenido,
+                TamanoFuenteCurso.NumeroCabecera,
+                FontStyle.Bold,
+                ColorMoradoClaroCurso);
+            AgregarLabelFluido(
+                contenidoDetallePractica,
+                practica.Nombre,
+                anchoContenido,
+                TamanoFuenteCurso.TituloPrincipal,
+                FontStyle.Bold,
+                Color.White);
 
-        AgregarSeccionDetalle(
-            contenidoDetallePractica,
-            "Objetivo",
-            practica.Objetivo,
-            anchoContenido);
-        AgregarSeccionDetalle(
-            contenidoDetallePractica,
-            "Conceptos que practicarás",
-            string.Join("   •   ", practica.Conceptos),
-            anchoContenido);
-        AgregarSeccionDetalle(
-            contenidoDetallePractica,
-            "Instrucciones generales",
-            string.Join(Environment.NewLine, practica.Instrucciones.Select(
-                (instruccion, indice) => $"{indice + 1}. {instruccion}")),
-            anchoContenido);
-        AgregarSeccionDetalle(
-            contenidoDetallePractica,
-            "Resultado esperado",
-            practica.ResultadoEsperado,
-            anchoContenido);
-        AgregarSeccionDetalle(
-            contenidoDetallePractica,
-            "Dificultad",
-            practica.Dificultad,
-            anchoContenido);
+            AgregarSeccionDetalle(
+                contenidoDetallePractica,
+                "Estado actual",
+                ObtenerTextoEstadoPractica(estado),
+                anchoContenido,
+                ObtenerColorEstado(estado));
+            AgregarSeccionDetalle(
+                contenidoDetallePractica,
+                "Dificultad",
+                NormalizarDificultad(practica.Dificultad),
+                anchoContenido);
+            AgregarSeccionDetalle(
+                contenidoDetallePractica,
+                "Duración estimada",
+                string.IsNullOrWhiteSpace(practica.DuracionEstimada)
+                    ? "Duración por definir"
+                    : practica.DuracionEstimada,
+                anchoContenido);
+            AgregarSeccionDetalle(
+                contenidoDetallePractica,
+                "Requisitos previos",
+                practica.RequisitosPrevios.Count == 0
+                    ? "Sin requisitos previos"
+                    : string.Join("   •   ", practica.RequisitosPrevios),
+                anchoContenido);
+            AgregarSeccionDetalle(
+                contenidoDetallePractica,
+                "Objetivo",
+                practica.Objetivo,
+                anchoContenido);
+            AgregarSeccionDetalle(
+                contenidoDetallePractica,
+                "Descripción",
+                practica.Descripcion,
+                anchoContenido);
+            AgregarSeccionDetalle(
+                contenidoDetallePractica,
+                "Conceptos que practicarás",
+                string.Join("   •   ", practica.Conceptos),
+                anchoContenido);
+            AgregarSeccionDetalle(
+                contenidoDetallePractica,
+                "Instrucciones generales",
+                string.Join(Environment.NewLine, practica.Instrucciones.Select(
+                    (instruccion, indice) => $"{indice + 1}. {instruccion}")),
+                anchoContenido);
+            AgregarSeccionDetalle(
+                contenidoDetallePractica,
+                "Resultado esperado",
+                practica.ResultadoEsperado,
+                anchoContenido);
 
-        EstadoPracticaCurso estado = ObtenerEstadoPractica(practica.Id);
-        AgregarSeccionDetalle(
-            contenidoDetallePractica,
-            "Estado actual",
-            ObtenerTextoEstadoPractica(estado),
-            anchoContenido,
-            ObtenerColorEstado(estado));
+            Button btnAccionPractica = CrearBotonCurso(
+                ObtenerTextoAccionPractica(practica),
+                Point.Empty,
+                new Size(anchoContenido, EscalarDiseno(44)),
+                ColorMoradoCurso);
+            btnAccionPractica.AccessibleDescription =
+                "Crea el proyecto o abre la práctica existente según su estado actual.";
+            btnAccionPractica.Margin = new Padding(
+                0,
+                EscalarDiseno(10),
+                0,
+                EscalarDiseno(8));
+            btnAccionPractica.TabIndex = 0;
+            btnAccionPractica.Click += BtnAccionPracticaCurso_Click;
+            contenidoDetallePractica.Controls.Add(btnAccionPractica);
 
-        Button btnAccionPractica = CrearBotonCurso(
-            ObtenerTextoAccionPractica(practica),
-            Point.Empty,
-            new Size(anchoContenido, 44),
-            ColorMoradoCurso);
-        btnAccionPractica.Margin = new Padding(0, 10, 0, 8);
-        btnAccionPractica.Click += BtnAccionPracticaCurso_Click;
-        contenidoDetallePractica.Controls.Add(btnAccionPractica);
-
-        Panel panelAccionesEstado = new() {
-            BackColor = Color.FromArgb(18, 14, 27),
-            Margin = new Padding(0, 0, 0, 16),
-            Size = new Size(anchoContenido, 42)
-        };
-        Button btnRealizada = CrearBotonSecundarioCurso(
-            "Marcar como realizada",
-            new Point(0, 0),
-            new Size(260, 38));
-        Button btnPendiente = CrearBotonSecundarioCurso(
-            "Marcar como pendiente",
-            new Point(274, 0),
-            new Size(260, 38));
-        btnRealizada.Click += (_, _) => CambiarEstadoPracticaCurso(EstadoPracticaCurso.Realizada);
-        btnPendiente.Click += (_, _) => CambiarEstadoPracticaCurso(EstadoPracticaCurso.Pendiente);
-        panelAccionesEstado.Controls.Add(btnRealizada);
-        panelAccionesEstado.Controls.Add(btnPendiente);
-        contenidoDetallePractica.Controls.Add(panelAccionesEstado);
+            int separacionBotones = EscalarDiseno(14);
+            int altoBotonEstado = EscalarDiseno(38);
+            bool apilarBotones = anchoContenido < EscalarDiseno(360);
+            int anchoBotonEstado = apilarBotones
+                ? anchoContenido
+                : Math.Max(1, (anchoContenido - separacionBotones) / 2);
+            int altoPanelAcciones = apilarBotones
+                ? altoBotonEstado * 2 + separacionBotones
+                : altoBotonEstado;
+            Panel panelAccionesEstado = new() {
+                BackColor = Color.FromArgb(18, 14, 27),
+                Margin = new Padding(0, 0, 0, EscalarDiseno(16)),
+                Size = new Size(anchoContenido, altoPanelAcciones)
+            };
+            Button btnRealizada = CrearBotonSecundarioCurso(
+                "Marcar como realizada",
+                Point.Empty,
+                new Size(anchoBotonEstado, altoBotonEstado));
+            Button btnPendiente = CrearBotonSecundarioCurso(
+                "Marcar como pendiente",
+                apilarBotones
+                    ? new Point(0, altoBotonEstado + separacionBotones)
+                    : new Point(anchoBotonEstado + separacionBotones, 0),
+                new Size(anchoBotonEstado, altoBotonEstado));
+            btnRealizada.TabIndex = 0;
+            btnPendiente.TabIndex = 1;
+            btnRealizada.Click += (_, _) => CambiarEstadoPracticaCurso(EstadoPracticaCurso.Realizada);
+            btnPendiente.Click += (_, _) => CambiarEstadoPracticaCurso(EstadoPracticaCurso.Pendiente);
+            panelAccionesEstado.Controls.Add(btnRealizada);
+            panelAccionesEstado.Controls.Add(btnPendiente);
+            contenidoDetallePractica.Controls.Add(panelAccionesEstado);
         } finally {
             contenidoDetallePractica.ResumeLayout(performLayout: true);
             desplazamientoDetallePractica.ActualizarContenido(volverAlInicio);
@@ -954,38 +2219,24 @@ public partial class frmPrincipal {
         if (progreso is null) {
             progreso = new ProgresoPractica {
                 PracticaId = practicaId,
-                FechaCreacion = ahora
+                FechaCreacion = ahora,
+                FechaActualizacion = ahora
             };
             progresoCurso.Practicas.Add(progreso);
         }
 
         progreso.Estado = estado;
+        progreso.FechaActualizacion = ahora;
 
         if (!string.IsNullOrWhiteSpace(rutaProyecto)) {
             progreso.RutaProyecto = rutaProyecto;
         }
 
+        tarjetasTemasActualizadas = false;
+
         progreso.FechaFinalizacion = estado == EstadoPracticaCurso.Realizada
             ? ahora
             : null;
-    }
-
-    private static string PrepararDescripcionTarjeta(string descripcion) {
-        const int longitudPrimeraLinea = 38;
-
-        if (descripcion.Length <= longitudPrimeraLinea) {
-            return descripcion;
-        }
-
-        int separador = descripcion.LastIndexOf(' ', longitudPrimeraLinea);
-
-        if (separador <= 0) {
-            separador = descripcion.IndexOf(' ', longitudPrimeraLinea);
-        }
-
-        return separador > 0
-            ? descripcion.Insert(separador, Environment.NewLine).Trim()
-            : descripcion;
     }
 
     private string ObtenerTextoAccionPractica(PracticaCurso practica) {
@@ -1028,9 +2279,10 @@ public partial class frmPrincipal {
         }
 
         bool enProgreso = tema.Practicas.Any(practica => {
-            EstadoPracticaCurso estado = ObtenerEstadoPractica(practica.Id);
-            return estado == EstadoPracticaCurso.EnProgreso ||
-                estado == EstadoPracticaCurso.Realizada;
+            ProgresoPractica? progreso = ObtenerProgresoPractica(practica.Id);
+            return progreso is not null &&
+                (progreso.Estado != EstadoPracticaCurso.Pendiente ||
+                 !string.IsNullOrWhiteSpace(progreso.RutaProyecto));
         });
 
         return enProgreso
@@ -1062,21 +2314,40 @@ public partial class frmPrincipal {
         };
     }
 
-    private static Panel CrearTarjetaCurso(Point ubicacion, Size tamano, int radio) {
-        Panel tarjeta = new() {
-            BackColor = ColorTarjetaCurso,
-            Location = ubicacion,
-            Size = tamano
-        };
+    private static string NormalizarDificultad(string dificultad) {
+        return dificultad.Equals("Inicial", StringComparison.OrdinalIgnoreCase)
+            ? "Fácil"
+            : dificultad;
+    }
+
+    private static Panel CrearTarjetaCurso(
+        Point ubicacion,
+        Size tamano,
+        int radio,
+        bool interactiva = false) {
+        Panel tarjeta = interactiva
+            ? new TarjetaCursoInteractiva()
+            : new Panel();
+        tarjeta.BackColor = ColorTarjetaCurso;
+        tarjeta.Location = ubicacion;
+        tarjeta.Size = tamano;
+
+        if (interactiva) {
+            tarjeta.AccessibleRole = AccessibleRole.PushButton;
+        }
 
         AplicarRegionRedondeada(tarjeta, radio);
         tarjeta.SizeChanged += (_, _) => AplicarRegionRedondeada(tarjeta, radio);
         tarjeta.Paint += (_, e) => {
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             Rectangle limites = new(1, 1, tarjeta.Width - 3, tarjeta.Height - 3);
+            Color colorBorde = tarjeta.ContainsFocus
+                ? ColorMoradoClaroCurso
+                : ColorBordeCurso;
+            float anchoBorde = tarjeta.ContainsFocus ? 2.2F : 1.2F;
 
             using GraphicsPath contorno = CrearContornoRedondeado(limites, radio);
-            using Pen borde = new(ColorBordeCurso, 1.2F);
+            using Pen borde = new(colorBorde, anchoBorde);
             e.Graphics.DrawPath(borde, contorno);
         };
 
@@ -1124,7 +2395,10 @@ public partial class frmPrincipal {
         Point ubicacion,
         Size tamano,
         Color colorFondo) {
-        Font fuente = new("Segoe UI Semibold", 9.5F, FontStyle.Bold);
+        Font fuente = new(
+            "Segoe UI Semibold",
+            TamanoFuenteCurso.BotonPrimario,
+            FontStyle.Bold);
         Button boton = new() {
             BackColor = colorFondo,
             Cursor = Cursors.Hand,
@@ -1144,7 +2418,10 @@ public partial class frmPrincipal {
     }
 
     private static Button CrearBotonSecundarioCurso(string texto, Point ubicacion, Size tamano) {
-        Font fuente = new("Segoe UI Semibold", 9F, FontStyle.Bold);
+        Font fuente = new(
+            "Segoe UI Semibold",
+            TamanoFuenteCurso.BotonSecundario,
+            FontStyle.Bold);
         Button boton = new() {
             BackColor = Color.FromArgb(35, 28, 48),
             Cursor = Cursors.Hand,
@@ -1165,6 +2442,8 @@ public partial class frmPrincipal {
     }
 
     private static void ConfigurarInteraccionTarjeta(Panel tarjeta, Action alHacerClick) {
+        tarjeta.AccessibleRole = AccessibleRole.PushButton;
+
         foreach (Control control in ObtenerArbolControles(tarjeta)) {
             control.Cursor = Cursors.Hand;
             control.Click += (_, _) => alHacerClick();
@@ -1200,67 +2479,85 @@ public partial class frmPrincipal {
         }
     }
 
-    private static void AgregarLabelFluido(
+    private void AgregarLabelFluido(
         FlowLayoutPanel contenedor,
         string texto,
         int ancho,
-        int alto,
         float tamanoFuente,
         FontStyle estilo,
         Color color) {
         Label label = CrearLabelCurso(
             texto,
             Point.Empty,
-            new Size(ancho, alto),
+            new Size(ancho, 1),
             tamanoFuente,
             estilo,
-            color);
+            color,
+            ContentAlignment.TopLeft);
         label.BackColor = contenedor.BackColor;
-        label.Margin = new Padding(0, 0, 0, 2);
+        label.AutoSize = true;
+        label.MinimumSize = new Size(ancho, 0);
+        label.MaximumSize = new Size(ancho, 0);
+        label.Margin = new Padding(0, 0, 0, EscalarDiseno(4));
         contenedor.Controls.Add(label);
     }
 
-    private static void AgregarTextoDetalle(
-        FlowLayoutPanel contenedor,
-        string texto,
-        int ancho,
-        float tamanoFuente,
-        Color? color = null) {
-        using Font fuenteMedicion = new("Segoe UI", tamanoFuente, FontStyle.Regular);
-        int alto = Math.Max(
-            30,
-            TextRenderer.MeasureText(
-                texto,
-                fuenteMedicion,
-                new Size(ancho - 8, int.MaxValue),
-                TextFormatFlags.WordBreak | TextFormatFlags.NoPadding).Height + 10);
-
-        Label label = CrearLabelCurso(
-            texto,
-            Point.Empty,
-            new Size(ancho, alto),
-            tamanoFuente,
-            FontStyle.Regular,
-            color ?? ColorTextoSecundarioCurso);
-        label.BackColor = contenedor.BackColor;
-        label.Margin = new Padding(0, 0, 0, 8);
-        contenedor.Controls.Add(label);
-    }
-
-    private static void AgregarSeccionDetalle(
+    private void AgregarSeccionDetalle(
         FlowLayoutPanel contenedor,
         string titulo,
         string contenido,
         int ancho,
         Color? colorContenido = null) {
-        AgregarLabelFluido(
-            contenedor,
+        int margenHorizontal = EscalarDiseno(16);
+        int margenSuperior = EscalarDiseno(12);
+        int margenInferior = EscalarDiseno(16);
+        int separacion = EscalarDiseno(6);
+        int anchoInterior = Math.Max(1, ancho - margenHorizontal * 2);
+        Label encabezado = CrearLabelCurso(
             titulo,
-            ancho,
-            25,
-            10F,
+            Point.Empty,
+            new Size(anchoInterior, 1),
+            TamanoFuenteCurso.EncabezadoDetalle,
             FontStyle.Bold,
-            ColorMoradoClaroCurso);
-        AgregarTextoDetalle(contenedor, contenido, ancho, 9.2F, colorContenido);
+            ColorMoradoClaroCurso,
+            ContentAlignment.TopLeft);
+        Label texto = CrearLabelCurso(
+            contenido,
+            Point.Empty,
+            new Size(anchoInterior, 1),
+            TamanoFuenteCurso.TextoDetalle,
+            FontStyle.Regular,
+            colorContenido ?? ColorTextoSecundarioCurso,
+            ContentAlignment.TopLeft);
+        int altoTitulo = CalcularAltoTextoCurso(encabezado, anchoInterior, 24);
+        int altoContenido = CalcularAltoTextoCurso(texto, anchoInterior, 28);
+        int altoTarjeta =
+            margenSuperior + altoTitulo + separacion + altoContenido + margenInferior;
+        Panel tarjeta = CrearTarjetaCurso(
+            Point.Empty,
+            new Size(ancho, altoTarjeta),
+            12);
+        tarjeta.Margin = new Padding(0, 0, 0, EscalarDiseno(10));
+
+        Panel acento = new() {
+            BackColor = ColorMoradoCurso,
+            Location = new Point(0, 0),
+            Size = new Size(EscalarDiseno(4), altoTarjeta)
+        };
+        encabezado.SetBounds(
+            margenHorizontal,
+            margenSuperior,
+            anchoInterior,
+            altoTitulo);
+        texto.SetBounds(
+            margenHorizontal,
+            margenSuperior + altoTitulo + separacion,
+            anchoInterior,
+            altoContenido);
+
+        tarjeta.Controls.Add(acento);
+        tarjeta.Controls.Add(encabezado);
+        tarjeta.Controls.Add(texto);
+        contenedor.Controls.Add(tarjeta);
     }
 }

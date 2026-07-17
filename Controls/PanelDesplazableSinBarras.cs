@@ -13,21 +13,35 @@ internal sealed class PanelDesplazableSinBarras : Panel {
     private static readonly Color ColorPistaBarra = Color.FromArgb(31, 25, 45);
     private static readonly Color ColorIndicadorBarra = Color.FromArgb(145, 82, 214);
     private static readonly Color ColorIndicadorBarraHover = Color.FromArgb(174, 108, 232);
+    private readonly SolidBrush pincelFondoContenido = new(Color.FromArgb(18, 14, 27));
+    private readonly SolidBrush pincelPistaBarra = new(ColorPistaBarra);
+    private readonly SolidBrush pincelIndicadorBarra = new(ColorIndicadorBarra);
+    private readonly SolidBrush pincelIndicadorBarraHover = new(ColorIndicadorBarraHover);
+    private readonly Pen lapizBordeFoco = new(Color.FromArgb(202, 151, 247), 1F) {
+        DashStyle = DashStyle.Dot
+    };
 
     private int desplazamientoVertical;
+    private int desplazamientoDestino;
     private int acumuladoRueda;
     private bool actualizandoContenido;
+    private bool aplicacionDesplazamientoPendiente;
     private bool barraVisible;
     private bool indicadorHover;
     private bool arrastrandoIndicador;
     private int desfaseArrastreIndicador;
+    private bool eventosContenidoConectados;
+    private readonly HashSet<Control> controlesRegistrados = new();
 
     public FlowLayoutPanel Contenido { get; }
+
+    public bool MostrarBordeFoco { get; set; } = true;
 
     public Color ColorFondoContenido {
         get => Contenido.BackColor;
         set {
             Contenido.BackColor = value;
+            pincelFondoContenido.Color = value;
             Contenido.Invalidate(true);
             InvalidarBarra();
         }
@@ -59,12 +73,13 @@ internal sealed class PanelDesplazableSinBarras : Panel {
         Contenido.SetStyleDobleBuffer();
 
         Controls.Add(Contenido);
-        RegistrarArbol(Contenido);
-        Contenido.Layout += Contenido_Layout;
+        ConectarEventosContenido();
     }
 
     public void ActualizarContenido(bool volverAlInicio) {
-        if (actualizandoContenido || IsDisposed) {
+        if (actualizandoContenido ||
+            IsDisposed ||
+            !ReferenceEquals(Contenido.Parent, this)) {
             return;
         }
 
@@ -73,6 +88,8 @@ internal sealed class PanelDesplazableSinBarras : Panel {
         try {
             if (volverAlInicio) {
                 desplazamientoVertical = 0;
+                desplazamientoDestino = 0;
+                aplicacionDesplazamientoPendiente = false;
                 acumuladoRueda = 0;
             }
 
@@ -92,8 +109,13 @@ internal sealed class PanelDesplazableSinBarras : Panel {
             altoContenido = Math.Max(altoDisponible, altoContenido);
             int maximo = Math.Max(0, altoContenido - altoDisponible);
             desplazamientoVertical = Math.Clamp(desplazamientoVertical, 0, maximo);
+            desplazamientoDestino = aplicacionDesplazamientoPendiente
+                ? Math.Clamp(desplazamientoDestino, 0, maximo)
+                : desplazamientoVertical;
 
             if (!barraVisible) {
+                aplicacionDesplazamientoPendiente = false;
+                desplazamientoDestino = desplazamientoVertical;
                 indicadorHover = false;
                 arrastrandoIndicador = false;
                 desfaseArrastreIndicador = 0;
@@ -116,14 +138,88 @@ internal sealed class PanelDesplazableSinBarras : Panel {
         }
     }
 
-    public void IrAlInicio() {
+    public void TransferirContenidoA(Control nuevoContenedor) {
+        ArgumentNullException.ThrowIfNull(nuevoContenedor);
+
+        if (ReferenceEquals(Contenido.Parent, nuevoContenedor)) {
+            return;
+        }
+
+        DesconectarEventosContenido();
+        CancelarInteraccion();
         desplazamientoVertical = 0;
+        desplazamientoDestino = 0;
+        barraVisible = false;
+        nuevoContenedor.Controls.Add(Contenido);
+        Invalidate();
+    }
+
+    public void RestaurarContenido() {
+        if (ReferenceEquals(Contenido.Parent, this)) {
+            return;
+        }
+
+        CancelarInteraccion();
+        Controls.Add(Contenido);
+        ConectarEventosContenido();
+        ActualizarContenido(volverAlInicio: false);
+    }
+
+    public void CancelarInteraccion() {
+        bool requiereRepintado = indicadorHover || arrastrandoIndicador;
+
         acumuladoRueda = 0;
-        AplicarDesplazamiento();
+        aplicacionDesplazamientoPendiente = false;
+        desplazamientoDestino = desplazamientoVertical;
+        indicadorHover = false;
+        arrastrandoIndicador = false;
+        desfaseArrastreIndicador = 0;
+        Cursor = Cursors.Default;
+
+        if (Capture) {
+            Capture = false;
+        }
+
+        if (requiereRepintado) {
+            InvalidarBarra();
+        }
+    }
+
+    public void IrAlInicio() {
+        acumuladoRueda = 0;
+        MoverA(0);
     }
 
     public void IrAlFinal() {
         MoverA(int.MaxValue);
+    }
+
+    public void AsegurarVisible(Control control) {
+        if (!control.Visible || !EsDescendienteDe(control, Contenido)) {
+            return;
+        }
+
+        Rectangle limitesControl = Contenido.RectangleToClient(
+            control.RectangleToScreen(control.ClientRectangle));
+        int altoDisponible = Math.Max(1, ClientSize.Height - Padding.Vertical);
+        int limiteSuperior = ObtenerDesplazamientoSolicitado();
+        int limiteInferior = limiteSuperior + altoDisponible;
+
+        if (limitesControl.Top < limiteSuperior) {
+            MoverA(limitesControl.Top);
+        } else if (limitesControl.Bottom > limiteInferior) {
+            MoverA(limitesControl.Bottom - altoDisponible);
+        }
+    }
+
+    private static bool EsDescendienteDe(Control control, Control posibleAncestro) {
+        for (Control? actual = control.Parent; actual is not null; actual = actual.Parent) {
+            if (ReferenceEquals(actual, posibleAncestro)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected override void OnResize(EventArgs e) {
@@ -134,15 +230,19 @@ internal sealed class PanelDesplazableSinBarras : Panel {
     protected override void OnPaint(PaintEventArgs e) {
         base.OnPaint(e);
 
+        if (MostrarBordeFoco && Focused && ClientSize.Width > 1 && ClientSize.Height > 1) {
+            e.Graphics.DrawRectangle(
+                lapizBordeFoco,
+                new Rectangle(0, 0, ClientSize.Width - 1, ClientSize.Height - 1));
+        }
+
         Rectangle reservaBarra = ObtenerRectanguloReservaBarra();
 
         if (reservaBarra.IsEmpty) {
             return;
         }
 
-        using (SolidBrush fondo = new(ColorFondoContenido)) {
-            e.Graphics.FillRectangle(fondo, reservaBarra);
-        }
+        e.Graphics.FillRectangle(pincelFondoContenido, reservaBarra);
 
         if (!barraVisible) {
             return;
@@ -158,19 +258,25 @@ internal sealed class PanelDesplazableSinBarras : Panel {
         SmoothingMode suavizadoAnterior = e.Graphics.SmoothingMode;
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
-        using (SolidBrush fondoPista = new(ColorPistaBarra)) {
-            RellenarRectanguloRedondeado(e.Graphics, fondoPista, pista);
-        }
-
-        Color colorIndicador = indicadorHover || arrastrandoIndicador
-            ? ColorIndicadorBarraHover
-            : ColorIndicadorBarra;
-
-        using (SolidBrush fondoIndicador = new(colorIndicador)) {
-            RellenarRectanguloRedondeado(e.Graphics, fondoIndicador, indicador);
-        }
+        RellenarRectanguloRedondeado(e.Graphics, pincelPistaBarra, pista);
+        RellenarRectanguloRedondeado(
+            e.Graphics,
+            indicadorHover || arrastrandoIndicador
+                ? pincelIndicadorBarraHover
+                : pincelIndicadorBarra,
+            indicador);
 
         e.Graphics.SmoothingMode = suavizadoAnterior;
+    }
+
+    protected override void OnGotFocus(EventArgs e) {
+        base.OnGotFocus(e);
+        Invalidate();
+    }
+
+    protected override void OnLostFocus(EventArgs e) {
+        base.OnLostFocus(e);
+        Invalidate();
     }
 
     protected override void OnMouseDown(MouseEventArgs e) {
@@ -244,6 +350,10 @@ internal sealed class PanelDesplazableSinBarras : Panel {
     }
 
     protected override void OnMouseWheel(MouseEventArgs e) {
+        if (e is HandledMouseEventArgs { Handled: true }) {
+            return;
+        }
+
         ProcesarRueda(e);
 
         if (e is HandledMouseEventArgs handled) {
@@ -262,11 +372,12 @@ internal sealed class PanelDesplazableSinBarras : Panel {
 
     protected override void OnKeyDown(KeyEventArgs e) {
         int pagina = Math.Max(PasoLinea, ClientSize.Height - PasoLinea);
+        int posicionActual = ObtenerDesplazamientoSolicitado();
         int? destino = e.KeyCode switch {
-            Keys.Up => desplazamientoVertical - PasoLinea,
-            Keys.Down => desplazamientoVertical + PasoLinea,
-            Keys.PageUp => desplazamientoVertical - pagina,
-            Keys.PageDown => desplazamientoVertical + pagina,
+            Keys.Up => posicionActual - PasoLinea,
+            Keys.Down => posicionActual + PasoLinea,
+            Keys.PageUp => posicionActual - pagina,
+            Keys.PageDown => posicionActual + pagina,
             Keys.Home => 0,
             Keys.End => int.MaxValue,
             _ => null
@@ -301,13 +412,59 @@ internal sealed class PanelDesplazableSinBarras : Panel {
             ? Math.Max(PasoLinea, ClientSize.Height - PasoLinea)
             : lineas * PasoLinea;
 
-        MoverA(desplazamientoVertical - pasos * distancia);
+        MoverA(ObtenerDesplazamientoSolicitado() - pasos * distancia);
     }
 
     private void MoverA(int destino) {
         int altoDisponible = Math.Max(1, ClientSize.Height - Padding.Vertical);
         int maximo = Math.Max(0, Contenido.Height - altoDisponible);
         int nuevoValor = Math.Clamp(destino, 0, maximo);
+
+        if (nuevoValor == ObtenerDesplazamientoSolicitado()) {
+            return;
+        }
+
+        desplazamientoDestino = nuevoValor;
+        ProgramarAplicacionDesplazamiento();
+    }
+
+    private int ObtenerDesplazamientoSolicitado() {
+        return aplicacionDesplazamientoPendiente
+            ? desplazamientoDestino
+            : desplazamientoVertical;
+    }
+
+    private void ProgramarAplicacionDesplazamiento() {
+        if (aplicacionDesplazamientoPendiente || IsDisposed || Disposing) {
+            return;
+        }
+
+        if (!IsHandleCreated) {
+            AplicarDesplazamientoDestino();
+            return;
+        }
+
+        aplicacionDesplazamientoPendiente = true;
+
+        try {
+            BeginInvoke((Action)(() => {
+                if (!aplicacionDesplazamientoPendiente || IsDisposed || Disposing) {
+                    return;
+                }
+
+                aplicacionDesplazamientoPendiente = false;
+                AplicarDesplazamientoDestino();
+            }));
+        } catch (InvalidOperationException) {
+            aplicacionDesplazamientoPendiente = false;
+        }
+    }
+
+    private void AplicarDesplazamientoDestino() {
+        int maximo = ObtenerMaximoDesplazamiento();
+        int nuevoValor = Math.Clamp(desplazamientoDestino, 0, maximo);
+
+        desplazamientoDestino = nuevoValor;
 
         if (nuevoValor == desplazamientoVertical) {
             return;
@@ -319,7 +476,17 @@ internal sealed class PanelDesplazableSinBarras : Panel {
 
     private void AplicarDesplazamiento() {
         Contenido.Top = Padding.Top - desplazamientoVertical;
-        Contenido.Invalidate(true);
+        int anchoViewport = Math.Max(
+            0,
+            ClientSize.Width - Padding.Horizontal - AnchoReservaBarra);
+        int altoViewport = Math.Max(0, ClientSize.Height - Padding.Vertical);
+
+        if (anchoViewport > 0 && altoViewport > 0) {
+            Invalidate(
+                new Rectangle(Padding.Left, Padding.Top, anchoViewport, altoViewport),
+                invalidateChildren: false);
+        }
+
         InvalidarBarra();
     }
 
@@ -476,6 +643,10 @@ internal sealed class PanelDesplazableSinBarras : Panel {
     }
 
     private void RegistrarArbol(Control control) {
+        if (!controlesRegistrados.Add(control)) {
+            return;
+        }
+
         control.MouseEnter += Control_MouseEnter;
         control.MouseWheel += Control_MouseWheel;
         control.ControlAdded += Control_ControlAdded;
@@ -491,6 +662,10 @@ internal sealed class PanelDesplazableSinBarras : Panel {
             DesregistrarArbol(hijo);
         }
 
+        if (!controlesRegistrados.Remove(control)) {
+            return;
+        }
+
         control.MouseEnter -= Control_MouseEnter;
         control.MouseWheel -= Control_MouseWheel;
         control.ControlAdded -= Control_ControlAdded;
@@ -498,12 +673,16 @@ internal sealed class PanelDesplazableSinBarras : Panel {
     }
 
     private void Control_MouseEnter(object? sender, EventArgs e) {
-        if (CanFocus && !ContainsFocus) {
+        if (TabStop && CanFocus && !ContainsFocus) {
             Focus();
         }
     }
 
     private void Control_MouseWheel(object? sender, MouseEventArgs e) {
+        if (e is HandledMouseEventArgs { Handled: true }) {
+            return;
+        }
+
         ProcesarRueda(e);
 
         if (e is HandledMouseEventArgs handled) {
@@ -523,10 +702,34 @@ internal sealed class PanelDesplazableSinBarras : Panel {
         }
     }
 
+    private void ConectarEventosContenido() {
+        if (eventosContenidoConectados) {
+            return;
+        }
+
+        RegistrarArbol(Contenido);
+        Contenido.Layout += Contenido_Layout;
+        eventosContenidoConectados = true;
+    }
+
+    private void DesconectarEventosContenido() {
+        if (!eventosContenidoConectados) {
+            return;
+        }
+
+        Contenido.Layout -= Contenido_Layout;
+        DesregistrarArbol(Contenido);
+        eventosContenidoConectados = false;
+    }
+
     protected override void Dispose(bool disposing) {
         if (disposing) {
-            Contenido.Layout -= Contenido_Layout;
-            DesregistrarArbol(Contenido);
+            DesconectarEventosContenido();
+            pincelFondoContenido.Dispose();
+            pincelPistaBarra.Dispose();
+            pincelIndicadorBarra.Dispose();
+            pincelIndicadorBarraHover.Dispose();
+            lapizBordeFoco.Dispose();
         }
 
         base.Dispose(disposing);

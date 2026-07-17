@@ -1,9 +1,231 @@
+using EndForge.Controls;
 using EndForge.Models;
 using System.Drawing.Drawing2D;
 
 namespace EndForge;
 
 public partial class frmPrincipal {
+    private bool disenoNuevaPracticaConfigurado;
+    private TextBoxMultilineaEndForge campoObjetivoEndForge = null!;
+
+    private void ConfigurarDisenoNuevaPracticaAdaptable() {
+        if (disenoNuevaPracticaConfigurado) {
+            return;
+        }
+
+        panelVistaNuevaPractica.Dock = DockStyle.Fill;
+        panelNuevaPracticaTarjeta.Anchor = AnchorStyles.None;
+        ConfigurarCampoObjetivoEndForge();
+
+        lblTitulo.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        lblNuevaPracticaSubtitulo.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        lblTema.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        txtTemas.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        lblNombre.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        txtNombreProyecto.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        lblObjetivo.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        campoObjetivoEndForge.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        panelVistaPreviaNuevaPractica.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        btnCrearProyecto.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        lblVistaPrevia.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        lblNombreFinal.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+
+        disenoNuevaPracticaConfigurado = true;
+    }
+
+    private void AjustarGeometriaNuevaPractica() {
+        if (!disenoNuevaPracticaConfigurado ||
+            distribucionPanelPrincipal != DistribucionPanelPrincipal.NuevaPractica ||
+            panelVistaNuevaPractica.IsDisposed) {
+            return;
+        }
+
+        Rectangle area = panelVistaNuevaPractica.ClientRectangle;
+
+        if (area.Width <= 0 || area.Height <= 0) {
+            return;
+        }
+
+        int margenExterior = EscalarDiseno(16);
+        int anchoDisponible = Math.Max(1, area.Width - margenExterior * 2);
+        int altoDisponible = Math.Max(1, area.Height - margenExterior * 2);
+        int anchoMinimo = Math.Min(EscalarDiseno(584), anchoDisponible);
+        int anchoMaximo = Math.Max(anchoMinimo, Math.Min(EscalarDiseno(840), anchoDisponible));
+        int anchoDeseado = (int)Math.Round(anchoDisponible * 0.90D);
+        int anchoTarjeta = Math.Clamp(anchoDeseado, anchoMinimo, anchoMaximo);
+        int altoMinimo = Math.Min(EscalarDiseno(446), altoDisponible);
+        int altoMaximo = Math.Max(altoMinimo, Math.Min(EscalarDiseno(560), altoDisponible));
+        int altoTarjeta = Math.Clamp(altoDisponible, altoMinimo, altoMaximo);
+        int x = area.Left + Math.Max(0, (area.Width - anchoTarjeta) / 2);
+        int y = area.Top + Math.Max(0, (area.Height - altoTarjeta) / 2);
+
+        panelVistaNuevaPractica.SuspendLayout();
+        panelNuevaPracticaTarjeta.SuspendLayout();
+
+        try {
+            panelNuevaPracticaTarjeta.SetBounds(x, y, anchoTarjeta, altoTarjeta);
+
+            int margenContenido = Math.Min(
+                EscalarDiseno(32),
+                Math.Max(EscalarDiseno(18), panelNuevaPracticaTarjeta.ClientSize.Width / 8));
+            int anchoContenido = Math.Max(
+                1,
+                panelNuevaPracticaTarjeta.ClientSize.Width - margenContenido * 2);
+            int rellenoSuperior = EscalarDiseno(14);
+            int rellenoInferior = EscalarDiseno(14);
+            int separacionEncabezado = EscalarDiseno(2);
+            int separacionSecciones = EscalarDiseno(7);
+            int separacionEtiquetaControl = EscalarDiseno(3);
+            int separacionObjetivoVistaPrevia = EscalarDiseno(10);
+            int separacionVistaPreviaBoton = EscalarDiseno(10);
+            int altoTitulo = CalcularAltoTextoNuevaPractica(lblTitulo, anchoContenido, 42);
+            int altoSubtitulo = CalcularAltoTextoNuevaPractica(
+                lblNuevaPracticaSubtitulo,
+                anchoContenido,
+                24);
+            int altoEtiquetaTema = CalcularAltoTextoNuevaPractica(lblTema, anchoContenido, 20);
+            int altoTema = Math.Max(EscalarDiseno(31), txtTemas.PreferredSize.Height);
+            int altoEtiquetaNombre = CalcularAltoTextoNuevaPractica(lblNombre, anchoContenido, 20);
+            int altoNombre = Math.Max(EscalarDiseno(29), txtNombreProyecto.PreferredSize.Height);
+            int altoEtiquetaObjetivo = CalcularAltoTextoNuevaPractica(
+                lblObjetivo,
+                anchoContenido,
+                20);
+            int altoBoton = Math.Max(EscalarDiseno(42), btnCrearProyecto.PreferredSize.Height);
+            int posicionY = rellenoSuperior;
+
+            lblTitulo.SetBounds(
+                margenContenido,
+                posicionY,
+                anchoContenido,
+                altoTitulo);
+            posicionY = lblTitulo.Bottom + separacionEncabezado;
+            lblNuevaPracticaSubtitulo.SetBounds(
+                margenContenido,
+                posicionY,
+                anchoContenido,
+                altoSubtitulo);
+            posicionY = lblNuevaPracticaSubtitulo.Bottom + separacionSecciones;
+
+            lblTema.SetBounds(
+                margenContenido,
+                posicionY,
+                anchoContenido,
+                altoEtiquetaTema);
+            posicionY = lblTema.Bottom + separacionEtiquetaControl;
+            txtTemas.SetBounds(margenContenido, posicionY, anchoContenido, altoTema);
+            posicionY = txtTemas.Bottom + separacionSecciones;
+
+            lblNombre.SetBounds(
+                margenContenido,
+                posicionY,
+                anchoContenido,
+                altoEtiquetaNombre);
+            posicionY = lblNombre.Bottom + separacionEtiquetaControl;
+            txtNombreProyecto.SetBounds(margenContenido, posicionY, anchoContenido, altoNombre);
+            posicionY = txtNombreProyecto.Bottom + separacionSecciones;
+
+            lblObjetivo.SetBounds(
+                margenContenido,
+                posicionY,
+                anchoContenido,
+                altoEtiquetaObjetivo);
+            int yObjetivo = lblObjetivo.Bottom + separacionEtiquetaControl;
+            int yBoton = Math.Max(
+                yObjetivo + 2,
+                panelNuevaPracticaTarjeta.ClientSize.Height - rellenoInferior - altoBoton);
+            int espacioFlexible = Math.Max(
+                2,
+                yBoton - separacionVistaPreviaBoton - yObjetivo -
+                separacionObjetivoVistaPrevia);
+            int altoMinimoObjetivo = EscalarDiseno(72);
+            int altoMinimoVistaPrevia = EscalarDiseno(64);
+            int altoMaximoVistaPrevia = EscalarDiseno(96);
+            int altoVistaPrevia = Math.Clamp(
+                (int)Math.Round(espacioFlexible * 0.28D),
+                Math.Min(altoMinimoVistaPrevia, espacioFlexible - 1),
+                Math.Max(1, Math.Min(altoMaximoVistaPrevia, espacioFlexible - 1)));
+            int altoObjetivo = Math.Max(1, espacioFlexible - altoVistaPrevia);
+
+            if (altoObjetivo < altoMinimoObjetivo && espacioFlexible > 1) {
+                altoVistaPrevia = Math.Max(1, espacioFlexible - altoMinimoObjetivo);
+                altoObjetivo = Math.Max(1, espacioFlexible - altoVistaPrevia);
+            }
+
+            campoObjetivoEndForge.SetBounds(
+                margenContenido,
+                yObjetivo,
+                anchoContenido,
+                altoObjetivo);
+            panelVistaPreviaNuevaPractica.SetBounds(
+                margenContenido,
+                campoObjetivoEndForge.Bottom + separacionObjetivoVistaPrevia,
+                anchoContenido,
+                altoVistaPrevia);
+            btnCrearProyecto.SetBounds(
+                margenContenido,
+                yBoton,
+                anchoContenido,
+                altoBoton);
+
+            int margenVistaPrevia = EscalarDiseno(18);
+            int anchoTextoVistaPrevia = Math.Max(
+                1,
+                panelVistaPreviaNuevaPractica.ClientSize.Width - margenVistaPrevia * 2);
+            int rellenoVerticalVistaPrevia = EscalarDiseno(5);
+            int altoEtiquetaVistaPrevia = CalcularAltoTextoNuevaPractica(
+                lblVistaPrevia,
+                anchoTextoVistaPrevia,
+                18);
+            int yNombreFinal = rellenoVerticalVistaPrevia + altoEtiquetaVistaPrevia;
+            int altoNombreFinal = Math.Max(
+                1,
+                panelVistaPreviaNuevaPractica.ClientSize.Height -
+                yNombreFinal - rellenoVerticalVistaPrevia);
+            lblVistaPrevia.SetBounds(
+                margenVistaPrevia,
+                rellenoVerticalVistaPrevia,
+                anchoTextoVistaPrevia,
+                altoEtiquetaVistaPrevia);
+            lblNombreFinal.SetBounds(
+                margenVistaPrevia,
+                yNombreFinal,
+                anchoTextoVistaPrevia,
+                altoNombreFinal);
+        } finally {
+            panelNuevaPracticaTarjeta.ResumeLayout(performLayout: true);
+            panelVistaNuevaPractica.ResumeLayout(performLayout: true);
+        }
+
+        panelNuevaPracticaTarjeta.Invalidate();
+        panelVistaPreviaNuevaPractica.Invalidate();
+    }
+
+    private void ConfigurarCampoObjetivoEndForge() {
+        int indiceControl = panelNuevaPracticaTarjeta.Controls.GetChildIndex(txtObjetivo);
+        Rectangle limites = txtObjetivo.Bounds;
+
+        campoObjetivoEndForge = new TextBoxMultilineaEndForge(txtObjetivo) {
+            AccessibleName = txtObjetivo.AccessibleName,
+            Bounds = limites,
+            Name = "campoObjetivoEndForge",
+            TabIndex = txtObjetivo.TabIndex,
+            TabStop = false
+        };
+
+        panelNuevaPracticaTarjeta.Controls.Add(campoObjetivoEndForge);
+        panelNuevaPracticaTarjeta.Controls.SetChildIndex(campoObjetivoEndForge, indiceControl);
+    }
+
+    private int CalcularAltoTextoNuevaPractica(Label label, int ancho, int altoMinimo) {
+        int altoTexto = TextRenderer.MeasureText(
+            label.Text,
+            label.Font,
+            new Size(Math.Max(1, ancho), int.MaxValue),
+            TextFormatFlags.WordBreak | TextFormatFlags.NoPadding).Height;
+        return Math.Max(EscalarDiseno(altoMinimo), altoTexto + EscalarDiseno(3));
+    }
+
     private void MostrarVistaPreviaVacia() {
         lblNombreFinal.Text = "Esperando datos...";
         lblNombreFinal.ForeColor = Color.FromArgb(156, 115, 194);
@@ -169,10 +391,13 @@ public partial class frmPrincipal {
         MostrarPantallaBienvenida();
     }
 
-    private void CargarTemas() {
+    private void CargarTemas(IReadOnlyList<string>? temasPrecargados = null) {
         txtTemas.Items.Clear();
 
-        foreach (string tema in temasService.CargarTemas(rutaBase)) {
+        IReadOnlyList<string> temas =
+            temasPrecargados ?? temasService.CargarTemas(rutaBase);
+
+        foreach (string tema in temas) {
             txtTemas.Items.Add(tema);
         }
 
@@ -298,7 +523,7 @@ public partial class frmPrincipal {
             txtObjetivo.Text,
             () => {
                 txtNombreProyecto.Clear();
-                txtObjetivo.Clear();
+                campoObjetivoEndForge.Clear();
                 txtNombreProyecto.Focus();
 
                 ActualizarVistaPrevia();

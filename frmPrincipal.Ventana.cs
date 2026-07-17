@@ -3,8 +3,16 @@ using System.Runtime.InteropServices;
 namespace EndForge;
 
 public partial class frmPrincipal {
+    private enum DistribucionPanelPrincipal {
+        Normal,
+        Curso,
+        NuevaPractica
+    }
+
     private System.Windows.Forms.Timer timerRecalcularVista = new System.Windows.Forms.Timer();
     private bool recalculandoVista;
+    private bool recalculoPendienteDuranteTransicion;
+    private DistribucionPanelPrincipal distribucionPanelPrincipal;
 
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
@@ -51,10 +59,18 @@ public partial class frmPrincipal {
     }
 
     private void BtnMinimizar_Click(object? sender, EventArgs e) {
+        if (transicionandoDesdeBienvenida) {
+            return;
+        }
+
         WindowState = FormWindowState.Minimized;
     }
 
     private void BtnMaximizar_Click(object? sender, EventArgs e) {
+        if (transicionandoDesdeBienvenida) {
+            return;
+        }
+
         if (WindowState == FormWindowState.Maximized) {
             WindowState = FormWindowState.Normal;
         } else {
@@ -89,7 +105,7 @@ public partial class frmPrincipal {
     }
 
     private void PanelBarraTitulo_MouseDown(object? sender, MouseEventArgs e) {
-        if (e.Button == MouseButtons.Left) {
+        if (!transicionandoDesdeBienvenida && e.Button == MouseButtons.Left) {
             ReleaseCapture();
             SendMessage(Handle, 0x112, 0xf012, 0);
         }
@@ -109,12 +125,47 @@ public partial class frmPrincipal {
                 altoDisponible,
                 tamanoPanelPrincipalNormal.Height + expansionVertical);
 
-            panelPrincipal.Size = new Size(Math.Max(1, ancho), Math.Max(1, alto));
-            panelPrincipal.Location = new Point(
-                Math.Max(0, (ClientSize.Width - panelPrincipal.Width) / 2),
+            panelPrincipal.SetBounds(
+                Math.Max(0, (ClientSize.Width - ancho) / 2),
                 Math.Max(
                     limiteSuperior,
-                    limiteSuperior + (ClientSize.Height - limiteSuperior - panelPrincipal.Height) / 2));
+                    limiteSuperior + (ClientSize.Height - limiteSuperior - alto) / 2),
+                Math.Max(1, ancho),
+                Math.Max(1, alto));
+            return;
+        }
+
+        if (distribucionPanelPrincipal != DistribucionPanelPrincipal.Normal) {
+            Rectangle areaFondo = fondoEndForge.ClientRectangle;
+            int limiteIzquierdo = panelMenu.Visible
+                ? Math.Max(areaFondo.Left, panelMenu.Right)
+                : areaFondo.Left;
+            int limiteSuperior = Math.Max(areaFondo.Top, panelBarraTitulo.Bottom);
+            int anchoArea = Math.Max(1, areaFondo.Right - limiteIzquierdo);
+            int altoArea = Math.Max(1, areaFondo.Bottom - limiteSuperior);
+            int margen = EscalarDiseno(24);
+            int anchoUtil = Math.Max(1, anchoArea - margen * 2);
+            int altoUtil = Math.Max(1, altoArea - margen * 2);
+            int ancho;
+            int alto;
+
+            if (distribucionPanelPrincipal == DistribucionPanelPrincipal.Curso) {
+                ancho = anchoUtil;
+                alto = altoUtil;
+            } else {
+                int anchoMaximo = EscalarDiseno(1040);
+                int altoMaximo = EscalarDiseno(590);
+                int anchoMinimo = Math.Min(tamanoPanelPrincipalNormal.Width, anchoUtil);
+                int altoMinimo = Math.Min(tamanoPanelPrincipalNormal.Height, altoUtil);
+                ancho = Math.Max(anchoMinimo, Math.Min(anchoUtil, anchoMaximo));
+                alto = Math.Max(altoMinimo, Math.Min(altoUtil, altoMaximo));
+            }
+
+            panelPrincipal.SetBounds(
+                limiteIzquierdo + Math.Max(0, (anchoArea - ancho) / 2),
+                limiteSuperior + Math.Max(0, (altoArea - alto) / 2),
+                ancho,
+                alto);
             return;
         }
 
@@ -131,6 +182,43 @@ public partial class frmPrincipal {
         panelPrincipal.Location = new Point(x, y);
     }
 
+    private int EscalarDiseno(int valor) {
+        return Math.Max(1, (int)Math.Round(valor * DeviceDpi / 96D));
+    }
+
+    private void RecalcularDistribucionActual() {
+        timerRecalcularVista.Stop();
+        CentrarPanelPrincipal();
+        SincronizarLimitesVistasAdaptables();
+        RecalcularDistribucionCurso();
+        AjustarGeometriaNuevaPractica();
+    }
+
+    private void SincronizarLimitesVistasAdaptables() {
+        Rectangle limites = panelPrincipal.ClientRectangle;
+        panelVistaNuevaPractica.SetBounds(
+            limites.Left,
+            limites.Top,
+            Math.Max(1, limites.Width),
+            Math.Max(1, limites.Height));
+
+        if (!cursoInicializado) {
+            return;
+        }
+
+        foreach (Control vista in new[] {
+            panelCursoVista,
+            panelPracticasTemaVista,
+            panelDetallePracticaVista
+        }) {
+            vista.SetBounds(
+                limites.Left,
+                limites.Top,
+                Math.Max(1, limites.Width),
+                Math.Max(1, limites.Height));
+        }
+    }
+
     private void FrmPrincipal_Resize(object? sender, EventArgs e) {
         timerRecalcularVista.Stop();
 
@@ -139,6 +227,12 @@ public partial class frmPrincipal {
         }
 
         ActualizarBotonMaximizar();
+
+        if (transicionandoDesdeBienvenida) {
+            recalculoPendienteDuranteTransicion = true;
+            return;
+        }
+
         timerRecalcularVista.Start();
     }
 
@@ -149,25 +243,30 @@ public partial class frmPrincipal {
             return;
         }
 
+        if (transicionandoDesdeBienvenida) {
+            recalculoPendienteDuranteTransicion = true;
+            return;
+        }
+
+        RegistrarTiempoInicio("Resize final: inicio de recálculo geométrico");
         recalculandoVista = true;
-        SuspendLayout();
         fondoEndForge.SuspendLayout();
         panelPrincipal.SuspendLayout();
 
         try {
-            CentrarPanelPrincipal();
-            ActualizarDisenoCursoTrasRedimensionar();
+            RecalcularDistribucionActual();
 
             if (panelPantallaBienvenida.Visible) {
                 CentrarContenidoBienvenida();
             }
         } finally {
-            panelPrincipal.ResumeLayout(performLayout: true);
-            fondoEndForge.ResumeLayout(performLayout: true);
-            ResumeLayout(performLayout: true);
+            panelPrincipal.ResumeLayout(performLayout: false);
+            fondoEndForge.ResumeLayout(performLayout: false);
             recalculandoVista = false;
         }
 
-        Invalidate(true);
+        fondoEndForge.Invalidate();
+        panelPrincipal.Invalidate();
+        RegistrarTiempoInicio("Resize final: recálculo e invalidación terminados");
     }
 }

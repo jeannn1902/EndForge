@@ -67,12 +67,6 @@ public partial class frmPrincipal {
         panelRecientesVista.BackColor = Color.Transparent;
         panelConfiguracionVista.BackgroundImage = null;
         panelConfiguracionVista.BackColor = Color.Transparent;
-        panelCursoVista.BackgroundImage = null;
-        panelCursoVista.BackColor = Color.Transparent;
-        panelPracticasTemaVista.BackgroundImage = null;
-        panelPracticasTemaVista.BackColor = Color.Transparent;
-        panelDetallePracticaVista.BackgroundImage = null;
-        panelDetallePracticaVista.BackColor = Color.Transparent;
         panelListaRecientes.BackgroundImage = null;
         panelListaRecientes.BackColor = Color.Transparent;
 
@@ -93,9 +87,7 @@ public partial class frmPrincipal {
         ActivarDobleBuffer(panelVistaNuevaPractica);
         ActivarDobleBuffer(panelNuevaPracticaTarjeta);
         ActivarDobleBuffer(panelVistaPreviaNuevaPractica);
-        ActivarDobleBuffer(panelCursoVista);
-        ActivarDobleBuffer(panelPracticasTemaVista);
-        ActivarDobleBuffer(panelDetallePracticaVista);
+        ConfigurarDisenoNuevaPracticaAdaptable();
     }
 
     private void ConfigurarNavegacion() {

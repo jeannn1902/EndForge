@@ -80,14 +80,17 @@ public partial class frmPrincipal {
         IntentarAbrirPractica(proyecto.Ruta, promoverReciente: true);
     }
 
-    private void CargarRecientes() {
-        ActualizarVistaRecientes();
+    private void CargarRecientes(ResultadoLecturaRecientes? resultadoPrecargado = null) {
+        ActualizarVistaRecientes(resultadoPrecargado: resultadoPrecargado);
     }
 
-    private void ActualizarVistaRecientes(string? filtro = null) {
+    private void ActualizarVistaRecientes(
+        string? filtro = null,
+        ResultadoLecturaRecientes? resultadoPrecargado = null) {
         LimpiarVistaRecientes();
 
-        ResultadoLecturaRecientes resultado = recientesService.LeerProyectosRecientes();
+        ResultadoLecturaRecientes resultado =
+            resultadoPrecargado ?? recientesService.LeerProyectosRecientes();
         NotificarResultadoLecturaRecientes(resultado);
 
         if (!resultado.DatosDisponibles || resultado.Proyectos.Count == 0) {

@@ -109,12 +109,14 @@ public sealed class ProgresoCursoService {
         if (practica is null) {
             practica = new ProgresoPractica {
                 PracticaId = practicaId.Trim(),
-                FechaCreacion = ahora
+                FechaCreacion = ahora,
+                FechaActualizacion = ahora
             };
             carga.Progreso.Practicas.Add(practica);
         }
 
         practica.Estado = estado;
+        practica.FechaActualizacion = ahora;
 
         if (!string.IsNullOrWhiteSpace(rutaProyecto)) {
             practica.RutaProyecto = rutaProyecto.Trim();
@@ -357,6 +359,10 @@ public sealed class ProgresoCursoService {
             return false;
         }
 
+        if (practica.FechaActualizacion < practica.FechaCreacion) {
+            return false;
+        }
+
         if (string.IsNullOrWhiteSpace(practica.RutaProyecto)) {
             return true;
         }
@@ -375,6 +381,7 @@ public sealed class ProgresoCursoService {
             Estado = practica.Estado,
             RutaProyecto = (practica.RutaProyecto ?? string.Empty).Trim(),
             FechaCreacion = practica.FechaCreacion,
+            FechaActualizacion = practica.FechaActualizacion,
             FechaFinalizacion = practica.FechaFinalizacion
         };
     }
