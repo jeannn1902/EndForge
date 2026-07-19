@@ -1,6 +1,8 @@
 namespace EndForge.Controls;
 
 internal sealed class TarjetaCursoInteractiva : Panel {
+    public event EventHandler? ActivadaPorTeclado;
+
     public TarjetaCursoInteractiva() {
         SetStyle(
             ControlStyles.Selectable |
@@ -29,7 +31,7 @@ internal sealed class TarjetaCursoInteractiva : Panel {
 
     protected override void OnKeyDown(KeyEventArgs e) {
         if (e.KeyCode is Keys.Enter or Keys.Space) {
-            OnClick(EventArgs.Empty);
+            ActivadaPorTeclado?.Invoke(this, EventArgs.Empty);
             e.Handled = true;
             e.SuppressKeyPress = true;
             return;

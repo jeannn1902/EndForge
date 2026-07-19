@@ -35,7 +35,7 @@ public partial class frmPrincipal {
     }
 
     private void PanelDetalleGradoVista_VisibleChanged(object? sender, EventArgs e) {
-        if (!panelCursoVista.Visible) {
+        if (!panelCursoVista.Visible || navegacionCursoEnCurso) {
             return;
         }
 
@@ -43,7 +43,10 @@ public partial class frmPrincipal {
         RestaurarNavegacionDetalleGrado();
     }
 
-    private void MostrarRutaAprendizajeInmersiva(bool reconstruirContenido) {
+    private void MostrarRutaAprendizajeInmersiva(
+        bool reconstruirContenido,
+        bool invalidarFondo = true,
+        bool prepararContenidoAntesDeMostrar = false) {
         if (!cursoPreparado) {
             return;
         }
@@ -51,15 +54,20 @@ public partial class frmPrincipal {
         ConfigurarEventosVistasRutaAprendizaje();
         OcultarVistasPrincipalesFueraDelCurso();
         SeleccionarPanelMenu(panelCurso);
-        AplicarGeometriaRutaAprendizajeInmersiva();
+        AplicarGeometriaRutaAprendizajeInmersiva(invalidarFondo);
+
+        if (reconstruirContenido && prepararContenidoAntesDeMostrar) {
+            AsegurarVistaGradosVigente(volverAlInicio: false);
+        }
+
         MostrarSubvistaCurso(panelGradosVista, VistaRutaAprendizaje.Grados);
 
-        if (reconstruirContenido) {
-            ReconstruirVistaGrados(volverAlInicio: false);
+        if (reconstruirContenido && !prepararContenidoAntesDeMostrar) {
+            AsegurarVistaGradosVigente(volverAlInicio: false);
         }
     }
 
-    private void AplicarGeometriaRutaAprendizajeInmersiva() {
+    private void AplicarGeometriaRutaAprendizajeInmersiva(bool invalidarFondo = true) {
         timerRecalcularVista.Stop();
         rutaAprendizajeInmersivaActiva = true;
         modoCursoInmersivo = true;
@@ -69,7 +77,7 @@ public partial class frmPrincipal {
         RecalcularDistribucionActual();
         panelBarraTitulo.BringToFront();
 
-        if (!transicionandoDesdeBienvenida) {
+        if (invalidarFondo && !transicionandoDesdeBienvenida) {
             InvalidarFondoContinuo();
         }
     }

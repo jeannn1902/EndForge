@@ -9,6 +9,7 @@ internal sealed class PanelDesplazableSinBarras : Panel {
     private const int AnchoPistaBarra = 8;
     private const int MargenVerticalBarra = 4;
     private const int AltoMinimoIndicador = 28;
+    private const int MargenRepintadoDesplazamiento = 2;
 
     private sealed class ContenedorFlujoDobleBuffer : FlowLayoutPanel {
         public ContenedorFlujoDobleBuffer() {
@@ -38,6 +39,7 @@ internal sealed class PanelDesplazableSinBarras : Panel {
     private int acumuladoRueda;
     private bool actualizandoContenido;
     private bool aplicacionDesplazamientoPendiente;
+    private long generacionAplicacionDesplazamiento;
     private bool barraVisible;
     private bool indicadorHover;
     private bool arrastrandoIndicador;
@@ -100,7 +102,7 @@ internal sealed class PanelDesplazableSinBarras : Panel {
             if (volverAlInicio) {
                 desplazamientoVertical = 0;
                 desplazamientoDestino = 0;
-                aplicacionDesplazamientoPendiente = false;
+                CancelarAplicacionDesplazamientoPendiente();
                 acumuladoRueda = 0;
             }
 
@@ -129,7 +131,7 @@ internal sealed class PanelDesplazableSinBarras : Panel {
                 : desplazamientoVertical;
 
             if (!barraVisible) {
-                aplicacionDesplazamientoPendiente = false;
+                CancelarAplicacionDesplazamientoPendiente();
                 desplazamientoDestino = desplazamientoVertical;
                 indicadorHover = false;
                 arrastrandoIndicador = false;
@@ -184,7 +186,7 @@ internal sealed class PanelDesplazableSinBarras : Panel {
         bool requiereRepintado = indicadorHover || arrastrandoIndicador;
 
         acumuladoRueda = 0;
-        aplicacionDesplazamientoPendiente = false;
+        CancelarAplicacionDesplazamientoPendiente();
         desplazamientoDestino = desplazamientoVertical;
         indicadorHover = false;
         arrastrandoIndicador = false;
@@ -479,10 +481,14 @@ internal sealed class PanelDesplazableSinBarras : Panel {
         }
 
         aplicacionDesplazamientoPendiente = true;
+        long generacionProgramada = ++generacionAplicacionDesplazamiento;
 
         try {
             BeginInvoke((Action)(() => {
-                if (!aplicacionDesplazamientoPendiente || IsDisposed || Disposing) {
+                if (generacionProgramada != generacionAplicacionDesplazamiento ||
+                    !aplicacionDesplazamientoPendiente ||
+                    IsDisposed ||
+                    Disposing) {
                     return;
                 }
 
@@ -490,8 +496,15 @@ internal sealed class PanelDesplazableSinBarras : Panel {
                 AplicarDesplazamientoDestino();
             }));
         } catch (InvalidOperationException) {
-            aplicacionDesplazamientoPendiente = false;
+            if (generacionProgramada == generacionAplicacionDesplazamiento) {
+                aplicacionDesplazamientoPendiente = false;
+            }
         }
+    }
+
+    private void CancelarAplicacionDesplazamientoPendiente() {
+        generacionAplicacionDesplazamiento++;
+        aplicacionDesplazamientoPendiente = false;
     }
 
     private void AplicarDesplazamientoDestino() {
@@ -504,19 +517,30 @@ internal sealed class PanelDesplazableSinBarras : Panel {
             return;
         }
 
+        Rectangle indicadorAnterior = ObtenerRectanguloIndicador();
         desplazamientoVertical = nuevoValor;
-        AplicarDesplazamiento();
+        AplicarDesplazamiento(indicadorAnterior);
     }
 
-    private void AplicarDesplazamiento() {
+    private void AplicarDesplazamiento(Rectangle indicadorAnterior) {
+        Rectangle limitesAnteriores = Contenido.Bounds;
         Contenido.Top = Padding.Top - desplazamientoVertical;
+        Rectangle limitesNuevos = Contenido.Bounds;
         Rectangle viewport = ObtenerRectanguloViewport();
 
         if (!viewport.IsEmpty) {
-            Invalidate(viewport, invalidateChildren: true);
+            Rectangle regionExpuesta = CalcularRegionExpuestaPorDesplazamiento(
+                viewport,
+                limitesAnteriores,
+                limitesNuevos);
+
+            if (!regionExpuesta.IsEmpty) {
+                Invalidate(regionExpuesta, invalidateChildren: true);
+            }
         }
 
-        InvalidarBarra();
+        Rectangle indicadorNuevo = ObtenerRectanguloIndicador();
+        InvalidarCambioIndicador(indicadorAnterior, indicadorNuevo);
     }
 
     private void IniciarArrastreIndicador(int desfase) {
@@ -539,22 +563,24 @@ internal sealed class PanelDesplazableSinBarras : Panel {
     }
 
     private void MoverIndicadorDesdeMouse(int posicionY) {
+        MoverA(CalcularDesplazamientoDesdeMouse(posicionY));
+    }
+
+    private int CalcularDesplazamientoDesdeMouse(int posicionY) {
         Rectangle pista = ObtenerRectanguloPista();
         Rectangle indicador = ObtenerRectanguloIndicador();
         int recorrido = pista.Height - indicador.Height;
         int maximo = ObtenerMaximoDesplazamiento();
 
         if (recorrido <= 0 || maximo <= 0) {
-            MoverA(0);
-            return;
+            return 0;
         }
 
         int posicionIndicador = Math.Clamp(
             posicionY - desfaseArrastreIndicador - pista.Top,
             0,
             recorrido);
-        int destino = (int)Math.Round(posicionIndicador * maximo / (double)recorrido);
-        MoverA(destino);
+        return (int)Math.Round(posicionIndicador * maximo / (double)recorrido);
     }
 
     private void FinalizarArrastreIndicador(Point ubicacionMouse) {
@@ -562,7 +588,9 @@ internal sealed class PanelDesplazableSinBarras : Panel {
             return;
         }
 
-        aplicacionDesplazamientoPendiente = false;
+        int destinoFinal = CalcularDesplazamientoDesdeMouse(ubicacionMouse.Y);
+        CancelarAplicacionDesplazamientoPendiente();
+        desplazamientoDestino = destinoFinal;
         AplicarDesplazamientoDestino();
         arrastrandoIndicador = false;
         desfaseArrastreIndicador = 0;
@@ -596,6 +624,58 @@ internal sealed class PanelDesplazableSinBarras : Panel {
         return ancho > 0 && alto > 0
             ? new Rectangle(Padding.Left, Padding.Top, ancho, alto)
             : Rectangle.Empty;
+    }
+
+    private static Rectangle CalcularRegionExpuestaPorDesplazamiento(
+        Rectangle viewport,
+        Rectangle limitesAnteriores,
+        Rectangle limitesNuevos) {
+        int delta = limitesNuevos.Top - limitesAnteriores.Top;
+
+        if (delta == 0 || viewport.IsEmpty) {
+            return Rectangle.Empty;
+        }
+
+        int altoExpuesto = (int)Math.Min(
+            viewport.Height,
+            Math.Abs((long)delta));
+        Rectangle region = delta > 0
+            ? new Rectangle(
+                viewport.Left,
+                viewport.Top,
+                viewport.Width,
+                altoExpuesto)
+            : new Rectangle(
+                viewport.Left,
+                viewport.Bottom - altoExpuesto,
+                viewport.Width,
+                altoExpuesto);
+
+        region.Inflate(0, MargenRepintadoDesplazamiento);
+        return Rectangle.Intersect(region, viewport);
+    }
+
+    private void InvalidarCambioIndicador(
+        Rectangle indicadorAnterior,
+        Rectangle indicadorNuevo) {
+        Rectangle region = indicadorAnterior.IsEmpty
+            ? indicadorNuevo
+            : indicadorNuevo.IsEmpty
+                ? indicadorAnterior
+                : Rectangle.Union(indicadorAnterior, indicadorNuevo);
+
+        if (region.IsEmpty) {
+            return;
+        }
+
+        region.Inflate(
+            MargenRepintadoDesplazamiento,
+            MargenRepintadoDesplazamiento);
+        region = Rectangle.Intersect(region, ObtenerRectanguloReservaBarra());
+
+        if (!region.IsEmpty) {
+            Invalidate(region);
+        }
     }
 
     private Rectangle ObtenerRectanguloReservaBarra() {

@@ -60,6 +60,31 @@ public partial class frmPrincipal {
         public Label Metadatos { get; }
     }
 
+    private readonly record struct EstadoContenidoTema(
+        string Id,
+        int Numero,
+        string Nombre,
+        string Descripcion,
+        bool EsProximamente,
+        string MensajeDisponibilidad,
+        int TotalPracticasPlaneadas,
+        int PracticasRealizadas,
+        int Porcentaje,
+        EstadoPracticaCurso Estado,
+        string FirmaPracticas);
+
+    private readonly record struct EstadoContenidoPractica(
+        string Id,
+        string TemaId,
+        int Numero,
+        string Nombre,
+        string Objetivo,
+        string Dificultad,
+        string DuracionEstimada,
+        EstadoPracticaCurso Estado,
+        bool MostrarTiempos,
+        string FirmaContenido);
+
     private sealed class PresentacionSeccionDetalle {
         public PresentacionSeccionDetalle(
             Panel acento,
@@ -119,6 +144,7 @@ public partial class frmPrincipal {
     private static readonly Color ColorMoradoCurso = Color.FromArgb(145, 82, 214);
     private static readonly Color ColorMoradoClaroCurso = Color.FromArgb(202, 151, 247);
     private static readonly Color ColorTextoSecundarioCurso = Color.FromArgb(190, 181, 204);
+    private const int DuracionTransicionVistaCursoMs = 235;
 
     private CursoService cursoService = null!;
     private ProgresoCursoService progresoCursoService = null!;
@@ -174,18 +200,40 @@ public partial class frmPrincipal {
     private bool cursoInicializado;
     private bool preparandoCurso;
     private bool cursoPreparado;
-    private bool tarjetasTemasActualizadas;
+    private bool navegacionCursoEnCurso;
+    private bool transicionVisualCursoActiva;
+    private bool retirandoCubiertaTransicionCurso;
+    private bool cubiertaTransicionCursoPintada;
+    private bool destinoTransicionCursoListo;
+    private bool preparacionDestinoTransicionCursoProgramada;
     private Task? tareaPreparacionCurso;
+    private Action? preparacionDestinoTransicionCursoPendiente;
+    private Panel? cubiertaTransicionCurso;
+    private System.Windows.Forms.Timer? timerTransicionCurso;
+    private Control? destinoTransicionCurso;
+    private long inicioRetiroCubiertaTransicionCurso;
+    private long secuenciaTransicionVisualCurso;
+    private long idTransicionVisualCursoActiva;
     private CursoService? cursoServicePrecargado;
     private ProgresoCursoService? progresoCursoServicePrecargado;
     private ResultadoCargaProgreso? resultadoProgresoCursoPrecargado;
     private int ultimoAnchoTarjetasTemas = -1;
     private int ultimoDpiTarjetasTemas = -1;
     private bool ultimoModoCompactoTarjetasTemas;
+    private EstadoContenidoTema[] estadoTarjetasTemas = Array.Empty<EstadoContenidoTema>();
     private int ultimoAnchoTarjetasPracticas = -1;
     private int ultimoDpiTarjetasPracticas = -1;
+    private string temaTarjetasPracticasId = string.Empty;
+    private EstadoContenidoPractica[] estadoTarjetasPracticas =
+        Array.Empty<EstadoContenidoPractica>();
     private int ultimoAnchoContenidoDetallePractica = -1;
     private int ultimoDpiContenidoDetallePractica = -1;
+    private PracticaCurso? practicaDetalleConstruida;
+    private EstadoPracticaCurso estadoPracticaDetalleConstruida;
+    private string rutaProyectoDetalleConstruida = string.Empty;
+    private bool rutaProyectoDetalleExistia;
+    private bool mostrarTiemposDetalleConstruido;
+    private bool evaluacionEnCursoDetalleConstruida;
 
     private void InicializarEstructuraCurso() {
         if (estructuraCursoInicializada) {
@@ -741,22 +789,64 @@ public partial class frmPrincipal {
     }
 
     private void MostrarCursoPrincipal() {
-        if (!cursoPreparado) {
+        if (!cursoPreparado || navegacionCursoEnCurso) {
             return;
         }
 
-        PrepararNavegacionPrincipalDesdeRuta();
-        MostrarNavegacionPrincipal(DistribucionPanelPrincipal.Curso);
-        SeleccionarPanelMenu(panelCurso);
-        ActualizarResumenCurso();
+        bool destinoYaVisible =
+            panelCursoVista.Visible &&
+            vistaRutaActual == VistaRutaAprendizaje.DetalleGrado &&
+            !modoCursoInmersivo &&
+            panelMenu.Visible;
 
-        if (!tarjetasTemasActualizadas) {
-            ReconstruirTarjetasTemas();
+        if (destinoYaVisible) {
+            return;
         }
 
-        MostrarSubvistaCurso(panelCursoVista, VistaRutaAprendizaje.DetalleGrado);
-        RecalcularVistaPrincipalCurso();
-        ActualizarGeometriaTarjetasTemas(volverAlInicio: false);
+        bool diferirPreparacionHastaCubierta =
+            panelGradosVista.Visible &&
+            WindowState == FormWindowState.Maximized;
+
+        if (!IniciarTransicionVisualCurso(panelCursoVista)) {
+            return;
+        }
+
+        RestablecerEstadosVisualesVistaActualCurso();
+
+        if (diferirPreparacionHastaCubierta) {
+            PrepararDestinoDespuesDeCubiertaTransicionCurso(
+                PrepararYMostrarCursoPrincipal);
+            return;
+        }
+
+        PrepararYMostrarCursoPrincipal();
+    }
+
+    private void PrepararYMostrarCursoPrincipal() {
+        panelPrincipal.SuspendLayout();
+
+        try {
+            PrepararNavegacionPrincipalDesdeRuta();
+            MostrarNavegacionPrincipal(
+                DistribucionPanelPrincipal.Curso,
+                invalidarFondo: false);
+            SeleccionarPanelMenu(panelCurso);
+            ActualizarResumenCurso();
+            AsegurarTarjetasTemasVigentes(
+                volverAlInicio: false,
+                actualizarGeometriaSiVigente: false);
+            AjustarCubiertaTransicionCurso();
+            MostrarSubvistaCurso(panelCursoVista, VistaRutaAprendizaje.DetalleGrado);
+            RestablecerEstadosVisualesTarjetasTemas();
+        } catch {
+            CancelarTransicionVisualCurso();
+            throw;
+        } finally {
+            panelPrincipal.ResumeLayout(performLayout: false);
+        }
+
+        fondoEndForge.Invalidate();
+        ConfirmarDestinoTransicionCurso(panelCursoVista);
     }
 
     private void MostrarPracticasTema(TemaCurso tema) {
@@ -778,25 +868,101 @@ public partial class frmPrincipal {
             return;
         }
 
-        temaCursoSeleccionado = tema;
-        MostrarModoCursoInmersivo();
-        lblNumeroTemaCurso.Text = $"Tema {tema.Numero:00}";
-        lblNombreTemaCurso.Text = tema.Nombre;
-        lblDescripcionTemaCurso.Text = tema.Descripcion;
-        ActualizarGeometriaVistaPracticas();
-        ReconstruirTarjetasPracticas(tema);
-        MostrarSubvistaCurso(panelPracticasTemaVista, VistaRutaAprendizaje.PracticasTema);
+        bool mismoTemaVisible =
+            panelPracticasTemaVista.Visible &&
+            vistaRutaActual == VistaRutaAprendizaje.PracticasTema &&
+            temaCursoSeleccionado?.Id.Equals(
+                tema.Id,
+                StringComparison.OrdinalIgnoreCase) == true;
+
+        if (navegacionCursoEnCurso || mismoTemaVisible) {
+            return;
+        }
+
+        if (!IniciarTransicionVisualCurso(panelPracticasTemaVista)) {
+            return;
+        }
+
+        panelPrincipal.SuspendLayout();
+
+        try {
+            RestablecerEstadosVisualesVistaActualCurso();
+            temaCursoSeleccionado = tema;
+            lblNumeroTemaCurso.Text = $"Tema {tema.Numero:00}";
+            lblNombreTemaCurso.Text = tema.Nombre;
+            lblDescripcionTemaCurso.Text = tema.Descripcion;
+            MostrarModoCursoInmersivo(invalidarFondo: false);
+            AsegurarTarjetasPracticasVigentes(
+                tema,
+                volverAlInicio: false,
+                actualizarGeometriaSiVigente: false);
+            AjustarCubiertaTransicionCurso();
+            MostrarSubvistaCurso(
+                panelPracticasTemaVista,
+                VistaRutaAprendizaje.PracticasTema);
+            RestablecerEstadosVisualesTarjetasPracticas();
+        } catch {
+            CancelarTransicionVisualCurso();
+            throw;
+        } finally {
+            panelPrincipal.ResumeLayout(performLayout: false);
+        }
+
+        fondoEndForge.Invalidate();
+        ConfirmarDestinoTransicionCurso(panelPracticasTemaVista);
     }
 
     private void MostrarDetallePractica(PracticaCurso practica) {
-        practicaCursoSeleccionada = practica;
-        temaCursoSeleccionado = cursoService.ObtenerTema(practica.TemaId);
-        MostrarModoCursoInmersivo();
-        lblNumeroDetallePracticaCurso.Text = $"Práctica No. {practica.Numero}";
-        lblTituloDetallePracticaCurso.Text = practica.Nombre;
-        ActualizarGeometriaDetallePractica();
-        ReconstruirDetallePractica(practica);
-        MostrarSubvistaCurso(panelDetallePracticaVista, VistaRutaAprendizaje.DetallePractica);
+        bool mismoDetalleVisible =
+            panelDetallePracticaVista.Visible &&
+            vistaRutaActual == VistaRutaAprendizaje.DetallePractica &&
+            practicaCursoSeleccionada?.Id.Equals(
+                practica.Id,
+                StringComparison.OrdinalIgnoreCase) == true;
+
+        if (navegacionCursoEnCurso || mismoDetalleVisible) {
+            return;
+        }
+
+        if (!IniciarTransicionVisualCurso(panelDetallePracticaVista)) {
+            return;
+        }
+
+        RestablecerEstadosVisualesVistaActualCurso();
+        PrepararDestinoDespuesDeCubiertaTransicionCurso(
+            () => PrepararYMostrarDetallePractica(practica));
+    }
+
+    private void PrepararYMostrarDetallePractica(PracticaCurso practica) {
+        panelPrincipal.SuspendLayout();
+
+        try {
+            practicaCursoSeleccionada = practica;
+            temaCursoSeleccionado = cursoService.ObtenerTema(practica.TemaId);
+            lblNumeroDetallePracticaCurso.Text = $"Práctica No. {practica.Numero}";
+            lblTituloDetallePracticaCurso.Text = practica.Nombre;
+            bool requiereModoInmersivo = !modoCursoInmersivo || panelMenu.Visible;
+
+            if (requiereModoInmersivo) {
+                MostrarModoCursoInmersivo(invalidarFondo: false);
+            } else {
+                ActualizarGeometriaDetallePractica();
+            }
+
+            AsegurarDetallePracticaVigente(practica);
+            AjustarCubiertaTransicionCurso();
+            MostrarSubvistaCurso(
+                panelDetallePracticaVista,
+                VistaRutaAprendizaje.DetallePractica);
+        } catch {
+            CancelarTransicionVisualCurso();
+            throw;
+        } finally {
+            panelPrincipal.ResumeLayout(performLayout: false);
+        }
+
+        fondoEndForge.Invalidate();
+        ConfirmarDestinoTransicionCurso(panelDetallePracticaVista);
     }
 
     private void FrmPrincipal_CursoKeyDown(object? sender, KeyEventArgs e) {
@@ -813,7 +979,8 @@ public partial class frmPrincipal {
     }
 
     private void MostrarNavegacionPrincipal(
-        DistribucionPanelPrincipal distribucion = DistribucionPanelPrincipal.Normal) {
+        DistribucionPanelPrincipal distribucion = DistribucionPanelPrincipal.Normal,
+        bool invalidarFondo = true) {
         timerRecalcularVista.Stop();
         modoCursoInmersivo = false;
         distribucionPanelPrincipal = distribucion;
@@ -829,12 +996,12 @@ public partial class frmPrincipal {
         panelMenu.BringToFront();
         panelBarraTitulo.BringToFront();
 
-        if (!transicionandoDesdeBienvenida) {
+        if (invalidarFondo && !transicionandoDesdeBienvenida) {
             InvalidarFondoContinuo();
         }
     }
 
-    private void MostrarModoCursoInmersivo() {
+    private void MostrarModoCursoInmersivo(bool invalidarFondo = true) {
         timerRecalcularVista.Stop();
         modoCursoInmersivo = true;
         distribucionPanelPrincipal = DistribucionPanelPrincipal.Curso;
@@ -842,7 +1009,393 @@ public partial class frmPrincipal {
         panelPrincipal.Visible = true;
         panelBarraTitulo.BringToFront();
         RecalcularDistribucionActual();
-        InvalidarFondoContinuo();
+        if (invalidarFondo) {
+            InvalidarFondoContinuo();
+        }
+    }
+
+    private bool IniciarTransicionVisualCurso(Control destino) {
+        if (navegacionCursoEnCurso ||
+            transicionVisualCursoActiva ||
+            IsDisposed ||
+            Disposing) {
+            return false;
+        }
+
+        AsegurarCubiertaTransicionCurso();
+
+        if (cubiertaTransicionCurso is null || cubiertaTransicionCurso.IsDisposed) {
+            return false;
+        }
+
+        navegacionCursoEnCurso = true;
+        transicionVisualCursoActiva = true;
+        retirandoCubiertaTransicionCurso = false;
+        cubiertaTransicionCursoPintada = false;
+        destinoTransicionCursoListo = false;
+        preparacionDestinoTransicionCursoProgramada = false;
+        preparacionDestinoTransicionCursoPendiente = null;
+        idTransicionVisualCursoActiva = ++secuenciaTransicionVisualCurso;
+        destinoTransicionCurso = destino;
+        destinoTransicionCurso.Paint += DestinoTransicionCurso_Paint;
+
+        RestablecerRegionCubiertaTransicionCurso();
+        AjustarCubiertaTransicionCurso();
+        cubiertaTransicionCurso.Visible = true;
+        cubiertaTransicionCurso.BringToFront();
+        cubiertaTransicionCurso.Invalidate();
+        return true;
+    }
+
+    private void AsegurarCubiertaTransicionCurso() {
+        if (cubiertaTransicionCurso is not null &&
+            !cubiertaTransicionCurso.IsDisposed) {
+            return;
+        }
+
+        cubiertaTransicionCurso = new Panel {
+            Name = "panelCubiertaTransicionCurso",
+            BackColor = Color.FromArgb(18, 14, 27),
+            Location = Point.Empty,
+            Size = panelPrincipal.ClientSize,
+            TabStop = false,
+            Visible = false
+        };
+        ActivarDobleBuffer(cubiertaTransicionCurso);
+        cubiertaTransicionCurso.Paint += CubiertaTransicionCurso_Paint;
+        panelPrincipal.Controls.Add(cubiertaTransicionCurso);
+        panelPrincipal.SizeChanged += PanelPrincipal_TransicionVisualSizeChanged;
+
+        timerTransicionCurso = new System.Windows.Forms.Timer {
+            Interval = 15
+        };
+        timerTransicionCurso.Tick += TimerTransicionCurso_Tick;
+        cubiertaTransicionCurso.Disposed += (_, _) => {
+            panelPrincipal.SizeChanged -= PanelPrincipal_TransicionVisualSizeChanged;
+
+            if (timerTransicionCurso is not null) {
+                timerTransicionCurso.Stop();
+                timerTransicionCurso.Tick -= TimerTransicionCurso_Tick;
+                timerTransicionCurso.Dispose();
+            }
+
+            timerTransicionCurso = null;
+            cubiertaTransicionCurso = null;
+        };
+    }
+
+    private void AjustarCubiertaTransicionCurso() {
+        if (cubiertaTransicionCurso is null || cubiertaTransicionCurso.IsDisposed) {
+            return;
+        }
+
+        Rectangle limites = panelPrincipal.ClientRectangle;
+
+        if (cubiertaTransicionCurso.Bounds != limites) {
+            cubiertaTransicionCurso.SetBounds(
+                limites.X,
+                limites.Y,
+                limites.Width,
+                limites.Height);
+        }
+    }
+
+    private void ConfirmarDestinoTransicionCurso(Control destino) {
+        if (!transicionVisualCursoActiva ||
+            !ReferenceEquals(destinoTransicionCurso, destino) ||
+            IsDisposed ||
+            Disposing ||
+            !IsHandleCreated) {
+            CancelarTransicionVisualCurso();
+            return;
+        }
+
+        AjustarCubiertaTransicionCurso();
+        cubiertaTransicionCurso?.BringToFront();
+        cubiertaTransicionCurso?.Invalidate();
+        destino.Invalidate();
+        long idTransicion = idTransicionVisualCursoActiva;
+
+        try {
+            BeginInvoke((Action)(() => {
+                MarcarDestinoTransicionCursoListo(idTransicion, destino);
+            }));
+        } catch (InvalidOperationException) when (
+            IsDisposed || Disposing || !IsHandleCreated) {
+            CancelarTransicionVisualCurso();
+        }
+    }
+
+    private void DestinoTransicionCurso_Paint(object? sender, PaintEventArgs e) {
+        if (sender is Control destino) {
+            MarcarDestinoTransicionCursoListo(
+                idTransicionVisualCursoActiva,
+                destino);
+        }
+    }
+
+    private void CubiertaTransicionCurso_Paint(object? sender, PaintEventArgs e) {
+        if (!transicionVisualCursoActiva ||
+            retirandoCubiertaTransicionCurso ||
+            !ReferenceEquals(sender, cubiertaTransicionCurso)) {
+            return;
+        }
+
+        cubiertaTransicionCursoPintada = true;
+        ProgramarPreparacionDestinoTransicionCurso();
+        IntentarIniciarRetiroCubiertaTransicionCurso();
+    }
+
+    private void PrepararDestinoDespuesDeCubiertaTransicionCurso(Action preparacion) {
+        ArgumentNullException.ThrowIfNull(preparacion);
+
+        if (!transicionVisualCursoActiva) {
+            return;
+        }
+
+        preparacionDestinoTransicionCursoPendiente = preparacion;
+        ProgramarPreparacionDestinoTransicionCurso();
+    }
+
+    private void ProgramarPreparacionDestinoTransicionCurso() {
+        if (!transicionVisualCursoActiva ||
+            !cubiertaTransicionCursoPintada ||
+            preparacionDestinoTransicionCursoProgramada ||
+            preparacionDestinoTransicionCursoPendiente is null ||
+            IsDisposed ||
+            Disposing ||
+            !IsHandleCreated) {
+            return;
+        }
+
+        preparacionDestinoTransicionCursoProgramada = true;
+        long idTransicion = idTransicionVisualCursoActiva;
+
+        try {
+            BeginInvoke((Action)(() => {
+                if (!transicionVisualCursoActiva ||
+                    idTransicion != idTransicionVisualCursoActiva) {
+                    return;
+                }
+
+                if (!cubiertaTransicionCursoPintada) {
+                    preparacionDestinoTransicionCursoProgramada = false;
+                    return;
+                }
+
+                Action? preparacion = preparacionDestinoTransicionCursoPendiente;
+                preparacionDestinoTransicionCursoPendiente = null;
+                preparacionDestinoTransicionCursoProgramada = false;
+
+                try {
+                    preparacion?.Invoke();
+                } catch {
+                    CancelarTransicionVisualCurso();
+                    throw;
+                }
+            }));
+        } catch (InvalidOperationException) when (
+            IsDisposed || Disposing || !IsHandleCreated) {
+            CancelarTransicionVisualCurso();
+        }
+    }
+
+    private void MarcarDestinoTransicionCursoListo(
+        long idTransicion,
+        Control destino) {
+        if (!transicionVisualCursoActiva ||
+            idTransicion != idTransicionVisualCursoActiva ||
+            destinoTransicionCursoListo ||
+            !ReferenceEquals(destinoTransicionCurso, destino)) {
+            return;
+        }
+
+        destinoTransicionCursoListo = true;
+        DesconectarEventoPaintDestinoTransicionCurso();
+        IntentarIniciarRetiroCubiertaTransicionCurso();
+    }
+
+    private void IntentarIniciarRetiroCubiertaTransicionCurso() {
+        if (cubiertaTransicionCursoPintada && destinoTransicionCursoListo) {
+            IniciarRetiroCubiertaTransicionCurso();
+        }
+    }
+
+    private void IniciarRetiroCubiertaTransicionCurso() {
+        if (!transicionVisualCursoActiva ||
+            retirandoCubiertaTransicionCurso ||
+            !cubiertaTransicionCursoPintada ||
+            !destinoTransicionCursoListo) {
+            return;
+        }
+
+        retirandoCubiertaTransicionCurso = true;
+        inicioRetiroCubiertaTransicionCurso = Environment.TickCount64;
+
+        if (timerTransicionCurso is null) {
+            CancelarTransicionVisualCurso();
+            return;
+        }
+
+        timerTransicionCurso.Start();
+    }
+
+    private void TimerTransicionCurso_Tick(object? sender, EventArgs e) {
+        if (!transicionVisualCursoActiva ||
+            !retirandoCubiertaTransicionCurso ||
+            cubiertaTransicionCurso is null ||
+            cubiertaTransicionCurso.IsDisposed) {
+            CancelarTransicionVisualCurso();
+            return;
+        }
+
+        float progreso = ObtenerProgresoTransicionVisualCurso();
+
+        if (progreso >= 1F) {
+            FinalizarTransicionVisualCurso();
+            return;
+        }
+
+        AplicarRegionCubiertaTransicionCurso(progreso);
+    }
+
+    private float ObtenerProgresoTransicionVisualCurso() {
+        if (!retirandoCubiertaTransicionCurso) {
+            return 0F;
+        }
+
+        double transcurrido = Environment.TickCount64 - inicioRetiroCubiertaTransicionCurso;
+        return (float)Math.Clamp(
+            transcurrido / DuracionTransicionVistaCursoMs,
+            0D,
+            1D);
+    }
+
+    private void PanelPrincipal_TransicionVisualSizeChanged(object? sender, EventArgs e) {
+        if (!transicionVisualCursoActiva ||
+            cubiertaTransicionCurso is null ||
+            cubiertaTransicionCurso.IsDisposed) {
+            return;
+        }
+
+        float progreso = ObtenerProgresoTransicionVisualCurso();
+        RestablecerRegionCubiertaTransicionCurso();
+        AjustarCubiertaTransicionCurso();
+
+        if (retirandoCubiertaTransicionCurso) {
+            if (progreso >= 1F) {
+                FinalizarTransicionVisualCurso();
+                return;
+            }
+
+            AplicarRegionCubiertaTransicionCurso(progreso);
+        } else {
+            cubiertaTransicionCursoPintada = false;
+        }
+
+        cubiertaTransicionCurso.BringToFront();
+        cubiertaTransicionCurso.Invalidate();
+    }
+
+    private void AplicarRegionCubiertaTransicionCurso(float progreso) {
+        if (cubiertaTransicionCurso is null || cubiertaTransicionCurso.IsDisposed) {
+            return;
+        }
+
+        int ancho = cubiertaTransicionCurso.ClientSize.Width;
+        int alto = cubiertaTransicionCurso.ClientSize.Height;
+
+        if (ancho <= 0 || alto <= 0) {
+            return;
+        }
+
+        float proporcionRestante = 1F - progreso;
+        int centro = ancho / 2;
+        int anchoIzquierdo = (int)Math.Ceiling(centro * proporcionRestante);
+        int anchoDerecho = (int)Math.Ceiling((ancho - centro) * proporcionRestante);
+
+        using GraphicsPath regionVisible = new();
+
+        if (anchoIzquierdo > 0) {
+            regionVisible.AddRectangle(new Rectangle(0, 0, anchoIzquierdo, alto));
+        }
+
+        if (anchoDerecho > 0) {
+            regionVisible.AddRectangle(
+                new Rectangle(ancho - anchoDerecho, 0, anchoDerecho, alto));
+        }
+
+        Region? regionAnterior = cubiertaTransicionCurso.Region;
+        cubiertaTransicionCurso.Region = new Region(regionVisible);
+        regionAnterior?.Dispose();
+    }
+
+    private void FinalizarTransicionVisualCurso() {
+        if (!transicionVisualCursoActiva) {
+            navegacionCursoEnCurso = false;
+            return;
+        }
+
+        timerTransicionCurso?.Stop();
+        transicionVisualCursoActiva = false;
+        retirandoCubiertaTransicionCurso = false;
+
+        if (cubiertaTransicionCurso is not null &&
+            !cubiertaTransicionCurso.IsDisposed) {
+            cubiertaTransicionCurso.Visible = false;
+            RestablecerRegionCubiertaTransicionCurso();
+        }
+
+        RestablecerEstadosVisualesVistaActualCurso(aplicarHoverReal: true);
+        DesconectarDestinoTransicionCurso();
+        cubiertaTransicionCursoPintada = false;
+        destinoTransicionCursoListo = false;
+        preparacionDestinoTransicionCursoProgramada = false;
+        preparacionDestinoTransicionCursoPendiente = null;
+        idTransicionVisualCursoActiva = 0;
+        navegacionCursoEnCurso = false;
+    }
+
+    private void CancelarTransicionVisualCurso() {
+        timerTransicionCurso?.Stop();
+        transicionVisualCursoActiva = false;
+        retirandoCubiertaTransicionCurso = false;
+
+        if (cubiertaTransicionCurso is not null &&
+            !cubiertaTransicionCurso.IsDisposed) {
+            cubiertaTransicionCurso.Visible = false;
+            RestablecerRegionCubiertaTransicionCurso();
+        }
+
+        DesconectarDestinoTransicionCurso();
+        cubiertaTransicionCursoPintada = false;
+        destinoTransicionCursoListo = false;
+        preparacionDestinoTransicionCursoProgramada = false;
+        preparacionDestinoTransicionCursoPendiente = null;
+        idTransicionVisualCursoActiva = 0;
+        navegacionCursoEnCurso = false;
+    }
+
+    private void DesconectarEventoPaintDestinoTransicionCurso() {
+        if (destinoTransicionCurso is not null &&
+            !destinoTransicionCurso.IsDisposed) {
+            destinoTransicionCurso.Paint -= DestinoTransicionCurso_Paint;
+        }
+    }
+
+    private void DesconectarDestinoTransicionCurso() {
+        DesconectarEventoPaintDestinoTransicionCurso();
+        destinoTransicionCurso = null;
+    }
+
+    private void RestablecerRegionCubiertaTransicionCurso() {
+        if (cubiertaTransicionCurso is null || cubiertaTransicionCurso.IsDisposed) {
+            return;
+        }
+
+        Region? regionAnterior = cubiertaTransicionCurso.Region;
+        cubiertaTransicionCurso.Region = null;
+        regionAnterior?.Dispose();
     }
 
     private void MostrarSubvistaCurso(
@@ -1434,8 +1987,6 @@ public partial class frmPrincipal {
             progresoCurso = resultado.Progreso;
         }
 
-        tarjetasTemasActualizadas = false;
-
         mensajeEstadoProgresoCurso = resultado.Estado switch {
             EstadoCargaProgreso.ContenidoInvalido when resultado.Progreso.Practicas.Count > 0 =>
                 $"Se ignoraron {resultado.RegistrosInvalidos} registros dañados; el resto del progreso se conservó.",
@@ -1706,7 +2257,25 @@ public partial class frmPrincipal {
             progreso.FechaCreacion;
     }
 
-    private void ReconstruirTarjetasTemas(bool volverAlInicio = true) {
+    private void ReconstruirTarjetasTemas(
+        bool volverAlInicio = true,
+        bool actualizarGeometriaSiVigente = true) {
+        IReadOnlyList<TemaCurso> temas = cursoService.CargarTemas();
+        EstadoContenidoTema[] estadoActual = CapturarEstadoTarjetasTemas(temas);
+        bool contenidoVigente =
+            listaTemasCurso.Controls.Count == temas.Count &&
+            listaTemasCurso.Controls.OfType<Panel>().All(tarjeta =>
+                tarjeta.Tag is PresentacionTarjetaTema) &&
+            estadoTarjetasTemas.SequenceEqual(estadoActual);
+
+        if (contenidoVigente) {
+            if (actualizarGeometriaSiVigente) {
+                ActualizarGeometriaTarjetasTemas(volverAlInicio);
+            }
+
+            return;
+        }
+
         listaTemasCurso.SuspendLayout();
 
         try {
@@ -1745,7 +2314,7 @@ public partial class frmPrincipal {
                 ? anchoInterior
                 : anchoTextoAmplio;
 
-            foreach (TemaCurso tema in cursoService.CargarTemas()) {
+            foreach (TemaCurso tema in temas) {
                 int realizadas = ContarPracticasRealizadas(tema);
                 int porcentaje = (int)Math.Round(
                     realizadas * 100D / Math.Max(1, tema.TotalPracticasPlaneadas));
@@ -1985,7 +2554,40 @@ public partial class frmPrincipal {
             desplazamientoTemasCurso.ActualizarContenido(volverAlInicio);
         }
 
-        tarjetasTemasActualizadas = true;
+        estadoTarjetasTemas = estadoActual;
+    }
+
+    private void AsegurarTarjetasTemasVigentes(
+        bool volverAlInicio,
+        bool actualizarGeometriaSiVigente = true) {
+        ReconstruirTarjetasTemas(
+            volverAlInicio,
+            actualizarGeometriaSiVigente);
+    }
+
+    private EstadoContenidoTema[] CapturarEstadoTarjetasTemas(
+        IReadOnlyList<TemaCurso> temas) {
+        return temas
+            .Select(tema => {
+                int realizadas = ContarPracticasRealizadas(tema);
+                int porcentaje = (int)Math.Round(
+                    realizadas * 100D /
+                    Math.Max(1, tema.TotalPracticasPlaneadas));
+
+                return new EstadoContenidoTema(
+                    tema.Id,
+                    tema.Numero,
+                    tema.Nombre,
+                    tema.Descripcion,
+                    tema.EsProximamente,
+                    tema.MensajeDisponibilidad,
+                    tema.TotalPracticasPlaneadas,
+                    realizadas,
+                    porcentaje,
+                    ObtenerEstadoTema(tema, realizadas),
+                    CrearFirmaContenidoPracticas(tema.Practicas));
+            })
+            .ToArray();
     }
 
     private void ActualizarGeometriaTarjetasTemas(bool volverAlInicio) {
@@ -2210,7 +2812,32 @@ public partial class frmPrincipal {
         tarjeta.Invalidate();
     }
 
-    private void ReconstruirTarjetasPracticas(TemaCurso tema, bool volverAlInicio = true) {
+    private void ReconstruirTarjetasPracticas(
+        TemaCurso tema,
+        bool volverAlInicio = true,
+        bool actualizarGeometriaSiVigente = true) {
+        PracticaCurso[] practicas = tema.Practicas
+            .OrderBy(item => item.Numero)
+            .ToArray();
+        EstadoContenidoPractica[] estadoActual =
+            CapturarEstadoTarjetasPracticas(practicas);
+        bool contenidoVigente =
+            temaTarjetasPracticasId.Equals(
+                tema.Id,
+                StringComparison.OrdinalIgnoreCase) &&
+            listaPracticasTema.Controls.Count == practicas.Length &&
+            listaPracticasTema.Controls.OfType<Panel>().All(tarjeta =>
+                tarjeta.Tag is PresentacionTarjetaPractica) &&
+            estadoTarjetasPracticas.SequenceEqual(estadoActual);
+
+        if (contenidoVigente) {
+            if (actualizarGeometriaSiVigente) {
+                ActualizarGeometriaTarjetasPracticas(volverAlInicio);
+            }
+
+            return;
+        }
+
         listaPracticasTema.SuspendLayout();
 
         try {
@@ -2221,7 +2848,7 @@ public partial class frmPrincipal {
                 listaPracticasTema.Padding.Horizontal -
                 EscalarDiseno(4));
 
-            foreach (PracticaCurso practica in tema.Practicas.OrderBy(item => item.Numero)) {
+            foreach (PracticaCurso practica in practicas) {
                 EstadoPracticaCurso estadoPractica = ObtenerEstadoPractica(practica.Id);
                 Panel tarjeta = CrearTarjetaCurso(
                     Point.Empty,
@@ -2307,6 +2934,64 @@ public partial class frmPrincipal {
             ultimoDpiTarjetasPracticas = DeviceDpi;
             desplazamientoPracticasTema.ActualizarContenido(volverAlInicio);
         }
+
+        temaTarjetasPracticasId = tema.Id;
+        estadoTarjetasPracticas = estadoActual;
+    }
+
+    private void AsegurarTarjetasPracticasVigentes(
+        TemaCurso tema,
+        bool volverAlInicio,
+        bool actualizarGeometriaSiVigente = true) {
+        ReconstruirTarjetasPracticas(
+            tema,
+            volverAlInicio,
+            actualizarGeometriaSiVigente);
+    }
+
+    private EstadoContenidoPractica[] CapturarEstadoTarjetasPracticas(
+        IReadOnlyList<PracticaCurso> practicas) {
+        return practicas
+            .Select(practica => new EstadoContenidoPractica(
+                practica.Id,
+                practica.TemaId,
+                practica.Numero,
+                practica.Nombre,
+                practica.Objetivo,
+                practica.Dificultad,
+                practica.DuracionEstimada,
+                ObtenerEstadoPractica(practica.Id),
+                MostrarTiemposOrientativos,
+                CrearFirmaContenidoPractica(practica)))
+            .ToArray();
+    }
+
+    private static string CrearFirmaContenidoPracticas(
+        IReadOnlyList<PracticaCurso> practicas) {
+        return string.Join(
+            "\u001e",
+            practicas
+                .OrderBy(practica => practica.Numero)
+                .Select(CrearFirmaContenidoPractica));
+    }
+
+    private static string CrearFirmaContenidoPractica(PracticaCurso practica) {
+        return string.Join(
+            "\u001f",
+            practica.Id,
+            practica.TemaId,
+            practica.Numero,
+            practica.Nombre,
+            practica.Objetivo,
+            practica.Descripcion,
+            string.Join("\u001d", practica.Conceptos),
+            string.Join("\u001d", practica.Instrucciones),
+            practica.ResultadoEsperado,
+            practica.Dificultad,
+            practica.DuracionEstimada,
+            string.Join("\u001d", practica.RequisitosPrevios),
+            practica.EstadoInicial,
+            practica.NombreProyecto);
     }
 
     private void ActualizarGeometriaTarjetasPracticas(bool volverAlInicio) {
@@ -2532,6 +3217,45 @@ public partial class frmPrincipal {
             altoBoton);
     }
 
+    private void AsegurarDetallePracticaVigente(PracticaCurso practica) {
+        ProgresoPractica? progreso = ObtenerProgresoPractica(practica.Id);
+        string rutaProyecto = progreso?.RutaProyecto ?? string.Empty;
+        bool rutaProyectoExiste =
+            !string.IsNullOrWhiteSpace(rutaProyecto) &&
+            Directory.Exists(rutaProyecto);
+        bool contenidoVigente =
+            contenidoDetallePractica.Controls.Count > 0 &&
+            ReferenceEquals(practicaDetalleConstruida, practica) &&
+            estadoPracticaDetalleConstruida == ObtenerEstadoPractica(practica.Id) &&
+            rutaProyectoDetalleConstruida.Equals(
+                rutaProyecto,
+                StringComparison.OrdinalIgnoreCase) &&
+            rutaProyectoDetalleExistia == rutaProyectoExiste &&
+            mostrarTiemposDetalleConstruido == MostrarTiemposOrientativos &&
+            evaluacionEnCursoDetalleConstruida == evaluacionEnCurso;
+
+        if (contenidoVigente) {
+            desplazamientoDetallePractica.ActualizarContenido(volverAlInicio: true);
+            return;
+        }
+
+        ReconstruirDetallePractica(practica);
+    }
+
+    private void RegistrarEstadoDetallePractica(PracticaCurso practica) {
+        ProgresoPractica? progreso = ObtenerProgresoPractica(practica.Id);
+        string rutaProyecto = progreso?.RutaProyecto ?? string.Empty;
+
+        practicaDetalleConstruida = practica;
+        estadoPracticaDetalleConstruida = ObtenerEstadoPractica(practica.Id);
+        rutaProyectoDetalleConstruida = rutaProyecto;
+        rutaProyectoDetalleExistia =
+            !string.IsNullOrWhiteSpace(rutaProyecto) &&
+            Directory.Exists(rutaProyecto);
+        mostrarTiemposDetalleConstruido = MostrarTiemposOrientativos;
+        evaluacionEnCursoDetalleConstruida = evaluacionEnCurso;
+    }
+
     private void ReconstruirDetallePractica(PracticaCurso practica, bool volverAlInicio = true) {
         contenidoDetallePractica.SuspendLayout();
 
@@ -2666,6 +3390,8 @@ public partial class frmPrincipal {
             ultimoDpiContenidoDetallePractica = DeviceDpi;
             desplazamientoDetallePractica.ActualizarContenido(volverAlInicio);
         }
+
+        RegistrarEstadoDetallePractica(practica);
     }
 
     private void BtnAccionPracticaCurso_Click(object? sender, EventArgs e) {
@@ -2803,8 +3529,6 @@ public partial class frmPrincipal {
         if (!string.IsNullOrWhiteSpace(rutaProyecto)) {
             progreso.RutaProyecto = rutaProyecto;
         }
-
-        tarjetasTemasActualizadas = false;
 
         progreso.FechaFinalizacion = estado == EstadoPracticaCurso.Realizada
             ? ahora
@@ -3018,18 +3742,111 @@ public partial class frmPrincipal {
 
         foreach (Control control in ObtenerArbolControles(tarjeta)) {
             control.Cursor = Cursors.Hand;
-            control.Click += (_, _) => alHacerClick();
-            control.MouseEnter += (_, _) => {
-                tarjeta.BackColor = ColorTarjetaCursoHover;
-                tarjeta.Invalidate();
+            control.MouseClick += (_, e) => {
+                if (e.Button == MouseButtons.Left) {
+                    alHacerClick();
+                }
             };
+            control.MouseEnter += (_, _) =>
+                AplicarEstadoVisualTarjetaCurso(tarjeta, tieneHover: true);
             control.MouseLeave += (_, _) => {
                 if (!tarjeta.ClientRectangle.Contains(tarjeta.PointToClient(Cursor.Position))) {
-                    tarjeta.BackColor = ColorTarjetaCurso;
-                    tarjeta.Invalidate();
+                    AplicarEstadoVisualTarjetaCurso(tarjeta, tieneHover: false);
                 }
             };
         }
+
+        if (tarjeta is TarjetaCursoInteractiva tarjetaInteractiva) {
+            tarjetaInteractiva.ActivadaPorTeclado += (_, _) => alHacerClick();
+        }
+    }
+
+    private static void AplicarEstadoVisualTarjetaCurso(Panel tarjeta, bool tieneHover) {
+        Color color = tieneHover ? ColorTarjetaCursoHover : ColorTarjetaCurso;
+
+        if (tarjeta.BackColor == color) {
+            return;
+        }
+
+        tarjeta.BackColor = color;
+        tarjeta.Invalidate();
+    }
+
+    private void RestablecerEstadosVisualesTarjetasTemas(bool aplicarHoverReal = true) {
+        RestablecerEstadosVisualesTarjetas(listaTemasCurso, aplicarHoverReal);
+    }
+
+    private void RestablecerEstadosVisualesTarjetasPracticas(bool aplicarHoverReal = true) {
+        RestablecerEstadosVisualesTarjetas(listaPracticasTema, aplicarHoverReal);
+    }
+
+    private void RestablecerEstadosVisualesTarjetasGrados(bool aplicarHoverReal = true) {
+        RestablecerEstadosVisualesTarjetas(contenidoGrados, aplicarHoverReal);
+    }
+
+    private void RestablecerEstadosVisualesVistaActualCurso(
+        bool aplicarHoverReal = false) {
+        if (panelGradosVista.Visible) {
+            RestablecerEstadosVisualesTarjetasGrados(aplicarHoverReal);
+        } else if (panelCursoVista.Visible) {
+            RestablecerEstadosVisualesTarjetasTemas(aplicarHoverReal);
+        } else if (panelPracticasTemaVista.Visible) {
+            RestablecerEstadosVisualesTarjetasPracticas(aplicarHoverReal);
+        }
+    }
+
+    private static void RestablecerEstadosVisualesTarjetas(
+        Control? contenedor,
+        bool aplicarHoverReal) {
+        if (contenedor is null || contenedor.IsDisposed) {
+            return;
+        }
+
+        TarjetaCursoInteractiva[] tarjetas = ObtenerArbolControles(contenedor)
+            .OfType<TarjetaCursoInteractiva>()
+            .ToArray();
+
+        foreach (TarjetaCursoInteractiva tarjeta in tarjetas) {
+            AplicarEstadoVisualTarjetaCurso(tarjeta, tieneHover: false);
+        }
+
+        if (!aplicarHoverReal || !contenedor.Visible) {
+            return;
+        }
+
+        TarjetaCursoInteractiva? tarjetaBajoCursor = tarjetas.FirstOrDefault(
+            TarjetaVisibleContieneCursor);
+
+        if (tarjetaBajoCursor is not null) {
+            AplicarEstadoVisualTarjetaCurso(tarjetaBajoCursor, tieneHover: true);
+        }
+    }
+
+    private static bool TarjetaVisibleContieneCursor(TarjetaCursoInteractiva tarjeta) {
+        if (!tarjeta.Visible || tarjeta.IsDisposed || tarjeta.ClientSize.IsEmpty) {
+            return false;
+        }
+
+        Rectangle areaVisible = tarjeta.RectangleToScreen(tarjeta.ClientRectangle);
+        Control? ancestro = tarjeta.Parent;
+
+        while (ancestro is not null) {
+            if (!ancestro.Visible || ancestro.IsDisposed || ancestro.ClientSize.IsEmpty) {
+                return false;
+            }
+
+            areaVisible = Rectangle.Intersect(
+                areaVisible,
+                ancestro.RectangleToScreen(ancestro.ClientRectangle));
+
+            if (areaVisible.IsEmpty) {
+                return false;
+            }
+
+            ancestro = ancestro.Parent;
+        }
+
+        return areaVisible.Contains(Cursor.Position);
     }
 
     private static IEnumerable<Control> ObtenerArbolControles(Control raiz) {

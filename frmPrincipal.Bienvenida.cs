@@ -408,6 +408,14 @@ public partial class frmPrincipal {
             AplicarPreferenciasAprendizaje(datos.Preferencias, mostrarAviso: false);
             RegistrarTiempoInicio("Curso UI: construcción programada durante Bienvenida");
             await PrepararCursoDiferidoAsync();
+
+            if (cursoPreparado &&
+                !inicializacionSecundariaCancelada &&
+                !IsDisposed &&
+                !Disposing) {
+                AsegurarVistaGradosVigente(volverAlInicio: false);
+                RegistrarTiempoInicio("Curso UI: Ruta de aprendizaje precargada");
+            }
         } catch (OperationCanceledException) {
             // El cierre de la aplicación cancela la preparación sin tocar controles destruidos.
         } catch (Exception ex) {
@@ -510,6 +518,13 @@ public partial class frmPrincipal {
         }
 
         await PrepararCursoDiferidoAsync();
+
+        if (cursoPreparado &&
+            !inicializacionSecundariaCancelada &&
+            !IsDisposed &&
+            !Disposing) {
+            AsegurarVistaGradosVigente(volverAlInicio: false);
+        }
     }
 
     private async Task<bool> EsperarFinalizacionTransicionBienvenidaAsync() {
@@ -624,7 +639,6 @@ public partial class frmPrincipal {
                 return;
             }
 
-            ConfigurarEventosVistasRutaAprendizaje();
             panelGradosVista.Paint -= PanelRutaAprendizajeVista_PrimerPaint;
             panelGradosVista.Paint += PanelRutaAprendizajeVista_PrimerPaint;
 
@@ -633,6 +647,7 @@ public partial class frmPrincipal {
             panelMenu.SuspendLayout();
 
             try {
+                recalculoPendienteDuranteTransicion = false;
                 MostrarRutaAprendizajeInmersiva(reconstruirContenido: true);
 #if DEBUG
                 recalculosGeometriaDuranteTransicion++;
@@ -645,12 +660,8 @@ public partial class frmPrincipal {
                 fondoEndForge.ResumeLayout(performLayout: false);
             }
 
-            panelPrincipal.PerformLayout();
-            panelGradosVista.PerformLayout();
-            panelPantallaBienvenida.BringToFront();
-            panelBarraTitulo.BringToFront();
             ActiveControl = null;
-            panelGradosVista.Invalidate(true);
+            panelGradosVista.Invalidate();
             ProgramarConfirmacionPaintRutaAprendizaje();
             RegistrarTiempoInicio(
                 "EntrarAAplicacion: Ruta de aprendizaje lista detrás de Bienvenida");
@@ -769,22 +780,12 @@ public partial class frmPrincipal {
                 return;
             }
 
-            panelPantallaBienvenida.SendToBack();
-
-            try {
-                panelGradosVista.Invalidate(true);
-                panelGradosVista.Update();
-            } finally {
-                panelPantallaBienvenida.BringToFront();
-                panelBarraTitulo.BringToFront();
-            }
-
             if (!inicioPintadoParaTransicion) {
                 RegistrarTiempoInicio(
                     "Ruta de aprendizaje confirmada por geometría estable; " +
                     "Paint cubierto por Windows");
                 MarcarInicioListoParaMetricas();
-                ProgramarAccionInterfazSegura(IniciarDesvanecimientoBienvenida);
+                IniciarDesvanecimientoBienvenida();
             }
         });
     }
@@ -976,18 +977,12 @@ public partial class frmPrincipal {
 #if DEBUG
             recalculosGeometriaDuranteTransicion++;
 #endif
-            Control vistaDestino = ObtenerVistaDestinoTransicion();
-
             if (rutaAprendizajeInmersivaActiva) {
                 RecalcularDistribucionActual();
             } else {
                 PrepararGeometriaInicioTransicion();
             }
 
-            vistaDestino.Invalidate(true);
-            vistaDestino.Update();
-            panelPantallaBienvenida.BringToFront();
-            panelBarraTitulo.BringToFront();
             RegistrarTiempoInicio("Transición: recálculo final de Resize");
         }
 

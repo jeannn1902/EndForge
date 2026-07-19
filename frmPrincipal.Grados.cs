@@ -22,8 +22,38 @@ public partial class frmPrincipal {
     private PanelDesplazableSinBarras desplazamientoGrados = null!;
     private FlowLayoutPanel contenidoGrados = null!;
     private Button btnVolverGradosCurso = null!;
-    private int ultimoAnchoContenidoGrados = -1;
+    private int ultimoAnchoEfectivoGrados = -1;
+    private int ultimoMargenIzquierdoGrados = -1;
     private int ultimoDpiContenidoGrados = -1;
+    private bool contenidoGradosConstruido;
+    private EstadoContenidoGrado[] estadoContenidoGrados = Array.Empty<EstadoContenidoGrado>();
+
+    private readonly record struct EstadoContenidoGrado(
+        string Id,
+        int Numero,
+        string Nombre,
+        string Descripcion,
+        EstadoGradoCurso Estado,
+        bool EsContenidoDisponible,
+        int Porcentaje,
+        int CantidadPracticasDisponibles,
+        int CantidadPracticasCompletadas,
+        int CantidadPracticasPlaneadas,
+        int CantidadTemas,
+        int CantidadTemasDisponibles);
+
+    private sealed record PresentacionTarjetaGrado(
+        bool Disponible,
+        int Porcentaje,
+        Label Numero,
+        Label Nombre,
+        Label Descripcion,
+        Label Estado,
+        Label? Resumen,
+        Label? PorcentajeTexto,
+        Panel? FondoProgreso,
+        Panel? RellenoProgreso,
+        Button? Boton);
 
     private void ConstruirVistaGrados() {
         desplazamientoGrados = CrearPanelDesplazableCurso(
@@ -42,11 +72,38 @@ public partial class frmPrincipal {
     }
 
     private void MostrarGrados() {
-        if (!cursoPreparado) {
+        if (!cursoPreparado || navegacionCursoEnCurso) {
             return;
         }
 
-        MostrarRutaAprendizajeInmersiva(reconstruirContenido: true);
+        bool destinoYaVisible =
+            panelGradosVista.Visible &&
+            vistaRutaActual == VistaRutaAprendizaje.Grados &&
+            rutaAprendizajeInmersivaActiva;
+
+        if (destinoYaVisible || !IniciarTransicionVisualCurso(panelGradosVista)) {
+            return;
+        }
+
+        panelPrincipal.SuspendLayout();
+
+        try {
+            RestablecerEstadosVisualesVistaActualCurso();
+            MostrarRutaAprendizajeInmersiva(
+                reconstruirContenido: true,
+                invalidarFondo: false,
+                prepararContenidoAntesDeMostrar: true);
+            AjustarCubiertaTransicionCurso();
+            RestablecerEstadosVisualesTarjetasGrados();
+        } catch {
+            CancelarTransicionVisualCurso();
+            throw;
+        } finally {
+            panelPrincipal.ResumeLayout(performLayout: false);
+        }
+
+        fondoEndForge.Invalidate();
+        ConfirmarDestinoTransicionCurso(panelGradosVista);
     }
 
     private void AbrirGrado(GradoCurso grado) {
@@ -75,9 +132,36 @@ public partial class frmPrincipal {
         int margenIzquierdo = usarDistribucionAmplia
             ? 0
             : Math.Max(0, (anchoAreaDisponible - anchoContenido) / 2);
-        ultimoAnchoContenidoGrados = anchoAreaDisponible;
-        ultimoDpiContenidoGrados = DeviceDpi;
-        IReadOnlyList<GradoCurso> grados = gradosService.CargarGrados(progresoCurso);
+        IReadOnlyList<GradoCurso> grados = gradosService
+            .CargarGrados(progresoCurso)
+            .OrderBy(item => item.Numero)
+            .ToArray();
+        EstadoContenidoGrado[] estadoActual = CapturarEstadoContenidoGrados(grados);
+        bool controlesVigentes =
+            contenidoGradosConstruido &&
+            contenidoGrados.Controls.Count == grados.Count + 2 &&
+            contenidoGrados.Controls.OfType<Panel>().All(tarjeta =>
+                tarjeta.Tag is PresentacionTarjetaGrado);
+        bool datosVigentes =
+            controlesVigentes &&
+            estadoContenidoGrados.SequenceEqual(estadoActual);
+
+        if (datosVigentes) {
+            bool cambioGeometria =
+                ultimoAnchoEfectivoGrados != anchoContenido ||
+                ultimoMargenIzquierdoGrados != margenIzquierdo ||
+                ultimoDpiContenidoGrados != DeviceDpi;
+
+            if (cambioGeometria) {
+                ActualizarGeometriaContenidoGrados(anchoContenido, margenIzquierdo);
+            }
+
+            ultimoAnchoEfectivoGrados = anchoContenido;
+            ultimoMargenIzquierdoGrados = margenIzquierdo;
+            ultimoDpiContenidoGrados = DeviceDpi;
+            desplazamientoGrados.ActualizarContenido(volverAlInicio);
+            return;
+        }
 
         contenidoGrados.SuspendLayout();
 
@@ -103,7 +187,7 @@ public partial class frmPrincipal {
             subtitulo.Margin = new Padding(margenIzquierdo, 0, 0, EscalarDiseno(14));
             contenidoGrados.Controls.Add(subtitulo);
 
-            foreach (GradoCurso grado in grados.OrderBy(item => item.Numero)) {
+            foreach (GradoCurso grado in grados) {
                 Panel tarjeta = CrearTarjetaGrado(grado, anchoContenido);
                 tarjeta.Margin = new Padding(
                     margenIzquierdo,
@@ -115,6 +199,77 @@ public partial class frmPrincipal {
         } finally {
             contenidoGrados.ResumeLayout(performLayout: true);
             desplazamientoGrados.ActualizarContenido(volverAlInicio);
+        }
+
+        contenidoGradosConstruido = true;
+        estadoContenidoGrados = estadoActual;
+        ultimoAnchoEfectivoGrados = anchoContenido;
+        ultimoMargenIzquierdoGrados = margenIzquierdo;
+        ultimoDpiContenidoGrados = DeviceDpi;
+    }
+
+    private void AsegurarVistaGradosVigente(bool volverAlInicio) {
+        ReconstruirVistaGrados(volverAlInicio);
+    }
+
+    private static EstadoContenidoGrado[] CapturarEstadoContenidoGrados(
+        IReadOnlyList<GradoCurso> grados) {
+        return grados
+            .Select(grado => new EstadoContenidoGrado(
+                grado.Id,
+                grado.Numero,
+                grado.Nombre,
+                grado.Descripcion,
+                grado.Estado,
+                grado.EsContenidoDisponible,
+                grado.Porcentaje,
+                grado.CantidadPracticasDisponibles,
+                grado.CantidadPracticasCompletadas,
+                grado.CantidadPracticasPlaneadas,
+                grado.Temas.Count,
+                grado.Temas.Count(tema =>
+                    !tema.EsProximamente && tema.Practicas.Count > 0)))
+            .ToArray();
+    }
+
+    private void ActualizarGeometriaContenidoGrados(
+        int anchoContenido,
+        int margenIzquierdo) {
+        contenidoGrados.SuspendLayout();
+
+        try {
+            if (contenidoGrados.Controls.Count >= 2) {
+                Control titulo = contenidoGrados.Controls[0];
+                titulo.Size = new Size(anchoContenido, EscalarDiseno(42));
+                titulo.Margin = new Padding(
+                    margenIzquierdo,
+                    0,
+                    0,
+                    EscalarDiseno(2));
+
+                Control subtitulo = contenidoGrados.Controls[1];
+                subtitulo.Size = new Size(anchoContenido, EscalarDiseno(38));
+                subtitulo.Margin = new Padding(
+                    margenIzquierdo,
+                    0,
+                    0,
+                    EscalarDiseno(14));
+            }
+
+            foreach (Panel tarjeta in contenidoGrados.Controls.OfType<Panel>()) {
+                if (tarjeta.Tag is not PresentacionTarjetaGrado presentacion) {
+                    continue;
+                }
+
+                ActualizarGeometriaTarjetaGrado(tarjeta, presentacion, anchoContenido);
+                tarjeta.Margin = new Padding(
+                    margenIzquierdo,
+                    0,
+                    0,
+                    EscalarDiseno(14));
+            }
+        } finally {
+            contenidoGrados.ResumeLayout(performLayout: true);
         }
     }
 
@@ -177,6 +332,12 @@ public partial class frmPrincipal {
         tarjeta.Controls.Add(descripcion);
         tarjeta.Controls.Add(estado);
 
+        Label? resumen = null;
+        Label? porcentajeTexto = null;
+        Panel? fondoProgreso = null;
+        Panel? rellenoProgreso = null;
+        Button? boton = null;
+
         if (disponible) {
             int anchoBoton = apilarAccion
                 ? Math.Max(1, ancho - margen * 2)
@@ -184,7 +345,7 @@ public partial class frmPrincipal {
             int anchoMetricas = apilarAccion
                 ? Math.Max(1, ancho - margen * 2)
                 : Math.Max(1, ancho - margen * 2 - anchoBoton - EscalarDiseno(16));
-            Label resumen = CrearLabelCurso(
+            resumen = CrearLabelCurso(
                 $"{grado.Temas.Count(tema => !tema.EsProximamente && tema.Practicas.Count > 0)} temas disponibles\n" +
                 $"{grado.CantidadPracticasDisponibles} de {grado.CantidadPracticasPlaneadas} prácticas publicadas",
                 new Point(margen, EscalarDiseno(145)),
@@ -193,7 +354,7 @@ public partial class frmPrincipal {
                 FontStyle.Regular,
                 ColorTextoSecundarioCurso,
                 ContentAlignment.TopLeft);
-            Label porcentaje = CrearLabelCurso(
+            porcentajeTexto = CrearLabelCurso(
                 $"{grado.Porcentaje}% de progreso disponible",
                 new Point(margen, EscalarDiseno(187)),
                 new Size(anchoMetricas, EscalarDiseno(22)),
@@ -201,20 +362,20 @@ public partial class frmPrincipal {
                 FontStyle.Bold,
                 ColorMoradoClaroCurso);
             int anchoBarra = anchoMetricas;
-            Panel fondoProgreso = new() {
+            fondoProgreso = new Panel {
                 BackColor = Color.FromArgb(55, 45, 70),
                 Location = new Point(margen, EscalarDiseno(211)),
                 Size = new Size(anchoBarra, EscalarDiseno(9))
             };
-            Panel progreso = new() {
+            rellenoProgreso = new Panel {
                 BackColor = ColorMoradoCurso,
                 Location = Point.Empty,
                 Size = new Size(
                     (int)Math.Round(anchoBarra * grado.Porcentaje / 100D),
                     fondoProgreso.Height)
             };
-            fondoProgreso.Controls.Add(progreso);
-            Button boton = CrearBotonCurso(
+            fondoProgreso.Controls.Add(rellenoProgreso);
+            boton = CrearBotonCurso(
                 grado.Estado == EstadoGradoCurso.EnProgreso
                     ? "Continuar grado"
                     : "Ver grado",
@@ -229,13 +390,110 @@ public partial class frmPrincipal {
             boton.AccessibleDescription = $"Abre {grado.Titulo}.";
 
             tarjeta.Controls.Add(resumen);
-            tarjeta.Controls.Add(porcentaje);
+            tarjeta.Controls.Add(porcentajeTexto);
             tarjeta.Controls.Add(fondoProgreso);
             tarjeta.Controls.Add(boton);
             ConfigurarInteraccionTarjeta(tarjeta, () => AbrirGrado(grado));
         }
 
+        tarjeta.Tag = new PresentacionTarjetaGrado(
+            disponible,
+            grado.Porcentaje,
+            numero,
+            nombre,
+            descripcion,
+            estado,
+            resumen,
+            porcentajeTexto,
+            fondoProgreso,
+            rellenoProgreso,
+            boton);
+
         return tarjeta;
+    }
+
+    private void ActualizarGeometriaTarjetaGrado(
+        Panel tarjeta,
+        PresentacionTarjetaGrado presentacion,
+        int ancho) {
+        int margen = EscalarDiseno(20);
+        bool apilarAccion =
+            presentacion.Disponible && ancho < EscalarDiseno(560);
+        int alto = presentacion.Disponible
+            ? apilarAccion
+                ? EscalarDiseno(286)
+                : EscalarDiseno(238)
+            : EscalarDiseno(152);
+        int anchoInterior = Math.Max(1, ancho - margen * 2);
+
+        tarjeta.Size = new Size(ancho, alto);
+        presentacion.Numero.SetBounds(
+            margen,
+            EscalarDiseno(15),
+            anchoInterior,
+            EscalarDiseno(22));
+        presentacion.Nombre.SetBounds(
+            margen,
+            EscalarDiseno(38),
+            anchoInterior,
+            EscalarDiseno(34));
+        presentacion.Descripcion.SetBounds(
+            margen,
+            EscalarDiseno(73),
+            anchoInterior,
+            EscalarDiseno(44));
+        presentacion.Estado.SetBounds(
+            margen,
+            presentacion.Disponible
+                ? EscalarDiseno(121)
+                : EscalarDiseno(120),
+            anchoInterior,
+            EscalarDiseno(24));
+
+        if (!presentacion.Disponible ||
+            presentacion.Resumen is null ||
+            presentacion.PorcentajeTexto is null ||
+            presentacion.FondoProgreso is null ||
+            presentacion.RellenoProgreso is null ||
+            presentacion.Boton is null) {
+            return;
+        }
+
+        int anchoBoton = apilarAccion
+            ? anchoInterior
+            : EscalarDiseno(172);
+        int anchoMetricas = apilarAccion
+            ? anchoInterior
+            : Math.Max(1, anchoInterior - anchoBoton - EscalarDiseno(16));
+        presentacion.Resumen.SetBounds(
+            margen,
+            EscalarDiseno(145),
+            anchoMetricas,
+            EscalarDiseno(42));
+        presentacion.PorcentajeTexto.SetBounds(
+            margen,
+            EscalarDiseno(187),
+            anchoMetricas,
+            EscalarDiseno(22));
+        presentacion.FondoProgreso.SetBounds(
+            margen,
+            EscalarDiseno(211),
+            anchoMetricas,
+            EscalarDiseno(9));
+        presentacion.RellenoProgreso.SetBounds(
+            0,
+            0,
+            (int)Math.Round(anchoMetricas * presentacion.Porcentaje / 100D),
+            presentacion.FondoProgreso.Height);
+        presentacion.Boton.SetBounds(
+            apilarAccion
+                ? margen
+                : Math.Max(margen, ancho - margen - anchoBoton),
+            apilarAccion
+                ? EscalarDiseno(235)
+                : EscalarDiseno(169),
+            anchoBoton,
+            EscalarDiseno(36));
     }
 
     private static string ObtenerTextoEstadoGrado(EstadoGradoCurso estado) {
@@ -341,15 +599,6 @@ public partial class frmPrincipal {
             return;
         }
 
-        int ancho = Math.Max(
-            1,
-            contenidoGrados.ClientSize.Width - contenidoGrados.Padding.Horizontal);
-
-        if (Math.Abs(ancho - ultimoAnchoContenidoGrados) >= EscalarDiseno(8) ||
-            ultimoDpiContenidoGrados != DeviceDpi) {
-            ReconstruirVistaGrados(volverAlInicio: false);
-        } else {
-            desplazamientoGrados.ActualizarContenido(volverAlInicio: false);
-        }
+        AsegurarVistaGradosVigente(volverAlInicio: false);
     }
 }
