@@ -1,4 +1,7 @@
 using EndForge.Controls;
+using EndForge.Models;
+using EndForge.Services;
+using System.Globalization;
 using System.Text;
 
 namespace EndForge;
@@ -100,9 +103,8 @@ public partial class frmPrincipal {
     private sealed record DatosVistaEstadisticas(
         int PracticasCompletadas,
         int TotalPracticas,
-        int PromedioGeneral,
-        int PromedioMaximo,
-        int IntentosRealizados,
+        int? PromedioGeneral,
+        long IntentosRealizados,
         string UltimaActividad,
         int ProgresoGeneral,
         int MaximoProgresoGeneral,
@@ -129,6 +131,8 @@ public partial class frmPrincipal {
     private int ultimoAnchoContenidoEstadisticas = -1;
     private int ultimoDpiEstadisticas = -1;
     private bool ultimoModoAmplioEstadisticas;
+    private readonly ProgresoCursoService progresoEstadisticasService = new();
+    private readonly CursoService cursoEstadisticasService = new();
 
     private Panel panelEstadisticas = null!;
     private Panel panelIndicadorEstadisticas = null!;
@@ -323,13 +327,12 @@ public partial class frmPrincipal {
     }
 
     private void AsegurarVistaEstadisticasConstruida() {
-        if (vistaEstadisticasConstruida) {
-            return;
+        if (!vistaEstadisticasConstruida) {
+            ConstruirVistaEstadisticas();
+            vistaEstadisticasConstruida = true;
         }
 
-        ConstruirVistaEstadisticas();
-        vistaEstadisticasConstruida = true;
-        ActualizarDatosEstadisticas(CrearDatosEstadisticasDemostracion());
+        ActualizarDatosEstadisticas(CrearDatosEstadisticasReales());
     }
 
     private void ConstruirVistaEstadisticas() {
@@ -609,26 +612,225 @@ public partial class frmPrincipal {
         return label;
     }
 
-    private static DatosVistaEstadisticas CrearDatosEstadisticasDemostracion() {
+    private DatosVistaEstadisticas CrearDatosEstadisticasReales() {
+        IReadOnlyList<TemaCurso> temasDisponibles = cursoEstadisticasService
+            .CargarTemas()
+            .Where(tema => !tema.EsProximamente)
+            .OrderBy(tema => tema.Numero)
+            .ToArray();
+        Dictionary<string, PracticaCurso> practicasConocidas = temasDisponibles
+            .SelectMany(tema => tema.Practicas)
+            .GroupBy(practica => practica.Id, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                grupo => grupo.Key,
+                grupo => grupo.First(),
+                StringComparer.OrdinalIgnoreCase);
+        ResultadoCargaProgreso cargaProgreso =
+            progresoEstadisticasService.CargarProgreso();
+        IReadOnlyList<ProgresoPractica> progreso = cargaProgreso.DatosDisponibles
+            ? cargaProgreso.Progreso.Practicas
+            : Array.Empty<ProgresoPractica>();
+        ResultadoCargaHistorialEvaluaciones cargaHistorial =
+            historialEvaluacionesService.CargarHistorial();
+        IReadOnlyList<HistorialPractica> historial = cargaHistorial.DatosDisponibles
+            ? cargaHistorial.Historial.Practicas
+            : Array.Empty<HistorialPractica>();
+
+        HashSet<string> practicasRealizadas = progreso
+            .Where(item =>
+                item.Estado == EstadoPracticaCurso.Realizada &&
+                practicasConocidas.ContainsKey(item.PracticaId))
+            .Select(item => item.PracticaId)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        int totalPracticas = practicasConocidas.Count;
+        int totalRealizadas = practicasRealizadas.Count;
+        int porcentajeGeneral = CalcularPorcentajeEstadistica(
+            totalRealizadas,
+            totalPracticas);
+        IReadOnlyList<HistorialPractica> historialConocido = historial
+            .Where(item => practicasConocidas.ContainsKey(item.PracticaId))
+            .ToArray();
+        int[] mejoresCalificaciones = historialConocido
+            .Where(item => item.MejorCalificacion.HasValue)
+            .Select(item => item.MejorCalificacion!.Value)
+            .ToArray();
+        int? promedioGeneral = mejoresCalificaciones.Length == 0
+            ? null
+            : (int)Math.Round(
+                mejoresCalificaciones.Average(),
+                MidpointRounding.AwayFromZero);
+        int? mejorCalificacion = mejoresCalificaciones.Length == 0
+            ? null
+            : mejoresCalificaciones.Max();
+        long intentosRealizados = historialConocido.Sum(item =>
+            (long)item.TotalIntentos);
+        DateTimeOffset? ultimaActividad = ObtenerUltimaActividadEstadisticas(
+            progreso,
+            historialConocido,
+            practicasConocidas);
+        IReadOnlyList<DatosDominioTemaEstadistica> dominioTemas =
+            CrearProgresoTemasEstadisticas(
+                temasDisponibles,
+                practicasRealizadas);
+        string temaMasPracticado = ObtenerTemaMasPracticadoEstadisticas(
+            historialConocido,
+            practicasConocidas,
+            temasDisponibles);
+
         return new DatosVistaEstadisticas(
-            PracticasCompletadas: 8,
-            TotalPracticas: 20,
-            PromedioGeneral: 86,
-            PromedioMaximo: 100,
-            IntentosRealizados: 24,
-            UltimaActividad: "Hoy",
-            ProgresoGeneral: 5,
-            MaximoProgresoGeneral: 10,
-            DominioTemas: new[] {
-                new DatosDominioTemaEstadistica("Variables", 10, 10, "Dominado"),
-                new DatosDominioTemaEstadistica("Condicionales", 8, 10, "Competente"),
-                new DatosDominioTemaEstadistica("Ciclos", 5, 10, "En progreso"),
-                new DatosDominioTemaEstadistica("Funciones", 2, 10, "Inicial")
-            },
-            MejorCalificacion: "96/100",
-            TiempoPromedioPractica: "18 min",
-            TiempoTotalProgramando: "3 h 42 min",
-            TemaMasPracticado: "Variables");
+            PracticasCompletadas: totalRealizadas,
+            TotalPracticas: totalPracticas,
+            PromedioGeneral: promedioGeneral,
+            IntentosRealizados: intentosRealizados,
+            UltimaActividad: FormatearUltimaActividadEstadisticas(ultimaActividad),
+            ProgresoGeneral: porcentajeGeneral,
+            MaximoProgresoGeneral: 100,
+            DominioTemas: dominioTemas,
+            MejorCalificacion: mejorCalificacion.HasValue
+                ? $"{mejorCalificacion.Value}/100"
+                : "—",
+            TiempoPromedioPractica: "No medido",
+            TiempoTotalProgramando: "No medido",
+            TemaMasPracticado: temaMasPracticado);
+    }
+
+    private static int CalcularPorcentajeEstadistica(int valor, int total) {
+        return total <= 0
+            ? 0
+            : Math.Clamp(
+                (int)Math.Round(
+                    valor * 100D / total,
+                    MidpointRounding.AwayFromZero),
+                0,
+                100);
+    }
+
+    private static IReadOnlyList<DatosDominioTemaEstadistica>
+        CrearProgresoTemasEstadisticas(
+            IReadOnlyList<TemaCurso> temasDisponibles,
+            IReadOnlySet<string> practicasRealizadas) {
+        string[] temasMostrados = {
+            "variables",
+            "condicionales",
+            "ciclos",
+            "funciones"
+        };
+        Dictionary<string, TemaCurso> temasPorId = temasDisponibles.ToDictionary(
+            tema => tema.Id,
+            StringComparer.OrdinalIgnoreCase);
+        List<DatosDominioTemaEstadistica> resultado = new(temasMostrados.Length);
+
+        foreach (string temaId in temasMostrados) {
+            if (!temasPorId.TryGetValue(temaId, out TemaCurso? tema)) {
+                continue;
+            }
+
+            int publicadas = tema.Practicas.Count;
+            int realizadas = tema.Practicas.Count(practica =>
+                practicasRealizadas.Contains(practica.Id));
+            int porcentaje = CalcularPorcentajeEstadistica(realizadas, publicadas);
+            string nivel = porcentaje switch {
+                100 => "Dominado",
+                >= 50 => "Competente",
+                >= 1 => "En progreso",
+                _ => "Inicial"
+            };
+            resultado.Add(new DatosDominioTemaEstadistica(
+                tema.Nombre,
+                realizadas,
+                publicadas,
+                nivel));
+        }
+
+        return resultado;
+    }
+
+    private static DateTimeOffset? ObtenerUltimaActividadEstadisticas(
+        IEnumerable<ProgresoPractica> progreso,
+        IEnumerable<HistorialPractica> historial,
+        IReadOnlyDictionary<string, PracticaCurso> practicasConocidas) {
+        DateTimeOffset? ultimaActividad = null;
+
+        foreach (ProgresoPractica practica in progreso.Where(item =>
+            practicasConocidas.ContainsKey(item.PracticaId))) {
+            ultimaActividad = ObtenerFechaMasReciente(
+                ultimaActividad,
+                practica.FechaCreacion,
+                practica.FechaActualizacion,
+                practica.FechaFinalizacion);
+        }
+
+        foreach (DateTimeOffset fecha in historial
+            .Select(item => item.FechaUltimoIntento)
+            .Where(fecha => fecha.HasValue)
+            .Select(fecha => fecha!.Value)) {
+            ultimaActividad = ObtenerFechaMasReciente(ultimaActividad, fecha);
+        }
+
+        return ultimaActividad;
+    }
+
+    private static DateTimeOffset? ObtenerFechaMasReciente(
+        DateTimeOffset? fechaActual,
+        params DateTimeOffset?[] fechas) {
+        DateTimeOffset? resultado = fechaActual;
+
+        foreach (DateTimeOffset? fecha in fechas) {
+            if (fecha.HasValue &&
+                (!resultado.HasValue || fecha.Value > resultado.Value)) {
+                resultado = fecha;
+            }
+        }
+
+        return resultado;
+    }
+
+    private static string FormatearUltimaActividadEstadisticas(
+        DateTimeOffset? fecha) {
+        if (!fecha.HasValue) {
+            return "—";
+        }
+
+        DateTime fechaLocal = fecha.Value.ToLocalTime().Date;
+        DateTime hoy = DateTimeOffset.Now.LocalDateTime.Date;
+        int dias = (hoy - fechaLocal).Days;
+
+        return dias switch {
+            0 => "Hoy",
+            1 => "Ayer",
+            >= 2 and <= 30 => $"Hace {dias} días",
+            _ => fechaLocal.ToString("d", CultureInfo.CurrentCulture)
+        };
+    }
+
+    private static string ObtenerTemaMasPracticadoEstadisticas(
+        IEnumerable<HistorialPractica> historial,
+        IReadOnlyDictionary<string, PracticaCurso> practicasConocidas,
+        IReadOnlyList<TemaCurso> temasDisponibles) {
+        Dictionary<string, TemaCurso> temasPorId = temasDisponibles.ToDictionary(
+            tema => tema.Id,
+            StringComparer.OrdinalIgnoreCase);
+        var temaMasPracticado = historial
+            .Where(item =>
+                item.TotalIntentos > 0 &&
+                practicasConocidas.ContainsKey(item.PracticaId))
+            .Select(item => new {
+                Practica = practicasConocidas[item.PracticaId],
+                Intentos = (long)item.TotalIntentos
+            })
+            .Where(item => temasPorId.ContainsKey(item.Practica.TemaId))
+            .GroupBy(
+                item => item.Practica.TemaId,
+                StringComparer.OrdinalIgnoreCase)
+            .Select(grupo => new {
+                Tema = temasPorId[grupo.Key],
+                Intentos = grupo.Sum(item => item.Intentos)
+            })
+            .OrderByDescending(item => item.Intentos)
+            .ThenBy(item => item.Tema.Numero)
+            .FirstOrDefault();
+
+        return temaMasPracticado?.Tema.Nombre ?? "—";
     }
 
     private void ActualizarDatosEstadisticas(DatosVistaEstadisticas datos) {
@@ -638,8 +840,9 @@ public partial class frmPrincipal {
 
         tarjetasResumenEstadisticas[0].Valor.Text =
             $"{datos.PracticasCompletadas} de {datos.TotalPracticas}";
-        tarjetasResumenEstadisticas[1].Valor.Text =
-            $"{datos.PromedioGeneral}/{datos.PromedioMaximo}";
+        tarjetasResumenEstadisticas[1].Valor.Text = datos.PromedioGeneral.HasValue
+            ? $"{datos.PromedioGeneral.Value}/100"
+            : "—";
         tarjetasResumenEstadisticas[2].Valor.Text =
             $"{datos.IntentosRealizados} intentos";
         tarjetasResumenEstadisticas[3].Valor.Text = datos.UltimaActividad;
@@ -649,7 +852,8 @@ public partial class frmPrincipal {
             datos.MaximoProgresoGeneral,
             segmentos: 10);
         lblBarraProgresoGeneralEstadisticas.Text = progresoGeneral.Segmentos;
-        lblValorProgresoGeneralEstadisticas.Text = progresoGeneral.TextoNumerico;
+        lblValorProgresoGeneralEstadisticas.Text =
+            $"{progresoGeneral.ValorNormalizado}%";
 
         int filasDisponibles = Math.Min(
             filasDominioEstadisticas.Count,
