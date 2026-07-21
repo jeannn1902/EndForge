@@ -139,8 +139,8 @@ public partial class frmPrincipal {
     }
 
     private static readonly Color ColorTarjetaCurso = Color.FromArgb(24, 19, 36);
-    private static readonly Color ColorTarjetaCursoHover = Color.FromArgb(41, 31, 58);
     private static readonly Color ColorBordeCurso = Color.FromArgb(116, 67, 163);
+    private static readonly Color ColorBordeHoverCurso = Color.FromArgb(174, 108, 232);
     private static readonly Color ColorMoradoCurso = Color.FromArgb(145, 82, 214);
     private static readonly Color ColorMoradoClaroCurso = Color.FromArgb(202, 151, 247);
     private static readonly Color ColorTextoSecundarioCurso = Color.FromArgb(190, 181, 204);
@@ -212,6 +212,7 @@ public partial class frmPrincipal {
     private Panel? cubiertaTransicionCurso;
     private System.Windows.Forms.Timer? timerTransicionCurso;
     private Control? destinoTransicionCurso;
+    private TarjetaCursoInteractiva? tarjetaCursoConHover;
     private long inicioRetiroCubiertaTransicionCurso;
     private long secuenciaTransicionVisualCurso;
     private long idTransicionVisualCursoActiva;
@@ -1046,6 +1047,7 @@ public partial class frmPrincipal {
             return false;
         }
 
+        LimpiarHoverTarjetaCurso();
         navegacionCursoEnCurso = true;
         transicionVisualCursoActiva = true;
         retirandoCubiertaTransicionCurso = false;
@@ -1350,6 +1352,7 @@ public partial class frmPrincipal {
 
     private void FinalizarTransicionVisualCurso() {
         if (!transicionVisualCursoActiva) {
+            LimpiarHoverTarjetaCurso();
             navegacionCursoEnCurso = false;
             return;
         }
@@ -1364,6 +1367,7 @@ public partial class frmPrincipal {
             RestablecerRegionCubiertaTransicionCurso();
         }
 
+        LimpiarHoverTarjetaCurso();
         RestablecerEstadosVisualesVistaActualCurso(aplicarHoverReal: true);
         DesconectarDestinoTransicionCurso();
         cubiertaTransicionCursoPintada = false;
@@ -1378,6 +1382,7 @@ public partial class frmPrincipal {
         timerTransicionCurso?.Stop();
         transicionVisualCursoActiva = false;
         retirandoCubiertaTransicionCurso = false;
+        LimpiarHoverTarjetaCurso();
 
         if (cubiertaTransicionCurso is not null &&
             !cubiertaTransicionCurso.IsDisposed) {
@@ -1419,6 +1424,8 @@ public partial class frmPrincipal {
     private void MostrarSubvistaCurso(
         Panel vista,
         VistaRutaAprendizaje? estado = null) {
+        LimpiarHoverTarjetaCurso();
+
         foreach (Panel subvista in ObtenerVistasRutaAprendizaje()) {
             subvista.Visible = ReferenceEquals(vista, subvista);
         }
@@ -1431,6 +1438,8 @@ public partial class frmPrincipal {
         if (!cursoInicializado) {
             return;
         }
+
+        LimpiarHoverTarjetaCurso();
 
         foreach (Panel vista in ObtenerVistasRutaAprendizaje()) {
             vista.Visible = false;
@@ -3711,24 +3720,31 @@ public partial class frmPrincipal {
         tarjeta.Location = ubicacion;
         tarjeta.Size = tamano;
 
-        if (interactiva) {
+        if (tarjeta is TarjetaCursoInteractiva tarjetaInteractiva) {
             tarjeta.AccessibleRole = AccessibleRole.PushButton;
+            tarjetaInteractiva.RadioEsquinas = radio;
+            tarjetaInteractiva.ColorBordeNormal = ColorBordeCurso;
+            tarjetaInteractiva.ColorBordeHover = ColorBordeHoverCurso;
+            tarjetaInteractiva.ColorBordeFoco = ColorMoradoClaroCurso;
         }
 
         AplicarRegionRedondeada(tarjeta, radio);
         tarjeta.SizeChanged += (_, _) => AplicarRegionRedondeada(tarjeta, radio);
-        tarjeta.Paint += (_, e) => {
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            Rectangle limites = new(1, 1, tarjeta.Width - 3, tarjeta.Height - 3);
-            Color colorBorde = tarjeta.ContainsFocus
-                ? ColorMoradoClaroCurso
-                : ColorBordeCurso;
-            float anchoBorde = tarjeta.ContainsFocus ? 2.2F : 1.2F;
 
-            using GraphicsPath contorno = CrearContornoRedondeado(limites, radio);
-            using Pen borde = new(colorBorde, anchoBorde);
-            e.Graphics.DrawPath(borde, contorno);
-        };
+        if (tarjeta is not TarjetaCursoInteractiva) {
+            tarjeta.Paint += (_, e) => {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                Rectangle limites = new(1, 1, tarjeta.Width - 3, tarjeta.Height - 3);
+                Color colorBorde = tarjeta.ContainsFocus
+                    ? ColorMoradoClaroCurso
+                    : ColorBordeCurso;
+                float anchoBorde = tarjeta.ContainsFocus ? 2.2F : 1.2F;
+
+                using GraphicsPath contorno = CrearContornoRedondeado(limites, radio);
+                using Pen borde = new(colorBorde, anchoBorde);
+                e.Graphics.DrawPath(borde, contorno);
+            };
+        }
 
         return tarjeta;
     }
@@ -3820,8 +3836,12 @@ public partial class frmPrincipal {
         return boton;
     }
 
-    private static void ConfigurarInteraccionTarjeta(Panel tarjeta, Action alHacerClick) {
+    private void ConfigurarInteraccionTarjeta(Panel tarjeta, Action alHacerClick) {
         tarjeta.AccessibleRole = AccessibleRole.PushButton;
+
+        if (tarjeta is not TarjetaCursoInteractiva tarjetaInteractiva) {
+            return;
+        }
 
         foreach (Control control in ObtenerArbolControles(tarjeta)) {
             control.Cursor = Cursors.Hand;
@@ -3831,28 +3851,81 @@ public partial class frmPrincipal {
                 }
             };
             control.MouseEnter += (_, _) =>
-                AplicarEstadoVisualTarjetaCurso(tarjeta, tieneHover: true);
+                ActivarHoverTarjetaCurso(tarjetaInteractiva);
             control.MouseLeave += (_, _) => {
-                if (!tarjeta.ClientRectangle.Contains(tarjeta.PointToClient(Cursor.Position))) {
-                    AplicarEstadoVisualTarjetaCurso(tarjeta, tieneHover: false);
+                if (!TarjetaVisibleContieneCursor(tarjetaInteractiva)) {
+                    DesactivarHoverTarjetaCurso(tarjetaInteractiva);
                 }
             };
         }
 
-        if (tarjeta is TarjetaCursoInteractiva tarjetaInteractiva) {
-            tarjetaInteractiva.ActivadaPorTeclado += (_, _) => alHacerClick();
-        }
+        tarjetaInteractiva.ActivadaPorTeclado += (_, _) => alHacerClick();
     }
 
-    private static void AplicarEstadoVisualTarjetaCurso(Panel tarjeta, bool tieneHover) {
-        Color color = tieneHover ? ColorTarjetaCursoHover : ColorTarjetaCurso;
-
-        if (tarjeta.BackColor == color) {
+    private void ActivarHoverTarjetaCurso(TarjetaCursoInteractiva tarjeta) {
+        if (tarjeta.IsDisposed || !tarjeta.Visible) {
             return;
         }
 
-        tarjeta.BackColor = color;
-        tarjeta.Invalidate();
+        TarjetaCursoInteractiva? tarjetaAnterior = tarjetaCursoConHover;
+
+        if (tarjetaAnterior is not null &&
+            !ReferenceEquals(tarjetaAnterior, tarjeta)) {
+            AplicarEstadoVisualTarjetaCurso(tarjetaAnterior, tieneHover: false);
+        }
+
+        AplicarEstadoVisualTarjetaCurso(tarjeta, tieneHover: true);
+        tarjetaCursoConHover = tarjeta;
+    }
+
+    private void DesactivarHoverTarjetaCurso(TarjetaCursoInteractiva tarjeta) {
+        if (!tarjeta.IsDisposed && TarjetaVisibleContieneCursor(tarjeta)) {
+            return;
+        }
+
+        AplicarEstadoVisualTarjetaCurso(tarjeta, tieneHover: false);
+
+        if (ReferenceEquals(tarjetaCursoConHover, tarjeta)) {
+            tarjetaCursoConHover = null;
+        }
+    }
+
+    private void LimpiarHoverTarjetaCurso() {
+        TarjetaCursoInteractiva? tarjetaActiva = tarjetaCursoConHover;
+        tarjetaCursoConHover = null;
+
+        if (tarjetaActiva is not null) {
+            AplicarEstadoVisualTarjetaCurso(tarjetaActiva, tieneHover: false);
+        }
+    }
+
+    private void LimpiarHoverTarjetaCursoEnContenedor(Control contenedor) {
+        if (tarjetaCursoConHover is not null &&
+            EsMismoControlODescendiente(contenedor, tarjetaCursoConHover)) {
+            LimpiarHoverTarjetaCurso();
+        }
+    }
+
+    private static bool EsMismoControlODescendiente(
+        Control contenedor,
+        Control control) {
+        for (Control? actual = control; actual is not null; actual = actual.Parent) {
+            if (ReferenceEquals(actual, contenedor)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static void AplicarEstadoVisualTarjetaCurso(
+        TarjetaCursoInteractiva tarjeta,
+        bool tieneHover) {
+        if (tarjeta.IsDisposed) {
+            return;
+        }
+
+        tarjeta.EstaEnHover = tieneHover;
     }
 
     private void RestablecerEstadosVisualesTarjetasTemas(bool aplicarHoverReal = true) {
@@ -3882,12 +3955,14 @@ public partial class frmPrincipal {
         }
     }
 
-    private static void RestablecerEstadosVisualesTarjetas(
+    private void RestablecerEstadosVisualesTarjetas(
         Control? contenedor,
         bool aplicarHoverReal) {
         if (contenedor is null || contenedor.IsDisposed) {
             return;
         }
+
+        LimpiarHoverTarjetaCursoEnContenedor(contenedor);
 
         TarjetaCursoInteractiva[] tarjetas = ObtenerArbolControles(contenedor)
             .OfType<TarjetaCursoInteractiva>()
@@ -3905,7 +3980,7 @@ public partial class frmPrincipal {
             TarjetaVisibleContieneCursor);
 
         if (tarjetaBajoCursor is not null) {
-            AplicarEstadoVisualTarjetaCurso(tarjetaBajoCursor, tieneHover: true);
+            ActivarHoverTarjetaCurso(tarjetaBajoCursor);
         }
     }
 
@@ -3946,7 +4021,8 @@ public partial class frmPrincipal {
         }
     }
 
-    private static void VaciarYDisponerControles(Control contenedor) {
+    private void VaciarYDisponerControles(Control contenedor) {
+        LimpiarHoverTarjetaCursoEnContenedor(contenedor);
         Control[] controles = contenedor.Controls.Cast<Control>().ToArray();
         contenedor.Controls.Clear();
 
