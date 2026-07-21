@@ -95,10 +95,33 @@ public sealed class AperturaPracticasService {
         try {
             antesDeAbrir?.Invoke();
 
-            Process.Start(new ProcessStartInfo {
-                FileName = rutaSolucion,
-                UseShellExecute = true
-            });
+            string? rutaCpp = Directory
+                .EnumerateFiles(
+                    Path.GetDirectoryName(rutaSolucion) ?? rutaProyecto,
+                    "*.cpp",
+                    SearchOption.AllDirectories)
+                .OrderBy(ruta => ruta, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault();
+
+            string rutaDevenv =
+                @"C:\Program Files\Microsoft Visual Studio\2022\Professional\Common7\IDE\devenv.exe";
+
+            if (rutaCpp is not null && File.Exists(rutaDevenv)) {
+                ProcessStartInfo inicioVisualStudio = new() {
+                    FileName = rutaDevenv,
+                    UseShellExecute = false
+                };
+
+                inicioVisualStudio.ArgumentList.Add(rutaSolucion);
+                inicioVisualStudio.ArgumentList.Add(rutaCpp);
+
+                Process.Start(inicioVisualStudio);
+            } else {
+                Process.Start(new ProcessStartInfo {
+                    FileName = rutaSolucion,
+                    UseShellExecute = true
+                });
+            }
 
             return new ResultadoAperturaPractica {
                 Estado = EstadoAperturaPractica.Exitosa,
