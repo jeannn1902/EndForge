@@ -160,7 +160,8 @@ public sealed class CursoService {
                 "El programa indica correctamente si la persona es mayor o menor de edad.",
                 "Fácil",
                 "15–20 min",
-                new[] { "Variables 01", "Variables 02" }),
+                new[] { "Variables 01", "Variables 02" },
+                CrearGuiaMayorDeEdad()),
             CrearPractica(
                 "condicionales-clasificar-numero",
                 "condicionales",
@@ -198,7 +199,8 @@ public sealed class CursoService {
                 "El programa clasifica correctamente la calificación y rechaza valores fuera de rango.",
                 "Intermedia",
                 "25–35 min",
-                new[] { "Condicionales 01", "Condicionales 02" }),
+                new[] { "Condicionales 01", "Condicionales 02" },
+                CrearGuiaCalificacionAprobatoria()),
             CrearPractica(
                 "condicionales-descuento-compra",
                 "condicionales",
@@ -217,7 +219,8 @@ public sealed class CursoService {
                 "El programa aplica el descuento correcto y muestra el total antes y después del descuento.",
                 "Intermedia",
                 "25–40 min",
-                new[] { "Variables 02", "Variables 05", "Condicionales 03" }),
+                new[] { "Variables 02", "Variables 05", "Condicionales 03" },
+                CrearGuiaDescuentoCompra()),
             CrearPractica(
                 "condicionales-menu-operaciones",
                 "condicionales",
@@ -244,7 +247,8 @@ public sealed class CursoService {
                 "El programa ejecuta la operación seleccionada y maneja errores básicos.",
                 "Reto",
                 "40–60 min",
-                new[] { "Condicionales 01–04", "Variables 02" })
+                new[] { "Condicionales 01–04", "Variables 02" },
+                CrearGuiaMenuOperaciones())
         });
     }
 
@@ -351,6 +355,427 @@ public sealed class CursoService {
                 "Invertir los operadores > y <.",
                 "No mostrar la clasificación.",
                 "Usar int y perder los decimales."
+            })
+        };
+    }
+
+    private static GuiaPractica CrearGuiaMayorDeEdad() {
+        return new GuiaPractica {
+            QueVasAConstruir =
+                "Un programa que solicite una edad válida y muestre si la persona es mayor o menor de edad, " +
+                "o indique que la edad es inválida.",
+            DatosNecesarios = Array.AsReadOnly(new[] {
+                new DatoGuiaPractica {
+                    Nombre = "Edad",
+                    Tipo = "int",
+                    Descripcion = "Años completos de la persona; debe estar entre 0 y 120",
+                    Ejemplo = "18"
+                }
+            }),
+            ExplicacionesConceptos = Array.AsReadOnly(new[] {
+                new ConceptoGuiaPractica {
+                    Nombre = "int",
+                    Explicacion = "Guarda una edad expresada en años completos, sin decimales.",
+                    Fragmento = "int edad;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Validación de rango",
+                    Explicacion = "Comprueba primero que la edad se encuentre entre 0 y 120.",
+                    Fragmento = "edad >= 0 && edad <= 120"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Operador >=",
+                    Explicacion = "Incluye el valor límite. Una persona con 18 años ya es mayor de edad.",
+                    Fragmento = "edad >= 18"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "if, else if y else",
+                    Explicacion = "Permiten separar edad inválida, mayoría de edad y minoría de edad.",
+                    Fragmento = "if (edad < 0 || edad > 120)"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "bool",
+                    Explicacion = "Puede guardar el resultado verdadero o falso de una comparación.",
+                    Fragmento = "bool esMayorDeEdad = edad >= 18;"
+                }
+            }),
+            PasosSugeridos = Array.AsReadOnly(new[] {
+                "Solicita la edad y guárdala en una variable int.",
+                "Comprueba primero si es menor que 0 o mayor que 120.",
+                "Si está fuera del rango, muestra Edad inválida.",
+                "Si es válida, comprueba si es mayor o igual que 18.",
+                "Muestra Mayor de edad cuando cumpla la condición.",
+                "Usa el caso restante para mostrar Menor de edad.",
+                "Muestra una sola clasificación por ejecución."
+            }),
+            AdvertenciaEvaluacion =
+                "La evaluación automática para esta práctica se añadirá próximamente. " +
+                "Por ahora, comprueba edades válidas, los límites 0, 18 y 120, y valores fuera de rango.",
+            HerramientaUtil = new HerramientaGuiaPractica {
+                Nombre = "bool para guardar una condición",
+                Descripcion =
+                    "Una variable bool puede conservar si una comparación resultó verdadera o falsa.",
+                ParaQueSirve =
+                    "Permite nombrar la condición edad >= 18 y hacer más clara una decisión posterior.",
+                Codigo =
+                    "int edadEjemplo = 18;" + Environment.NewLine +
+                    "bool esMayorDeEdad = edadEjemplo >= 18;",
+                AclaracionOpcional =
+                    "Guardar la condición en bool es opcional; también puede compararse la edad directamente. " +
+                    "Este fragmento no valida la edad ni muestra la clasificación final."
+            },
+            EjemploEjecucion = new EjemploEjecucionPractica {
+                Entrada = "18",
+                SalidaEsperada =
+                    "Edad: 18" + Environment.NewLine +
+                    "Clasificación: Mayor de edad" + Environment.NewLine + Environment.NewLine +
+                    "CASOS LÍMITE" + Environment.NewLine +
+                    "Edad 0 → Menor de edad" + Environment.NewLine +
+                    "Edad 17 → Menor de edad" + Environment.NewLine +
+                    "Edad 18 → Mayor de edad" + Environment.NewLine +
+                    "Edad 120 → Mayor de edad" + Environment.NewLine +
+                    "Edad -1 o 121 → Edad inválida"
+            },
+            ErroresComunes = Array.AsReadOnly(new[] {
+                "Usar edad > 18 y clasificar los 18 años como menor de edad.",
+                "Clasificar la edad antes de validar el rango de 0 a 120.",
+                "Usar && en lugar de || para detectar valores fuera de rango.",
+                "Olvidar el mensaje Edad inválida.",
+                "Mostrar más de una clasificación.",
+                "Usar un tipo decimal cuando la práctica solicita años completos."
+            })
+        };
+    }
+
+    private static GuiaPractica CrearGuiaCalificacionAprobatoria() {
+        return new GuiaPractica {
+            QueVasAConstruir =
+                "Un programa que solicite una calificación de 0 a 10, valide el valor y la clasifique como " +
+                "Reprobatoria, Suficiente, Buena o Excelente.",
+            DatosNecesarios = Array.AsReadOnly(new[] {
+                new DatoGuiaPractica {
+                    Nombre = "Calificación",
+                    Tipo = "double",
+                    Descripcion = "Valor decimal que debe encontrarse entre 0 y 10",
+                    Ejemplo = "8.5"
+                }
+            }),
+            ExplicacionesConceptos = Array.AsReadOnly(new[] {
+                new ConceptoGuiaPractica {
+                    Nombre = "double",
+                    Explicacion = "Conserva calificaciones que pueden contener decimales.",
+                    Fragmento = "double calificacion;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Rango válido",
+                    Explicacion = "Una calificación válida está entre 0 y 10, incluyendo ambos límites.",
+                    Fragmento = "calificacion >= 0 && calificacion <= 10"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Operadores && y ||",
+                    Explicacion = "&& exige que dos condiciones se cumplan; || permite detectar cualquiera de dos errores.",
+                    Fragmento = "calificacion < 0 || calificacion > 10"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Rangos ordenados",
+                    Explicacion = "Cada else if atiende el intervalo que no fue clasificado antes.",
+                    Fragmento = "calificacion < 6"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Valores frontera",
+                    Explicacion = "Los valores 6, 8 y 9 comienzan categorías nuevas y deben probarse explícitamente.",
+                    Fragmento = "6, 8, 9 y 10"
+                }
+            }),
+            PasosSugeridos = Array.AsReadOnly(new[] {
+                "Solicita la calificación y guárdala como double.",
+                "Comprueba primero si es menor que 0 o mayor que 10.",
+                "Muestra Calificación inválida cuando esté fuera del rango.",
+                "Clasifica como Reprobatoria un valor válido menor que 6.",
+                "Clasifica como Suficiente desde 6 y antes de 8.",
+                "Clasifica como Buena desde 8 y antes de 9.",
+                "Usa el rango restante, de 9 a 10, para Excelente.",
+                "Muestra una sola categoría."
+            }),
+            AdvertenciaEvaluacion =
+                "La evaluación automática para esta práctica se añadirá próximamente. " +
+                "Por ahora, prueba cada frontera del rango y valores inferiores a 0 o superiores a 10.",
+            HerramientaUtil = new HerramientaGuiaPractica {
+                Nombre = "Validación de rango con && y ||",
+                Descripcion =
+                    "Los operadores lógicos permiten combinar comparaciones relacionadas.",
+                ParaQueSirve =
+                    "Ayudan a expresar tanto el rango válido de 0 a 10 como los dos posibles casos inválidos.",
+                Codigo =
+                    "double calificacionEjemplo = 8.5;" + Environment.NewLine +
+                    "bool estaEnRango = calificacionEjemplo >= 0 && calificacionEjemplo <= 10;" + Environment.NewLine +
+                    "bool estaFueraDeRango = calificacionEjemplo < 0 || calificacionEjemplo > 10;",
+                AclaracionOpcional =
+                    "Estas variables bool son opcionales; las comparaciones pueden usarse directamente en una condición. " +
+                    "El fragmento no clasifica la calificación."
+            },
+            EjemploEjecucion = new EjemploEjecucionPractica {
+                Entrada = "8.5",
+                SalidaEsperada =
+                    "Calificación: 8.5" + Environment.NewLine +
+                    "Clasificación: Buena" + Environment.NewLine + Environment.NewLine +
+                    "CASOS LÍMITE" + Environment.NewLine +
+                    "-0.1 → Calificación inválida" + Environment.NewLine +
+                    "0 → Reprobatoria" + Environment.NewLine +
+                    "6 → Suficiente" + Environment.NewLine +
+                    "8 → Buena" + Environment.NewLine +
+                    "9 y 10 → Excelente" + Environment.NewLine +
+                    "10.1 → Calificación inválida"
+            },
+            ErroresComunes = Array.AsReadOnly(new[] {
+                "Usar int y perder calificaciones decimales.",
+                "Clasificar antes de validar el rango de 0 a 10.",
+                "Dejar huecos o solapamientos entre categorías.",
+                "Evaluar primero una condición demasiado amplia.",
+                "Clasificar incorrectamente los valores exactos 6, 8, 9 o 10.",
+                "Mostrar más de una categoría.",
+                "Olvidar el caso Calificación inválida."
+            })
+        };
+    }
+
+    private static GuiaPractica CrearGuiaDescuentoCompra() {
+        return new GuiaPractica {
+            QueVasAConstruir =
+                "Un programa que reciba el total de una compra, seleccione el porcentaje de descuento correcto " +
+                "y muestre total original, porcentaje, descuento y total final.",
+            DatosNecesarios = Array.AsReadOnly(new[] {
+                new DatoGuiaPractica {
+                    Nombre = "Total original",
+                    Tipo = "double",
+                    Descripcion = "Importe de la compra antes de aplicar descuentos",
+                    Ejemplo = "1200.00"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Porcentaje",
+                    Tipo = "double",
+                    Descripcion = "Porcentaje seleccionado según el rango de la compra",
+                    Ejemplo = "10"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Descuento",
+                    Tipo = "double",
+                    Descripcion = "Cantidad monetaria que se resta al total original",
+                    Ejemplo = "120.00"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Total final",
+                    Tipo = "double",
+                    Descripcion = "Importe que queda después de restar el descuento",
+                    Ejemplo = "1080.00"
+                }
+            }),
+            ExplicacionesConceptos = Array.AsReadOnly(new[] {
+                new ConceptoGuiaPractica {
+                    Nombre = "double",
+                    Explicacion = "Conserva importes, porcentajes y resultados con decimales.",
+                    Fragmento = "double totalCompra;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Validación",
+                    Explicacion = "Un total negativo es inválido y no debe recibir descuento.",
+                    Fragmento = "totalCompra < 0"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Rangos de mayor a menor",
+                    Explicacion = "Comprobar primero el límite más alto evita que un importe grande caiga en un rango menor.",
+                    Fragmento = "totalCompra >= 2000"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Porcentaje",
+                    Explicacion = "El descuento monetario se obtiene multiplicando el total por el porcentaje dividido entre 100.",
+                    Fragmento = "double descuentoEjemplo = 1200.0 * 10.0 / 100.0;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Total final",
+                    Explicacion = "Se obtiene restando el descuento calculado al total original.",
+                    Fragmento = "double finalEjemplo = 1200.0 - 120.0;"
+                }
+            }),
+            PasosSugeridos = Array.AsReadOnly(new[] {
+                "Solicita el total original y guárdalo como double.",
+                "Si es negativo, muestra Total inválido y no realices el cálculo.",
+                "Para un total válido, comprueba primero si es mayor o igual que 2000 y asigna 15 %.",
+                "Después comprueba desde 1000 para asignar 10 %.",
+                "Después comprueba desde 500 para asignar 5 %.",
+                "Usa 0 % para cualquier total válido menor que 500.",
+                "Calcula el importe del descuento y réstalo al total original.",
+                "Muestra total original, porcentaje, descuento y total final."
+            }),
+            AdvertenciaEvaluacion =
+                "La evaluación automática para esta práctica se añadirá próximamente. " +
+                "Por ahora, prueba valores negativos y los límites 500, 1000 y 2000.",
+            HerramientaUtil = new HerramientaGuiaPractica {
+                Nombre = "Constantes y rangos de mayor a menor",
+                Descripcion =
+                    "Las constantes asignan nombres claros a límites y porcentajes que no cambian.",
+                ParaQueSirve =
+                    "Facilitan reconocer las reglas del descuento. Evaluar primero el rango mayor evita coincidencias prematuras.",
+                Codigo =
+                    "const double LIMITE_DESCUENTO_15 = 2000.0;" + Environment.NewLine +
+                    "const double PORCENTAJE_15 = 15.0;" + Environment.NewLine + Environment.NewLine +
+                    "if (totalCompra >= LIMITE_DESCUENTO_15) {" + Environment.NewLine +
+                    "    porcentaje = PORCENTAJE_15;" + Environment.NewLine +
+                    "}",
+                AclaracionOpcional =
+                    "Las constantes y este orden son sugerencias para hacer el código más claro; no son requisitos obligatorios. " +
+                    "El fragmento muestra un solo rango y no resuelve todos los descuentos."
+            },
+            EjemploEjecucion = new EjemploEjecucionPractica {
+                Entrada = "1200",
+                SalidaEsperada =
+                    "Total original: 1200.00" + Environment.NewLine +
+                    "Porcentaje: 10 %" + Environment.NewLine +
+                    "Descuento: 120.00" + Environment.NewLine +
+                    "Total final: 1080.00" + Environment.NewLine + Environment.NewLine +
+                    "CASOS LÍMITE" + Environment.NewLine +
+                    "-1 → Total inválido" + Environment.NewLine +
+                    "0 y 499.99 → 0 %" + Environment.NewLine +
+                    "500 y 999.99 → 5 %" + Environment.NewLine +
+                    "1000 y 1999.99 → 10 %" + Environment.NewLine +
+                    "2000 → 15 %"
+            },
+            ErroresComunes = Array.AsReadOnly(new[] {
+                "Aplicar un descuento a un total negativo.",
+                "Evaluar primero el rango más bajo y no alcanzar los descuentos mayores.",
+                "Restar 5, 10 o 15 como importe fijo en lugar de calcular un porcentaje.",
+                "Confundir el porcentaje con el importe del descuento.",
+                "Clasificar mal los valores exactos 500, 1000 o 2000.",
+                "Usar int y perder los decimales.",
+                "Omitir alguno de los cuatro datos solicitados en la salida."
+            })
+        };
+    }
+
+    private static GuiaPractica CrearGuiaMenuOperaciones() {
+        return new GuiaPractica {
+            QueVasAConstruir =
+                "Una calculadora de consola que reciba una opción y dos números, ejecute suma, resta, " +
+                "multiplicación o división y maneje opciones inválidas y división entre cero.",
+            DatosNecesarios = Array.AsReadOnly(new[] {
+                new DatoGuiaPractica {
+                    Nombre = "Opción",
+                    Tipo = "int",
+                    Descripcion = "Selecciona 1 Suma, 2 Resta, 3 Multiplicación o 4 División",
+                    Ejemplo = "3"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Primer operando",
+                    Tipo = "double",
+                    Descripcion = "Primer número utilizado por la operación",
+                    Ejemplo = "4.5"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Segundo operando",
+                    Tipo = "double",
+                    Descripcion = "Segundo número y divisor cuando la opción es 4",
+                    Ejemplo = "2"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Resultado",
+                    Tipo = "double",
+                    Descripcion = "Valor calculado únicamente para una operación válida",
+                    Ejemplo = "9"
+                }
+            }),
+            ExplicacionesConceptos = Array.AsReadOnly(new[] {
+                new ConceptoGuiaPractica {
+                    Nombre = "switch",
+                    Explicacion = "Selecciona un camino según el valor exacto de la opción.",
+                    Fragmento = "switch (opcion)"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "case",
+                    Explicacion = "Representa una opción concreta del menú.",
+                    Fragmento = "case 1:"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "break",
+                    Explicacion = "Finaliza un case para impedir que continúe con la operación siguiente.",
+                    Fragmento = "break;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "default",
+                    Explicacion = "Atiende cualquier opción distinta de 1, 2, 3 o 4.",
+                    Fragmento = "default:"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "double",
+                    Explicacion = "Conserva operandos y resultados con decimales, especialmente en la división.",
+                    Fragmento = "double numero1, numero2;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Validación del divisor",
+                    Explicacion = "Antes de dividir, comprueba que el segundo operando no sea cero.",
+                    Fragmento = "numero2 == 0"
+                }
+            }),
+            PasosSugeridos = Array.AsReadOnly(new[] {
+                "Muestra las opciones 1 Suma, 2 Resta, 3 Multiplicación y 4 División.",
+                "Lee la opción como int y después los dos operandos como double.",
+                "Usa switch para seleccionar la operación correspondiente.",
+                "Añade break al terminar cada case.",
+                "En la división, comprueba primero si el segundo operando es cero.",
+                "Si el divisor es cero, muestra un error y no calcules ni muestres un resultado.",
+                "Usa default para mostrar Opción inválida.",
+                "Muestra el resultado solo cuando la opción y la operación sean válidas."
+            }),
+            AdvertenciaEvaluacion =
+                "La evaluación automática para esta práctica se añadirá próximamente. " +
+                "Por ahora, prueba las cuatro opciones, una opción inválida y una división entre cero.",
+            HerramientaUtil = new HerramientaGuiaPractica {
+                Nombre = "switch con validación adicional",
+                Descripcion =
+                    "switch, case, break y default organizan opciones exactas de un menú.",
+                ParaQueSirve =
+                    "Permite separar cada operación. Un if dentro de División atiende el caso especial del divisor cero.",
+                Codigo =
+                    "switch (opcion) {" + Environment.NewLine +
+                    "    case 1:" + Environment.NewLine +
+                    "        // Suma" + Environment.NewLine +
+                    "        break;" + Environment.NewLine +
+                    "    case 4:" + Environment.NewLine +
+                    "        if (numero2 == 0) {" + Environment.NewLine +
+                    "            // Informar el error" + Environment.NewLine +
+                    "        }" + Environment.NewLine +
+                    "        break;" + Environment.NewLine +
+                    "    default:" + Environment.NewLine +
+                    "        // Opción inválida" + Environment.NewLine +
+                    "        break;" + Environment.NewLine +
+                    "}",
+                AclaracionOpcional =
+                    "Esta organización es una sugerencia y no obliga a copiar exactamente el fragmento. " +
+                    "Solo muestra dos ramas y no contiene cálculos, lectura ni salida final."
+            },
+            EjemploEjecucion = new EjemploEjecucionPractica {
+                Entrada =
+                    "3" + Environment.NewLine +
+                    "4.5" + Environment.NewLine +
+                    "2",
+                SalidaEsperada =
+                    "Operación: Multiplicación" + Environment.NewLine +
+                    "Resultado: 9" + Environment.NewLine + Environment.NewLine +
+                    "CASOS LÍMITE" + Environment.NewLine +
+                    "Opción 1 → Suma" + Environment.NewLine +
+                    "Opción 2 → Resta" + Environment.NewLine +
+                    "Opción 3 → Multiplicación" + Environment.NewLine +
+                    "Opción 4 con divisor distinto de cero → División" + Environment.NewLine +
+                    "Opción 4 con divisor cero → Error de división entre cero, sin resultado" + Environment.NewLine +
+                    "Cualquier otra opción → Opción inválida"
+            },
+            ErroresComunes = Array.AsReadOnly(new[] {
+                "Usar un tipo entero para los operandos y perder resultados decimales.",
+                "Asociar una opción con la operación equivocada.",
+                "Olvidar break y ejecutar más de un case.",
+                "Dividir entre cero.",
+                "Mostrar un resultado después de detectar división entre cero.",
+                "Olvidar default para las opciones inválidas.",
+                "Calcular o mostrar un resultado para una opción desconocida."
             })
         };
     }
