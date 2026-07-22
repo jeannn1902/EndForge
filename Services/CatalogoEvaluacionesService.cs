@@ -88,7 +88,9 @@ public sealed class CatalogoEvaluacionesService {
                         CrearValor("Edad", 20D, 0D),
                         CrearValor("Estatura", 1.65D)
                     },
-                    new[] { CrearGrupo("Estado de estudiante", "si", "sí", "true", "1") }),
+                    valoresBooleanos: new[] {
+                        CrearBooleano("Estudiante", true, "Estado de estudiante")
+                    }),
                 CrearCaso(
                     "datos-personales-no-estudiante",
                     "Datos normales de no estudiante",
@@ -100,7 +102,9 @@ public sealed class CatalogoEvaluacionesService {
                         CrearValor("Edad", 42D, 0D),
                         CrearValor("Estatura", 1.8D)
                     },
-                    new[] { CrearGrupo("Estado de estudiante", "no", "false", "0") }),
+                    valoresBooleanos: new[] {
+                        CrearBooleano("Estudiante", false, "Estado de estudiante")
+                    }),
                 CrearCaso(
                     "datos-personales-valores-cero",
                     "Valores numéricos límite",
@@ -112,7 +116,9 @@ public sealed class CatalogoEvaluacionesService {
                         CrearValor("Edad", 0D, 0D),
                         CrearValor("Estatura", 0.5D)
                     },
-                    new[] { CrearGrupo("Estado de estudiante", "no", "false", "0") })
+                    valoresBooleanos: new[] {
+                        CrearBooleano("Estudiante", false, "Estado de estudiante")
+                    })
             }),
             Criterios = rubrica
         };
@@ -204,9 +210,21 @@ public sealed class CatalogoEvaluacionesService {
                     "Comprueba una conversión positiva y detecta división entera incorrecta.",
                     new[] { "celsius", "fahrenheit" },
                     new[] {
-                        CrearValor("Celsius", 25D),
-                        CrearValor("Fahrenheit", 77D)
-                    }),
+                        CrearValorFlexible(
+                            "Celsius",
+                            25D,
+                            "Grados Celsius",
+                            "Temperatura inicial",
+                            "Temperatura de entrada"),
+                        CrearValorFlexible(
+                            "Fahrenheit",
+                            77D,
+                            "Grados Fahrenheit",
+                            "Temperatura convertida",
+                            "Temperatura final")
+                    },
+                    puntos: 15,
+                    modoComparacion: ModoComparacionCaso.Valores),
                 CrearCaso(
                     "temperatura-cero",
                     "Punto de congelación",
@@ -215,9 +233,21 @@ public sealed class CatalogoEvaluacionesService {
                     "Comprueba el punto de referencia de cero grados Celsius.",
                     new[] { "celsius", "fahrenheit" },
                     new[] {
-                        CrearValor("Celsius", 0D),
-                        CrearValor("Fahrenheit", 32D)
-                    }),
+                        CrearValorFlexible(
+                            "Celsius",
+                            0D,
+                            "Grados Celsius",
+                            "Temperatura inicial",
+                            "Temperatura de entrada"),
+                        CrearValorFlexible(
+                            "Fahrenheit",
+                            32D,
+                            "Grados Fahrenheit",
+                            "Temperatura convertida",
+                            "Temperatura final")
+                    },
+                    puntos: 15,
+                    modoComparacion: ModoComparacionCaso.Valores),
                 CrearCaso(
                     "temperatura-menos-cuarenta",
                     "Temperatura negativa límite",
@@ -226,9 +256,45 @@ public sealed class CatalogoEvaluacionesService {
                     "Comprueba números negativos en el punto donde ambas escalas coinciden.",
                     new[] { "celsius", "fahrenheit" },
                     new[] {
-                        CrearValor("Celsius", -40D),
-                        CrearValor("Fahrenheit", -40D)
-                    })
+                        CrearValorFlexible(
+                            "Celsius",
+                            -40D,
+                            "Grados Celsius",
+                            "Temperatura inicial",
+                            "Temperatura de entrada"),
+                        CrearValorFlexible(
+                            "Fahrenheit",
+                            -40D,
+                            "Grados Fahrenheit",
+                            "Temperatura convertida",
+                            "Temperatura final")
+                    },
+                    puntos: 15,
+                    modoComparacion: ModoComparacionCaso.Valores),
+                CrearCaso(
+                    "temperatura-ebullicion-oculto",
+                    "Temperatura de ebullición",
+                    "100\n",
+                    "Celsius: 100\nFahrenheit: 212",
+                    "Comprueba una conversión adicional sin revelar sus datos antes de evaluar.",
+                    Array.Empty<string>(),
+                    new[] {
+                        CrearValorFlexible(
+                            "Celsius",
+                            100D,
+                            "Grados Celsius",
+                            "Temperatura inicial",
+                            "Temperatura de entrada"),
+                        CrearValorFlexible(
+                            "Fahrenheit",
+                            212D,
+                            "Grados Fahrenheit",
+                            "Temperatura convertida",
+                            "Temperatura final")
+                    },
+                    puntos: 15,
+                    esVisible: false,
+                    modoComparacion: ModoComparacionCaso.Valores)
             }),
             Criterios = rubrica
         };
@@ -370,7 +436,7 @@ public sealed class CatalogoEvaluacionesService {
             new CriterioEvaluacion {
                 Id = "casos-prueba",
                 Nombre = "Casos de prueba",
-                Descripcion = "El programa produce resultados correctos para los tres casos visibles.",
+                Descripcion = "El programa produce resultados correctos para los casos de prueba configurados.",
                 PuntosMaximos = PuntosCasosPrueba,
                 Tipo = TipoCriterioEvaluacion.CasoPrueba
             },
@@ -399,20 +465,27 @@ public sealed class CatalogoEvaluacionesService {
         string descripcion,
         string[] tokensObligatorios,
         ValorNumericoEsperado[] valoresNumericos,
-        GrupoTokensEsperados[]? gruposAlternativos = null) {
+        GrupoTokensEsperados[]? gruposAlternativos = null,
+        int puntos = PuntosPorCaso,
+        bool esVisible = true,
+        ModoComparacionCaso modoComparacion = ModoComparacionCaso.Mixto,
+        ValorBooleanoEsperado[]? valoresBooleanos = null) {
         return new CasoPrueba {
             Id = id,
             Nombre = nombre,
             Entrada = entrada,
             SalidaEsperada = salidaEsperada,
-            EsVisible = true,
-            Puntos = PuntosPorCaso,
+            EsVisible = esVisible,
+            Puntos = puntos,
             ComparacionFlexible = true,
+            ModoComparacion = modoComparacion,
             Descripcion = descripcion,
             TokensObligatorios = Array.AsReadOnly(tokensObligatorios),
             GruposTokensAlternativos = Array.AsReadOnly(
                 gruposAlternativos ?? Array.Empty<GrupoTokensEsperados>()),
-            ValoresNumericosEsperados = Array.AsReadOnly(valoresNumericos)
+            ValoresNumericosEsperados = Array.AsReadOnly(valoresNumericos),
+            ValoresBooleanosEsperados = Array.AsReadOnly(
+                valoresBooleanos ?? Array.Empty<ValorBooleanoEsperado>())
         };
     }
 
@@ -440,6 +513,29 @@ public sealed class CatalogoEvaluacionesService {
         };
     }
 
+    private static ValorNumericoEsperado CrearValorFlexible(
+        string nombre,
+        double valor,
+        params string[] etiquetasAlternativas) {
+        return new ValorNumericoEsperado {
+            Nombre = nombre,
+            Valor = valor,
+            Tolerancia = 0.01D,
+            EtiquetasAlternativas = Array.AsReadOnly(etiquetasAlternativas)
+        };
+    }
+
+    private static ValorBooleanoEsperado CrearBooleano(
+        string nombre,
+        bool valor,
+        params string[] etiquetasAlternativas) {
+        return new ValorBooleanoEsperado {
+            Nombre = nombre,
+            Valor = valor,
+            EtiquetasAlternativas = Array.AsReadOnly(etiquetasAlternativas)
+        };
+    }
+
     private static void ValidarDefiniciones(
         IReadOnlyList<DefinicionEvaluacionPractica> definiciones) {
         if (definiciones.Count != 5 ||
@@ -451,13 +547,36 @@ public sealed class CatalogoEvaluacionesService {
         }
 
         foreach (DefinicionEvaluacionPractica definicion in definiciones) {
-            if (definicion.CasosPrueba.Count != 3 ||
-                definicion.CasosPrueba.Any(caso => !caso.EsVisible || caso.Puntos != PuntosPorCaso) ||
+            bool casosInvalidos = definicion.CasosPrueba.Count == 0 ||
+                definicion.CasosPrueba
+                    .Select(caso => caso.Id)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Count() != definicion.CasosPrueba.Count ||
+                definicion.CasosPrueba.Any(caso =>
+                    string.IsNullOrWhiteSpace(caso.Id) ||
+                    caso.Puntos <= 0 ||
+                    !TieneReglasAplicables(caso)) ||
+                definicion.CasosPrueba.Sum(caso => caso.Puntos) != PuntosCasosPrueba;
+
+            if (casosInvalidos ||
                 definicion.PuntosCasosPrueba != PuntosCasosPrueba ||
                 definicion.PuntosMaximos != PuntosTotales) {
                 throw new InvalidOperationException(
                     $"La definición de {definicion.PracticaId} no cumple la rúbrica de evaluación.");
             }
         }
+    }
+
+    private static bool TieneReglasAplicables(CasoPrueba caso) {
+        bool tieneTexto = caso.TokensObligatorios.Count > 0 ||
+            caso.GruposTokensAlternativos.Count > 0;
+        bool tieneValores = caso.ValoresNumericosEsperados.Count > 0 ||
+            caso.ValoresBooleanosEsperados.Count > 0;
+
+        return caso.ModoComparacion switch {
+            ModoComparacionCaso.Texto => tieneTexto,
+            ModoComparacionCaso.Valores => tieneValores,
+            _ => tieneTexto || tieneValores
+        };
     }
 }
