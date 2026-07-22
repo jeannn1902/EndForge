@@ -85,10 +85,15 @@ public partial class frmPrincipal {
             return;
         }
 
+        RestablecerEstadosVisualesVistaActualCurso();
+        PrepararDestinoDespuesDeCubiertaTransicionCurso(
+            PrepararYMostrarGrados);
+    }
+
+    private void PrepararYMostrarGrados() {
         panelPrincipal.SuspendLayout();
 
         try {
-            RestablecerEstadosVisualesVistaActualCurso();
             MostrarRutaAprendizajeInmersiva(
                 reconstruirContenido: true,
                 invalidarFondo: false,

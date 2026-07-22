@@ -301,7 +301,7 @@ public partial class frmPrincipal {
 
         ActualizarBotonMaximizar();
 
-        if (transicionandoDesdeBienvenida) {
+        if (transicionandoDesdeBienvenida || transicionVisualCursoActiva) {
             recalculoPendienteDuranteTransicion = true;
             return;
         }
@@ -316,7 +316,31 @@ public partial class frmPrincipal {
             return;
         }
 
-        if (transicionandoDesdeBienvenida) {
+        if (transicionandoDesdeBienvenida || transicionVisualCursoActiva) {
+            recalculoPendienteDuranteTransicion = true;
+            return;
+        }
+
+        recalculoPendienteDuranteTransicion = false;
+        EjecutarRecalculoVistaFinal();
+    }
+
+    private void AplicarRecalculoPendienteDespuesDeTransicionCurso() {
+        timerRecalcularVista.Stop();
+
+        if (!recalculoPendienteDuranteTransicion ||
+            transicionandoDesdeBienvenida ||
+            transicionVisualCursoActiva ||
+            WindowState == FormWindowState.Minimized) {
+            return;
+        }
+
+        recalculoPendienteDuranteTransicion = false;
+        EjecutarRecalculoVistaFinal();
+    }
+
+    private void EjecutarRecalculoVistaFinal() {
+        if (recalculandoVista || WindowState == FormWindowState.Minimized) {
             recalculoPendienteDuranteTransicion = true;
             return;
         }
