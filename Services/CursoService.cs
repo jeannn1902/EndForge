@@ -514,7 +514,126 @@ public sealed class CursoService {
                 ResultadoEsperado = "La consola solicita los datos personales y después presenta un resumen ordenado con todos los valores.",
                 Dificultad = "Inicial",
                 DuracionEstimada = "15–20 min",
-                RequisitosPrevios = Array.Empty<string>()
+                RequisitosPrevios = Array.Empty<string>(),
+                Guia = new GuiaPractica {
+                    QueVasAConstruir =
+                        "Crear un programa de consola que solicite nombre, edad, estatura y estado de estudiante, " +
+                        "guarde cada dato en una variable adecuada y muestre un resumen ordenado.",
+                    DatosNecesarios = Array.AsReadOnly(new[] {
+                        new DatoGuiaPractica {
+                            Nombre = "Nombre",
+                            Tipo = "string",
+                            Descripcion = "Texto con el nombre",
+                            Ejemplo = "Ana"
+                        },
+                        new DatoGuiaPractica {
+                            Nombre = "Edad",
+                            Tipo = "int",
+                            Descripcion = "Años completos",
+                            Ejemplo = "20"
+                        },
+                        new DatoGuiaPractica {
+                            Nombre = "Estatura",
+                            Tipo = "double",
+                            Descripcion = "Metros con decimales",
+                            Ejemplo = "1.65"
+                        },
+                        new DatoGuiaPractica {
+                            Nombre = "Es estudiante",
+                            Tipo = "bool",
+                            Descripcion = "Verdadero o falso",
+                            Ejemplo = "1"
+                        }
+                    }),
+                    ExplicacionesConceptos = Array.AsReadOnly(new[] {
+                        new ConceptoGuiaPractica {
+                            Nombre = "string",
+                            Explicacion = "Guarda texto, como un nombre o una ciudad.",
+                            Fragmento = "string nombre;"
+                        },
+                        new ConceptoGuiaPractica {
+                            Nombre = "int",
+                            Explicacion = "Guarda números enteros, sin parte decimal.",
+                            Fragmento = "int edad;"
+                        },
+                        new ConceptoGuiaPractica {
+                            Nombre = "double",
+                            Explicacion = "Guarda números que pueden tener decimales.",
+                            Fragmento = "double estatura;"
+                        },
+                        new ConceptoGuiaPractica {
+                            Nombre = "bool",
+                            Explicacion = "Guarda un estado lógico: verdadero o falso.",
+                            Fragmento = "bool esEstudiante;"
+                        },
+                        new ConceptoGuiaPractica {
+                            Nombre = "cin",
+                            Explicacion = "Lee un dato de la consola y lo guarda en una variable.",
+                            Fragmento = "cin >> edad;"
+                        },
+                        new ConceptoGuiaPractica {
+                            Nombre = "cout",
+                            Explicacion = "Muestra texto y valores en la consola.",
+                            Fragmento = "cout << \"Edad: \" << edad;"
+                        }
+                    }),
+                    PasosSugeridos = Array.AsReadOnly(new[] {
+                        "Declara una variable para cada dato.",
+                        "Lee nombre, edad, estatura y estado de estudiante en ese orden.",
+                        "Conserva la estatura como un valor decimal.",
+                        "Muestra cada dato con una etiqueta clara.",
+                        "Representa de forma comprensible el estado de estudiante.",
+                        "Prueba el programa una vez con 1 y otra con 0.",
+                        "No escribas directamente los datos de ejemplo en el código."
+                    }),
+                    AdvertenciaEvaluacion =
+                        "EndForge envía el estado de estudiante como número:" + Environment.NewLine +
+                        "1 representa verdadero." + Environment.NewLine +
+                        "0 representa falso." + Environment.NewLine + Environment.NewLine +
+                        "El programa no debe esperar las palabras “sí” o “no” como entrada.",
+                    HerramientaUtil = new HerramientaGuiaPractica {
+                        Nombre = "<string> y getline",
+                        Descripcion =
+                            "La biblioteca <string> permite guardar y trabajar con texto mediante el tipo string.",
+                        ParaQueSirve =
+                            "En esta práctica permite guardar nombres. getline puede leer una línea completa, incluyendo espacios.",
+                        Codigo =
+                            "#include <iostream>" + Environment.NewLine +
+                            "#include <string>" + Environment.NewLine +
+                            "using namespace std;" + Environment.NewLine + Environment.NewLine +
+                            "int main() {" + Environment.NewLine +
+                            "    string nombreCompleto;" + Environment.NewLine +
+                            "    getline(cin, nombreCompleto);" + Environment.NewLine + Environment.NewLine +
+                            "    return 0;" + Environment.NewLine +
+                            "}",
+                        AclaracionOpcional =
+                            "Este fragmento únicamente muestra dónde se incluyen las bibliotecas y cómo se usa getline. " +
+                            "No contiene la solución completa de la práctica."
+                    },
+                    EjemploEjecucion = new EjemploEjecucionPractica {
+                        Entrada =
+                            "Ana" + Environment.NewLine +
+                            "20" + Environment.NewLine +
+                            "1.65" + Environment.NewLine +
+                            "1",
+                        SalidaEsperada =
+                            "Nombre: Ana" + Environment.NewLine +
+                            "Edad: 20" + Environment.NewLine +
+                            "Estatura: 1.65" + Environment.NewLine +
+                            "Estudiante: sí"
+                    },
+                    ErroresComunes = Array.AsReadOnly(new[] {
+                        "Usar int para la estatura.",
+                        "Leer los datos en otro orden.",
+                        "Esperar “sí” o “no” para el bool.",
+                        "Escribir los ejemplos directamente en el código.",
+                        "Mostrar valores sin etiquetas.",
+                        "Omitir alguno de los cuatro datos.",
+                        "Confundir >> con <<.",
+                        "Olvidar iostream o string.",
+                        "Usar coma decimal en vez de punto."
+                    })
+                }
             },
             new PracticaCurso {
                 Id = "variables-ticket-compra",

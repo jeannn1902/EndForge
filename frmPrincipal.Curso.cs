@@ -3401,65 +3401,48 @@ public partial class frmPrincipal {
                 4);
             EstadoPracticaCurso estado = ObtenerEstadoPractica(practica.Id);
 
-            AgregarSeccionDetalle(
-                contenidoDetallePractica,
-                "Estado actual",
-                ObtenerTextoEstadoPractica(estado),
-                anchoContenido,
-                ObtenerColorEstado(estado));
-            AgregarSeccionDetalle(
-                contenidoDetallePractica,
-                "Dificultad",
-                NormalizarDificultad(practica.Dificultad),
-                anchoContenido);
-            if (MostrarTiemposOrientativos) {
+            if (practica.Guia is null) {
                 AgregarSeccionDetalle(
                     contenidoDetallePractica,
-                    "Tiempo orientativo",
-                    string.IsNullOrWhiteSpace(practica.DuracionEstimada)
-                        ? "Tiempo por definir"
-                        : practica.DuracionEstimada,
+                    "Estado actual",
+                    ObtenerTextoEstadoPractica(estado),
+                    anchoContenido,
+                    ObtenerColorEstado(estado));
+                AgregarSeccionDetalle(
+                    contenidoDetallePractica,
+                    "Dificultad",
+                    NormalizarDificultad(practica.Dificultad),
+                    anchoContenido);
+                if (MostrarTiemposOrientativos) {
+                    AgregarSeccionDetalle(
+                        contenidoDetallePractica,
+                        "Tiempo orientativo",
+                        string.IsNullOrWhiteSpace(practica.DuracionEstimada)
+                            ? "Tiempo por definir"
+                            : practica.DuracionEstimada,
+                        anchoContenido);
+                }
+
+                AgregarSeccionDetalle(
+                    contenidoDetallePractica,
+                    "Ritmo de aprendizaje",
+                    "Avanza a tu propio ritmo.",
+                    anchoContenido);
+                AgregarSeccionDetalle(
+                    contenidoDetallePractica,
+                    "Requisitos previos",
+                    practica.RequisitosPrevios.Count == 0
+                        ? "Sin requisitos previos"
+                        : string.Join("   •   ", practica.RequisitosPrevios),
+                    anchoContenido);
+                AgregarContenidoTradicionalDetallePractica(practica, anchoContenido);
+            } else {
+                AgregarResumenGuiadoDetallePractica(practica, estado, anchoContenido);
+                AgregarContenidoGuiadoDetallePractica(
+                    practica,
+                    practica.Guia,
                     anchoContenido);
             }
-
-            AgregarSeccionDetalle(
-                contenidoDetallePractica,
-                "Ritmo de aprendizaje",
-                "Avanza a tu propio ritmo.",
-                anchoContenido);
-            AgregarSeccionDetalle(
-                contenidoDetallePractica,
-                "Requisitos previos",
-                practica.RequisitosPrevios.Count == 0
-                    ? "Sin requisitos previos"
-                    : string.Join("   •   ", practica.RequisitosPrevios),
-                anchoContenido);
-            AgregarSeccionDetalle(
-                contenidoDetallePractica,
-                "Objetivo",
-                practica.Objetivo,
-                anchoContenido);
-            AgregarSeccionDetalle(
-                contenidoDetallePractica,
-                "Descripción",
-                practica.Descripcion,
-                anchoContenido);
-            AgregarSeccionDetalle(
-                contenidoDetallePractica,
-                "Conceptos que practicarás",
-                string.Join("   •   ", practica.Conceptos),
-                anchoContenido);
-            AgregarSeccionDetalle(
-                contenidoDetallePractica,
-                "Instrucciones generales",
-                string.Join(Environment.NewLine, practica.Instrucciones.Select(
-                    (instruccion, indice) => $"{indice + 1}. {instruccion}")),
-                anchoContenido);
-            AgregarSeccionDetalle(
-                contenidoDetallePractica,
-                "Resultado esperado",
-                practica.ResultadoEsperado,
-                anchoContenido);
 
             Button btnAccionPractica = CrearBotonCurso(
                 ObtenerTextoAccionPractica(practica),
@@ -3525,6 +3508,214 @@ public partial class frmPrincipal {
         }
 
         RegistrarEstadoDetallePractica(practica);
+    }
+
+    private void AgregarResumenGuiadoDetallePractica(
+        PracticaCurso practica,
+        EstadoPracticaCurso estado,
+        int anchoContenido) {
+        List<string> elementosResumen = new() {
+            $"Estado: {ObtenerTextoEstadoPractica(estado)}",
+            $"Dificultad: {NormalizarDificultad(practica.Dificultad)}"
+        };
+
+        if (MostrarTiemposOrientativos) {
+            string tiempo = string.IsNullOrWhiteSpace(practica.DuracionEstimada)
+                ? "Tiempo por definir"
+                : practica.DuracionEstimada;
+            elementosResumen.Add($"Tiempo orientativo: {tiempo}");
+        }
+
+        AgregarSeccionDetalle(
+            contenidoDetallePractica,
+            "Resumen",
+            string.Join(Environment.NewLine, elementosResumen),
+            anchoContenido);
+    }
+
+    private void AgregarContenidoTradicionalDetallePractica(
+        PracticaCurso practica,
+        int anchoContenido) {
+        AgregarSeccionDetalle(
+            contenidoDetallePractica,
+            "Objetivo",
+            practica.Objetivo,
+            anchoContenido);
+        AgregarSeccionDetalle(
+            contenidoDetallePractica,
+            "Descripción",
+            practica.Descripcion,
+            anchoContenido);
+        AgregarSeccionDetalle(
+            contenidoDetallePractica,
+            "Conceptos que practicarás",
+            string.Join("   •   ", practica.Conceptos),
+            anchoContenido);
+        AgregarSeccionDetalle(
+            contenidoDetallePractica,
+            "Instrucciones generales",
+            string.Join(Environment.NewLine, practica.Instrucciones.Select(
+                (instruccion, indice) => $"{indice + 1}. {instruccion}")),
+            anchoContenido);
+        AgregarSeccionDetalle(
+            contenidoDetallePractica,
+            "Resultado esperado",
+            practica.ResultadoEsperado,
+            anchoContenido);
+    }
+
+    private void AgregarContenidoGuiadoDetallePractica(
+        PracticaCurso practica,
+        GuiaPractica guia,
+        int anchoContenido) {
+        AgregarSeccionDetalle(
+            contenidoDetallePractica,
+            "Qué vas a construir",
+            guia.QueVasAConstruir,
+            anchoContenido);
+        AgregarSeccionDetalle(
+            contenidoDetallePractica,
+            "Datos que necesitas",
+            FormatearDatosGuiaPractica(
+                guia.DatosNecesarios,
+                guia.AdvertenciaEvaluacion),
+            anchoContenido);
+        AgregarSeccionDetalle(
+            contenidoDetallePractica,
+            "Conceptos que aprenderás",
+            FormatearConceptosGuiaPractica(guia.ExplicacionesConceptos),
+            anchoContenido,
+            usarFuenteMonoespaciada: true);
+        AgregarSeccionDetalle(
+            contenidoDetallePractica,
+            "Pasos sugeridos",
+            FormatearListaNumerada(guia.PasosSugeridos),
+            anchoContenido);
+
+        if (guia.HerramientaUtil is not null) {
+            AgregarSeccionDetalle(
+                contenidoDetallePractica,
+                "HERRAMIENTA ÚTIL",
+                FormatearHerramientaGuiaPractica(guia.HerramientaUtil),
+                anchoContenido,
+                usarFuenteMonoespaciada: true);
+        }
+
+        if (guia.EjemploEjecucion is not null) {
+            AgregarSeccionDetalle(
+                contenidoDetallePractica,
+                "Entrada y salida de ejemplo",
+                "ENTRADA" + Environment.NewLine +
+                guia.EjemploEjecucion.Entrada + Environment.NewLine + Environment.NewLine +
+                "SALIDA" + Environment.NewLine +
+                guia.EjemploEjecucion.SalidaEsperada,
+                anchoContenido,
+                usarFuenteMonoespaciada: true);
+        }
+
+        AgregarSeccionDetalle(
+            contenidoDetallePractica,
+            "Errores comunes",
+            FormatearListaConVinetas(guia.ErroresComunes),
+            anchoContenido);
+        AgregarRevisionEndForgeDetallePractica(practica, anchoContenido);
+    }
+
+    private void AgregarRevisionEndForgeDetallePractica(
+        PracticaCurso practica,
+        int anchoContenido) {
+        DefinicionEvaluacionPractica? definicion =
+            catalogoEvaluacionesService.ObtenerDefinicion(practica.Id);
+
+        if (definicion is null) {
+            AgregarSeccionDetalle(
+                contenidoDetallePractica,
+                "Qué revisará EndForge",
+                "Evaluación automática próximamente para esta práctica.",
+                anchoContenido);
+            return;
+        }
+
+        int puntajeTotal = definicion.Criterios.Sum(criterio => criterio.PuntosMaximos);
+        string criterios = string.Join(
+            Environment.NewLine + Environment.NewLine,
+            definicion.Criterios.Select(criterio =>
+                $"{criterio.Nombre} · {criterio.PuntosMaximos} puntos" +
+                Environment.NewLine + criterio.Descripcion));
+        string contenido =
+            definicion.Descripcion + Environment.NewLine +
+            definicion.ContratoEntrada + Environment.NewLine + Environment.NewLine +
+            criterios + Environment.NewLine + Environment.NewLine +
+            $"Puntaje total: {puntajeTotal} puntos";
+
+        AgregarSeccionDetalle(
+            contenidoDetallePractica,
+            "Qué revisará EndForge",
+            contenido,
+            anchoContenido,
+            ColorMoradoClaroCurso);
+    }
+
+    private static string FormatearDatosGuiaPractica(
+        IReadOnlyList<DatoGuiaPractica> datos,
+        string advertenciaEvaluacion) {
+        string contenido = string.Join(
+            Environment.NewLine + Environment.NewLine,
+            datos.Select(dato =>
+                $"{dato.Nombre} · {dato.Tipo}" + Environment.NewLine +
+                dato.Descripcion + Environment.NewLine +
+                $"Ejemplo: {dato.Ejemplo}"));
+
+        if (string.IsNullOrWhiteSpace(advertenciaEvaluacion)) {
+            return contenido;
+        }
+
+        return contenido + Environment.NewLine + Environment.NewLine +
+            "IMPORTANTE PARA LA EVALUACIÓN" + Environment.NewLine +
+            advertenciaEvaluacion;
+    }
+
+    private static string FormatearConceptosGuiaPractica(
+        IReadOnlyList<ConceptoGuiaPractica> conceptos) {
+        return string.Join(
+            Environment.NewLine + Environment.NewLine,
+            conceptos.Select(concepto =>
+                $"{concepto.Nombre}" + Environment.NewLine +
+                concepto.Explicacion +
+                (string.IsNullOrWhiteSpace(concepto.Fragmento)
+                    ? string.Empty
+                    : Environment.NewLine + concepto.Fragmento)));
+    }
+
+    private static string FormatearListaNumerada(IReadOnlyList<string> elementos) {
+        return string.Join(
+            Environment.NewLine,
+            elementos.Select((elemento, indice) => $"{indice + 1}. {elemento}"));
+    }
+
+    private static string FormatearListaConVinetas(IReadOnlyList<string> elementos) {
+        return string.Join(
+            Environment.NewLine,
+            elementos.Select(elemento => $"• {elemento}"));
+    }
+
+    private static string FormatearHerramientaGuiaPractica(
+        HerramientaGuiaPractica herramienta) {
+        string contenido =
+            herramienta.Nombre + Environment.NewLine + Environment.NewLine +
+            herramienta.Descripcion + Environment.NewLine + Environment.NewLine +
+            "PARA QUÉ SIRVE" + Environment.NewLine +
+            herramienta.ParaQueSirve + Environment.NewLine + Environment.NewLine +
+            "CÓDIGO" + Environment.NewLine +
+            herramienta.Codigo;
+
+        if (string.IsNullOrWhiteSpace(herramienta.AclaracionOpcional)) {
+            return contenido;
+        }
+
+        return contenido + Environment.NewLine + Environment.NewLine +
+            "ACLARACIÓN" + Environment.NewLine +
+            herramienta.AclaracionOpcional;
     }
 
     private void BtnAccionPracticaCurso_Click(object? sender, EventArgs e) {
@@ -4097,7 +4288,8 @@ public partial class frmPrincipal {
         string titulo,
         string contenido,
         int ancho,
-        Color? colorContenido = null) {
+        Color? colorContenido = null,
+        bool usarFuenteMonoespaciada = false) {
         int margenHorizontal = EscalarDiseno(16);
         int margenSuperior = EscalarDiseno(12);
         int margenInferior = EscalarDiseno(16);
@@ -4111,14 +4303,21 @@ public partial class frmPrincipal {
             FontStyle.Bold,
             ColorMoradoClaroCurso,
             ContentAlignment.TopLeft);
-        Label texto = CrearLabelCurso(
-            contenido,
-            Point.Empty,
-            new Size(anchoInterior, 1),
-            TamanoFuenteCurso.TextoDetalle,
-            FontStyle.Regular,
-            colorContenido ?? ColorTextoSecundarioCurso,
-            ContentAlignment.TopLeft);
+        Label texto = usarFuenteMonoespaciada
+            ? CrearLabelMonoespaciadoCurso(
+                contenido,
+                Point.Empty,
+                new Size(anchoInterior, 1),
+                TamanoFuenteCurso.TextoDetalle,
+                colorContenido ?? ColorTextoSecundarioCurso)
+            : CrearLabelCurso(
+                contenido,
+                Point.Empty,
+                new Size(anchoInterior, 1),
+                TamanoFuenteCurso.TextoDetalle,
+                FontStyle.Regular,
+                colorContenido ?? ColorTextoSecundarioCurso,
+                ContentAlignment.TopLeft);
         int altoTitulo = CalcularAltoTextoCurso(encabezado, anchoInterior, 24);
         int altoContenido = CalcularAltoTextoCurso(texto, anchoInterior, 28);
         int altoTarjeta =
@@ -4154,5 +4353,26 @@ public partial class frmPrincipal {
         }
 
         contenedor.Controls.Add(tarjeta);
+    }
+
+    private static Label CrearLabelMonoespaciadoCurso(
+        string texto,
+        Point ubicacion,
+        Size tamano,
+        float tamanoFuente,
+        Color color) {
+        Font fuente = new("Consolas", tamanoFuente, FontStyle.Regular);
+        Label label = new() {
+            AutoEllipsis = false,
+            BackColor = Color.Transparent,
+            Font = fuente,
+            ForeColor = color,
+            Location = ubicacion,
+            Size = tamano,
+            Text = texto,
+            TextAlign = ContentAlignment.TopLeft
+        };
+        label.Disposed += (_, _) => fuente.Dispose();
+        return label;
     }
 }

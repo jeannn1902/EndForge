@@ -28,4 +28,6 @@ public sealed class PracticaCurso {
     public EstadoPracticaCurso EstadoInicial { get; init; } = EstadoPracticaCurso.Pendiente;
 
     public string NombreProyecto { get; init; } = "";
+
+    public GuiaPractica? Guia { get; init; }
 }
