@@ -800,7 +800,8 @@ public sealed class CursoService {
                 "El programa imprime del 1 al 10 en orden.",
                 "Fácil",
                 "15–20 min",
-                new[] { "Condicionales 01", "Variables 01" }),
+                new[] { "Condicionales 01", "Variables 01" },
+                CrearGuiaContarUnoADiez()),
             CrearPractica(
                 "ciclos-tabla-multiplicar",
                 "ciclos",
@@ -819,7 +820,8 @@ public sealed class CursoService {
                 "El programa genera correctamente la tabla del número elegido.",
                 "Fácil",
                 "20–25 min",
-                new[] { "Ciclos 01" }),
+                new[] { "Ciclos 01" },
+                CrearGuiaTablaMultiplicar()),
             CrearPractica(
                 "ciclos-suma-acumulada",
                 "ciclos",
@@ -838,7 +840,8 @@ public sealed class CursoService {
                 "El programa suma correctamente todos los valores ingresados.",
                 "Intermedia",
                 "25–35 min",
-                new[] { "Ciclos 01", "Ciclos 02" }),
+                new[] { "Ciclos 01", "Ciclos 02" },
+                CrearGuiaSumaAcumulada()),
             CrearPractica(
                 "ciclos-adivina-numero",
                 "ciclos",
@@ -858,7 +861,8 @@ public sealed class CursoService {
                 "El programa termina únicamente cuando el usuario acierta.",
                 "Intermedia",
                 "30–40 min",
-                new[] { "Condicionales 02", "Ciclos 03" }),
+                new[] { "Condicionales 02", "Ciclos 03" },
+                CrearGuiaAdivinaNumero()),
             CrearPractica(
                 "ciclos-menu-repetitivo",
                 "ciclos",
@@ -878,8 +882,506 @@ public sealed class CursoService {
                 "El menú continúa activo y termina correctamente cuando el usuario lo indica.",
                 "Reto",
                 "40–60 min",
-                new[] { "Condicionales 05", "Ciclos 01–04" })
+                new[] { "Condicionales 05", "Ciclos 01–04" },
+                CrearGuiaMenuRepetitivo())
         });
+    }
+
+    private static GuiaPractica CrearGuiaContarUnoADiez() {
+        return new GuiaPractica {
+            QueVasAConstruir =
+                "Un programa que utilice un ciclo para mostrar los números del 1 al 10 en orden.",
+            DatosNecesarios = Array.AsReadOnly(new[] {
+                new DatoGuiaPractica {
+                    Nombre = "Contador",
+                    Tipo = "int",
+                    Descripcion = "Controla el número actual de cada repetición",
+                    Ejemplo = "Valor inicial sugerido: 1"
+                }
+            }),
+            ExplicacionesConceptos = Array.AsReadOnly(new[] {
+                new ConceptoGuiaPractica {
+                    Nombre = "Ciclo for",
+                    Explicacion = "Repite un bloque cuando se conocen el inicio, el límite y la forma de avanzar.",
+                    Fragmento = "for (inicio; condicion; incremento)"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Contador",
+                    Explicacion = "Es una variable que representa la repetición actual.",
+                    Fragmento = "int contador;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Inicialización",
+                    Explicacion = "Asigna el primer valor antes de comenzar las repeticiones.",
+                    Fragmento = "int contador = 1"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Condición",
+                    Explicacion = "Indica si el ciclo debe ejecutar otra repetición.",
+                    Fragmento = "contador <= 10"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Incremento",
+                    Explicacion = "Aumenta el contador en una unidad después de cada repetición.",
+                    Fragmento = "contador++"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Límite inclusivo",
+                    Explicacion = "El operador <= permite incluir el valor 10 en la secuencia.",
+                    Fragmento = "contador <= 10"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Repetición controlada",
+                    Explicacion = "El ciclo termina cuando el contador deja de cumplir la condición.",
+                    Fragmento = ""
+                }
+            }),
+            PasosSugeridos = Array.AsReadOnly(new[] {
+                "Crea una variable contador.",
+                "Inicia el contador en 1.",
+                "Mantén el ciclo mientras contador sea menor o igual que 10.",
+                "Muestra el valor actual.",
+                "Incrementa el contador en uno.",
+                "Confirma que se muestran exactamente diez números."
+            }),
+            AdvertenciaEvaluacion = "",
+            HerramientaUtil = new HerramientaGuiaPractica {
+                Nombre = "Las tres partes de un ciclo for",
+                Descripcion =
+                    "Un ciclo for reúne el valor inicial, la condición de repetición y el incremento.",
+                ParaQueSirve =
+                    "Permite controlar claramente desde qué número comienza el ciclo, hasta cuándo se repite y cómo cambia el contador.",
+                Codigo =
+                    "for (int contador = 1; contador <= 10; contador++) {" + Environment.NewLine +
+                    "    // Instrucción que se repetirá" + Environment.NewLine +
+                    "}",
+                AclaracionOpcional =
+                    "Esta herramienta es opcional. Una solución correcta puede usar otra estructura repetitiva si produce " +
+                    "el comportamiento solicitado. El fragmento solo muestra la estructura del ciclo y no contiene la salida completa."
+            },
+            EjemploEjecucion = new EjemploEjecucionPractica {
+                Entrada = "Esta práctica no necesita entrada.",
+                SalidaEsperada = "1 2 3 4 5 6 7 8 9 10"
+            },
+            ErroresComunes = Array.AsReadOnly(new[] {
+                "Comenzar en 0.",
+                "Usar contador < 10 y omitir el 10.",
+                "Usar contador <= 11.",
+                "Olvidar incrementar el contador.",
+                "Imprimir siempre el mismo valor.",
+                "Escribir manualmente los diez números sin utilizar un ciclo.",
+                "Crear un ciclo infinito."
+            })
+        };
+    }
+
+    private static GuiaPractica CrearGuiaTablaMultiplicar() {
+        return new GuiaPractica {
+            QueVasAConstruir =
+                "Un programa que solicite un número entero y muestre su tabla de multiplicar desde 1 hasta 10.",
+            DatosNecesarios = Array.AsReadOnly(new[] {
+                new DatoGuiaPractica {
+                    Nombre = "Número base",
+                    Tipo = "int",
+                    Descripcion = "Valor positivo, negativo o cero cuya tabla se calculará",
+                    Ejemplo = "5"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Factor",
+                    Tipo = "int",
+                    Descripcion = "Contador que recorre los valores del 1 al 10",
+                    Ejemplo = "1"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Resultado",
+                    Tipo = "int",
+                    Descripcion = "Producto del número base por el factor actual",
+                    Ejemplo = "5"
+                }
+            }),
+            ExplicacionesConceptos = Array.AsReadOnly(new[] {
+                new ConceptoGuiaPractica {
+                    Nombre = "Ciclo for",
+                    Explicacion = "Repite el cálculo diez veces usando factores del 1 al 10.",
+                    Fragmento = "for (int factor = 1; factor <= 10; factor++)"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Número entero",
+                    Explicacion = "La práctica acepta números positivos, negativos y cero sin decimales.",
+                    Fragmento = "int numero;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Multiplicación repetitiva",
+                    Explicacion = "En cada repetición se multiplica el mismo número por un factor diferente.",
+                    Fragmento = "numero * factor"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Contador",
+                    Explicacion = "El factor comienza en 1, aumenta de uno en uno y termina en 10.",
+                    Fragmento = "factor++"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Resultado por iteración",
+                    Explicacion = "Cada repetición obtiene un resultado nuevo sin alterar el número base.",
+                    Fragmento = "int resultado = numero * factor;"
+                }
+            }),
+            PasosSugeridos = Array.AsReadOnly(new[] {
+                "Solicita un número entero.",
+                "Crea un ciclo for cuyo factor comience en 1.",
+                "Mantén el ciclo hasta incluir el factor 10.",
+                "Multiplica el número por el factor actual.",
+                "Muestra número, factor y resultado en cada repetición.",
+                "Incrementa el factor en uno.",
+                "Confirma que se generan exactamente diez operaciones."
+            }),
+            AdvertenciaEvaluacion = "",
+            HerramientaUtil = new HerramientaGuiaPractica {
+                Nombre = "Resultado local dentro del ciclo",
+                Descripcion =
+                    "Una variable local puede guardar el producto calculado en la repetición actual.",
+                ParaQueSirve =
+                    "El resultado se vuelve a calcular con cada factor y queda separado de la presentación de la operación.",
+                Codigo =
+                    "for (int factorEjemplo = 1; factorEjemplo <= 3; factorEjemplo++) {" + Environment.NewLine +
+                    "    int resultadoEjemplo = numero * factorEjemplo;" + Environment.NewLine +
+                    "    // Usar el resultado de esta repetición" + Environment.NewLine +
+                    "}",
+                AclaracionOpcional =
+                    "La variable local es una sugerencia y no un requisito. El fragmento recorre solo tres factores de ejemplo " +
+                    "y no contiene la salida completa de la tabla."
+            },
+            EjemploEjecucion = new EjemploEjecucionPractica {
+                Entrada = "5",
+                SalidaEsperada =
+                    "5 x 1 = 5" + Environment.NewLine +
+                    "5 x 2 = 10" + Environment.NewLine +
+                    "..." + Environment.NewLine +
+                    "5 x 10 = 50" + Environment.NewLine + Environment.NewLine +
+                    "CASOS LÍMITE" + Environment.NewLine +
+                    "Número 0 → diez resultados iguales a 0" + Environment.NewLine +
+                    "Número -3 → tabla con productos negativos del -3 al -30"
+            },
+            ErroresComunes = Array.AsReadOnly(new[] {
+                "Comenzar el factor en 0.",
+                "Usar factor < 10 y omitir la última operación.",
+                "Modificar el número base dentro del ciclo.",
+                "Multiplicar siempre por el mismo factor.",
+                "Calcular una sola operación fuera del ciclo.",
+                "Mostrar únicamente el resultado sin la operación correspondiente.",
+                "Rechazar cero o números negativos aunque son entradas válidas."
+            })
+        };
+    }
+
+    private static GuiaPractica CrearGuiaSumaAcumulada() {
+        return new GuiaPractica {
+            QueVasAConstruir =
+                "Un programa que solicite una cantidad de valores, lea exactamente esa cantidad y muestre su suma total.",
+            DatosNecesarios = Array.AsReadOnly(new[] {
+                new DatoGuiaPractica {
+                    Nombre = "Cantidad",
+                    Tipo = "int",
+                    Descripcion = "Número de valores que se leerán; debe estar entre 0 y 100",
+                    Ejemplo = "3"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Valor actual",
+                    Tipo = "double",
+                    Descripcion = "Número decimal leído durante la repetición actual",
+                    Ejemplo = "5.5"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Suma",
+                    Tipo = "double",
+                    Descripcion = "Acumulador que comienza en 0 y conserva el total parcial",
+                    Ejemplo = "6.5"
+                }
+            }),
+            ExplicacionesConceptos = Array.AsReadOnly(new[] {
+                new ConceptoGuiaPractica {
+                    Nombre = "Cantidad de repeticiones",
+                    Explicacion = "La cantidad indica cuántos valores deben leerse, pero no forma parte de la suma.",
+                    Fragmento = "int cantidad;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Ciclo for",
+                    Explicacion = "Es apropiado porque la cantidad de repeticiones se conoce antes de iniciar.",
+                    Fragmento = "for (int indice = 0; indice < cantidad; indice++)"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Acumulador",
+                    Explicacion = "Guarda el total parcial y debe comenzar en cero.",
+                    Fragmento = "double suma = 0;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Operador +=",
+                    Explicacion = "Suma el valor nuevo al contenido anterior del acumulador.",
+                    Fragmento = "suma += valor;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Validación",
+                    Explicacion = "Una cantidad menor que 0 o mayor que 100 es inválida.",
+                    Fragmento = "cantidad < 0 || cantidad > 100"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Cantidad cero",
+                    Explicacion = "No se lee ningún valor y la suma inicial permanece en 0.",
+                    Fragmento = "cantidad == 0"
+                }
+            }),
+            PasosSugeridos = Array.AsReadOnly(new[] {
+                "Solicita la cantidad y guárdala como int.",
+                "Valida que la cantidad esté entre 0 y 100.",
+                "Si está fuera del rango, muestra Entrada inválida y no leas valores.",
+                "Inicializa la suma en 0.",
+                "Para una cantidad válida, repite la lectura exactamente esa cantidad de veces.",
+                "Añade cada valor double al acumulador.",
+                "No incluyas la cantidad dentro de la suma.",
+                "Muestra la suma total; para cantidad 0 debe ser 0."
+            }),
+            AdvertenciaEvaluacion = "",
+            HerramientaUtil = new HerramientaGuiaPractica {
+                Nombre = "Patrón de acumulador",
+                Descripcion =
+                    "Un acumulador conserva el resultado parcial mientras llegan nuevos valores.",
+                ParaQueSirve =
+                    "suma = valor reemplaza el total anterior; suma += valor añade el nuevo dato sin perder lo acumulado.",
+                Codigo =
+                    "double sumaEjemplo = 0;" + Environment.NewLine +
+                    "double valorEjemplo = 2.5;" + Environment.NewLine +
+                    "sumaEjemplo += valorEjemplo;",
+                AclaracionOpcional =
+                    "Este patrón es opcional como forma de escribir la actualización, aunque el comportamiento debe acumular. " +
+                    "El fragmento procesa un solo valor y no contiene el ciclo completo."
+            },
+            EjemploEjecucion = new EjemploEjecucionPractica {
+                Entrada =
+                    "3" + Environment.NewLine +
+                    "5.5" + Environment.NewLine +
+                    "2" + Environment.NewLine +
+                    "-1",
+                SalidaEsperada =
+                    "Suma total: 6.5" + Environment.NewLine + Environment.NewLine +
+                    "CASOS LÍMITE" + Environment.NewLine +
+                    "Cantidad 0 → Suma total: 0" + Environment.NewLine +
+                    "Cantidad -1 o 101 → Entrada inválida" + Environment.NewLine +
+                    "Cantidad 1 → La suma es exactamente el único valor leído"
+            },
+            ErroresComunes = Array.AsReadOnly(new[] {
+                "No inicializar la suma en 0.",
+                "Usar suma = valor y perder el total anterior.",
+                "Sumar también el valor de cantidad.",
+                "Leer un valor menos o uno más.",
+                "Leer valores cuando la cantidad es inválida.",
+                "Tratar cantidad 0 como error.",
+                "Usar int para los valores y perder decimales."
+            })
+        };
+    }
+
+    private static GuiaPractica CrearGuiaAdivinaNumero() {
+        return new GuiaPractica {
+            QueVasAConstruir =
+                "Un juego que mantenga fijo el número secreto 7, lea intentos del 1 al 10 y termine únicamente al acertar.",
+            DatosNecesarios = Array.AsReadOnly(new[] {
+                new DatoGuiaPractica {
+                    Nombre = "Número secreto",
+                    Tipo = "int",
+                    Descripcion = "Valor fijo que debe permanecer igual a 7",
+                    Ejemplo = "7"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Intento",
+                    Tipo = "int",
+                    Descripcion = "Número escrito por el usuario; el rango válido es 1 a 10",
+                    Ejemplo = "3"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Contador de intentos",
+                    Tipo = "int",
+                    Descripcion = "Cantidad total de intentos leídos, incluidos inválidos y el ganador",
+                    Ejemplo = "3"
+                }
+            }),
+            ExplicacionesConceptos = Array.AsReadOnly(new[] {
+                new ConceptoGuiaPractica {
+                    Nombre = "Ciclo while",
+                    Explicacion = "Repite la lectura mientras el intento sea diferente del número secreto.",
+                    Fragmento = "while (intento != numeroSecreto)"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Valor fijo",
+                    Explicacion = "El número secreto es 7 y no cambia durante la ejecución.",
+                    Fragmento = "const int numeroSecreto = 7;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Validación del intento",
+                    Explicacion = "Los valores menores que 1 o mayores que 10 son inválidos, pero también cuentan.",
+                    Fragmento = "intento < 1 || intento > 10"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Pistas",
+                    Explicacion = "Un intento menor que 7 necesita la pista Mayor; uno mayor necesita la pista Menor.",
+                    Fragmento = "intento < numeroSecreto"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Contador",
+                    Explicacion = "Se incrementa una sola vez después de leer cada intento.",
+                    Fragmento = "intentos++;"
+                }
+            }),
+            PasosSugeridos = Array.AsReadOnly(new[] {
+                "Define el número secreto fijo con valor 7.",
+                "Inicializa el contador de intentos en 0.",
+                "Lee un intento entero y aumenta el contador una sola vez.",
+                "Si está fuera de 1 a 10, muestra Intento inválido y continúa con una nueva lectura.",
+                "Si es menor que 7, muestra El número secreto es mayor.",
+                "Si es mayor que 7, muestra El número secreto es menor.",
+                "Termina únicamente cuando el intento sea 7.",
+                "Cuenta también el intento ganador y muestra el total al finalizar."
+            }),
+            AdvertenciaEvaluacion = "",
+            HerramientaUtil = new HerramientaGuiaPractica {
+                Nombre = "Contador de intentos",
+                Descripcion =
+                    "Un contador registra cuántos valores se han leído durante el juego.",
+                ParaQueSirve =
+                    "Incrementarlo inmediatamente después de cada lectura cuenta intentos válidos, inválidos y el acierto exactamente una vez.",
+                Codigo =
+                    "int intentos = 0;" + Environment.NewLine +
+                    "int intentoEjemplo;" + Environment.NewLine +
+                    "cin >> intentoEjemplo;" + Environment.NewLine +
+                    "intentos++;",
+                AclaracionOpcional =
+                    "La ubicación mostrada para el incremento es una sugerencia. No uses break como forma principal de terminar: " +
+                    "la condición del ciclo debe reflejar cuándo se acertó. El fragmento no contiene el juego completo."
+            },
+            EjemploEjecucion = new EjemploEjecucionPractica {
+                Entrada =
+                    "3" + Environment.NewLine +
+                    "9" + Environment.NewLine +
+                    "7",
+                SalidaEsperada =
+                    "El número secreto es mayor." + Environment.NewLine +
+                    "El número secreto es menor." + Environment.NewLine +
+                    "¡Correcto!" + Environment.NewLine +
+                    "Intentos: 3" + Environment.NewLine + Environment.NewLine +
+                    "CASOS LÍMITE" + Environment.NewLine +
+                    "Primer intento 7 → Correcto e Intentos: 1" + Environment.NewLine +
+                    "Intentos 0 u 11 → Intento inválido y aumentan el contador" + Environment.NewLine +
+                    "Intento 1 → El número secreto es mayor" + Environment.NewLine +
+                    "Intento 10 → El número secreto es menor"
+            },
+            ErroresComunes = Array.AsReadOnly(new[] {
+                "Cambiar el número secreto durante la ejecución.",
+                "Invertir las pistas Mayor y Menor.",
+                "No contar el intento ganador.",
+                "No contar los intentos fuera del rango.",
+                "Incrementar el contador más de una vez por lectura.",
+                "Terminar después de un intento inválido.",
+                "Crear un ciclo infinito al no leer un intento nuevo."
+            })
+        };
+    }
+
+    private static GuiaPractica CrearGuiaMenuRepetitivo() {
+        return new GuiaPractica {
+            QueVasAConstruir =
+                "Un menú que se muestre al menos una vez, procese opciones sencillas y se repita hasta seleccionar 4 Salir.",
+            DatosNecesarios = Array.AsReadOnly(new[] {
+                new DatoGuiaPractica {
+                    Nombre = "Opción",
+                    Tipo = "int",
+                    Descripcion = "Selección: 1 Saludo, 2 Mensaje motivador, 3 Número 10 o 4 Salir",
+                    Ejemplo = "1"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Estado de repetición",
+                    Tipo = "bool o valor centinela",
+                    Descripcion = "Indica si el menú debe volver a mostrarse",
+                    Ejemplo = "true"
+                }
+            }),
+            ExplicacionesConceptos = Array.AsReadOnly(new[] {
+                new ConceptoGuiaPractica {
+                    Nombre = "Ciclo do-while",
+                    Explicacion = "Ejecuta primero el menú y comprueba después si debe repetirse.",
+                    Fragmento = "do { ... } while (opcion != 4);"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Valor centinela",
+                    Explicacion = "La opción 4 funciona como señal para terminar el ciclo.",
+                    Fragmento = "opcion != 4"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "switch",
+                    Explicacion = "Selecciona la acción asociada con cada opción numérica.",
+                    Fragmento = "switch (opcion)"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "break en switch",
+                    Explicacion = "Termina un case, pero no finaliza por sí solo el ciclo do-while.",
+                    Fragmento = "break;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "default",
+                    Explicacion = "Muestra Opción inválida para cualquier número distinto de 1, 2, 3 o 4.",
+                    Fragmento = "default:"
+                }
+            }),
+            PasosSugeridos = Array.AsReadOnly(new[] {
+                "Muestra las cuatro opciones dentro de un ciclo do-while.",
+                "Lee la opción como int.",
+                "Usa switch para procesar 1 Saludo, 2 Mensaje motivador y 3 Número 10.",
+                "Usa la opción 4 para mostrar la despedida.",
+                "Usa default para mostrar Opción inválida.",
+                "Añade break al final de cada case para no ejecutar otra acción.",
+                "Repite mientras la opción sea diferente de 4.",
+                "Después de elegir 4, no ejecutes ninguna otra acción."
+            }),
+            AdvertenciaEvaluacion = "",
+            HerramientaUtil = new HerramientaGuiaPractica {
+                Nombre = "Centinela o bandera de continuación",
+                Descripcion =
+                    "Un valor centinela o una variable bool puede representar si el menú debe seguir activo.",
+                ParaQueSirve =
+                    "Separa la decisión de repetir del break usado para cerrar cada case del switch.",
+                Codigo =
+                    "bool continuar = true;" + Environment.NewLine +
+                    "switch (opcion) {" + Environment.NewLine +
+                    "    case 4:" + Environment.NewLine +
+                    "        continuar = false;" + Environment.NewLine +
+                    "        break;" + Environment.NewLine +
+                    "}",
+                AclaracionOpcional =
+                    "La bandera bool es opcional; también puede usarse directamente opcion != 4 como condición. " +
+                    "El fragmento solo distingue el estado del ciclo y el break del switch."
+            },
+            EjemploEjecucion = new EjemploEjecucionPractica {
+                Entrada =
+                    "1" + Environment.NewLine +
+                    "3" + Environment.NewLine +
+                    "4",
+                SalidaEsperada =
+                    "Hola." + Environment.NewLine +
+                    "Número: 10" + Environment.NewLine +
+                    "Hasta luego." + Environment.NewLine + Environment.NewLine +
+                    "CASOS LÍMITE" + Environment.NewLine +
+                    "Primera opción 4 → Mostrar la despedida y terminar" + Environment.NewLine +
+                    "Otra opción numérica → Opción inválida y volver a mostrar el menú" + Environment.NewLine +
+                    "Después de la opción 4 → No ejecutar otra acción"
+            },
+            ErroresComunes = Array.AsReadOnly(new[] {
+                "Usar un ciclo que no muestre el menú al menos una vez.",
+                "Invertir la condición de repetición.",
+                "No actualizar la opción dentro del ciclo.",
+                "Confundir break del switch con la terminación del do-while.",
+                "Olvidar default para opciones inválidas.",
+                "Ejecutar otra acción después de seleccionar 4.",
+                "Crear un ciclo infinito."
+            })
+        };
     }
 
     private static IReadOnlyList<PracticaCurso> CrearPracticasFunciones() {
