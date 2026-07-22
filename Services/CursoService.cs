@@ -652,7 +652,8 @@ public sealed class CursoService {
                 ResultadoEsperado = "La consola muestra un ticket legible con producto, precio, cantidad, subtotal y total.",
                 Dificultad = "Inicial",
                 DuracionEstimada = "20–25 min",
-                RequisitosPrevios = Array.AsReadOnly(new[] { "Variables 01" })
+                RequisitosPrevios = Array.AsReadOnly(new[] { "Variables 01" }),
+                Guia = CrearGuiaTicketCompra()
             },
             new PracticaCurso {
                 Id = "variables-conversor-temperatura",
@@ -671,7 +672,8 @@ public sealed class CursoService {
                 ResultadoEsperado = "La consola convierte correctamente una temperatura en Celsius y muestra el resultado en Fahrenheit.",
                 Dificultad = "Inicial",
                 DuracionEstimada = "20–25 min",
-                RequisitosPrevios = Array.AsReadOnly(new[] { "Variables 01", "Variables 02" })
+                RequisitosPrevios = Array.AsReadOnly(new[] { "Variables 01", "Variables 02" }),
+                Guia = CrearGuiaConversorTemperatura()
             },
             new PracticaCurso {
                 Id = "variables-promedio-calificaciones",
@@ -690,7 +692,8 @@ public sealed class CursoService {
                 ResultadoEsperado = "La consola captura las calificaciones y muestra el promedio calculado con valores decimales.",
                 Dificultad = "Inicial",
                 DuracionEstimada = "25–35 min",
-                RequisitosPrevios = Array.AsReadOnly(new[] { "Variables 01–03" })
+                RequisitosPrevios = Array.AsReadOnly(new[] { "Variables 01–03" }),
+                Guia = CrearGuiaPromedioCalificaciones()
             },
             new PracticaCurso {
                 Id = "variables-mini-recibo",
@@ -709,8 +712,479 @@ public sealed class CursoService {
                 ResultadoEsperado = "La consola presenta un recibo completo y legible con cliente, productos, subtotales y total.",
                 Dificultad = "Inicial",
                 DuracionEstimada = "25–40 min",
-                RequisitosPrevios = Array.AsReadOnly(new[] { "Variables 01–04" })
+                RequisitosPrevios = Array.AsReadOnly(new[] { "Variables 01–04" }),
+                Guia = CrearGuiaMiniRecibo()
             }
         });
+    }
+
+    private static GuiaPractica CrearGuiaTicketCompra() {
+        return new GuiaPractica {
+            QueVasAConstruir =
+                "Crear un ticket de consola que solicite un producto, su precio y la cantidad comprada, " +
+                "calcule el importe y muestre todos los datos con etiquetas claras.",
+            DatosNecesarios = Array.AsReadOnly(new[] {
+                new DatoGuiaPractica {
+                    Nombre = "Producto",
+                    Tipo = "string",
+                    Descripcion = "Nombre del artículo comprado",
+                    Ejemplo = "Cuaderno"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Precio unitario",
+                    Tipo = "double",
+                    Descripcion = "Precio de una unidad, conservando decimales",
+                    Ejemplo = "25.50"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Cantidad",
+                    Tipo = "int",
+                    Descripcion = "Número entero de unidades compradas",
+                    Ejemplo = "2"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Subtotal",
+                    Tipo = "double",
+                    Descripcion = "Resultado de multiplicar precio por cantidad",
+                    Ejemplo = "51.00"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Total",
+                    Tipo = "double",
+                    Descripcion = "Importe final; coincide con el subtotal si no hay impuestos ni descuentos",
+                    Ejemplo = "51.00"
+                }
+            }),
+            ExplicacionesConceptos = Array.AsReadOnly(new[] {
+                new ConceptoGuiaPractica {
+                    Nombre = "string",
+                    Explicacion = "Guarda texto, como el nombre de un producto.",
+                    Fragmento = "string producto;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "double",
+                    Explicacion = "Guarda precios e importes con parte decimal.",
+                    Fragmento = "double precio;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "int",
+                    Explicacion = "Guarda cantidades enteras de productos.",
+                    Fragmento = "int cantidad;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Multiplicación",
+                    Explicacion = "Permite obtener un importe a partir del precio de una unidad y la cantidad.",
+                    Fragmento = "double importeEjemplo = 12.50 * 3;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Subtotal y total",
+                    Explicacion = "Sin impuestos ni descuentos, el total puede ser igual al subtotal.",
+                    Fragmento = "double totalEjemplo = importeEjemplo;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "cin y cout",
+                    Explicacion = "cin lee los datos y cout presenta el ticket en la consola.",
+                    Fragmento = "cin >> producto >> precio >> cantidad;"
+                }
+            }),
+            PasosSugeridos = Array.AsReadOnly(new[] {
+                "Declara variables para producto, precio, cantidad, subtotal y total.",
+                "Lee producto, precio unitario y cantidad en ese orden.",
+                "Calcula el subtotal multiplicando el precio por la cantidad.",
+                "Asigna al total el importe final; sin cargos adicionales puede coincidir con el subtotal.",
+                "Muestra producto, precio, cantidad, subtotal y total con etiquetas claras.",
+                "Prueba un precio decimal y también una cantidad igual a cero.",
+                "No escribas directamente los valores del ejemplo en el código."
+            }),
+            AdvertenciaEvaluacion =
+                "EndForge envía exactamente tres líneas: producto, precio decimal y cantidad entera." +
+                Environment.NewLine +
+                "El programa debe conservar ese orden y calcular con los valores recibidos.",
+            HerramientaUtil = new HerramientaGuiaPractica {
+                Nombre = "<iomanip>, fixed y setprecision(2)",
+                Descripcion =
+                    "La biblioteca <iomanip> ofrece herramientas para controlar cómo se muestran los números.",
+                ParaQueSirve =
+                    "fixed y setprecision(2) permiten presentar importes con dos cifras decimales.",
+                Codigo =
+                    "#include <iostream>" + Environment.NewLine +
+                    "#include <iomanip>" + Environment.NewLine +
+                    "using namespace std;" + Environment.NewLine + Environment.NewLine +
+                    "int main() {" + Environment.NewLine +
+                    "    double importeEjemplo = 19.5;" + Environment.NewLine +
+                    "    cout << fixed << setprecision(2) << importeEjemplo << '\\n';" + Environment.NewLine +
+                    "    return 0;" + Environment.NewLine +
+                    "}",
+                AclaracionOpcional =
+                    "Esta herramienta es opcional: solo mejora la presentación de los importes. " +
+                    "El fragmento no calcula ni resuelve el ticket completo."
+            },
+            EjemploEjecucion = new EjemploEjecucionPractica {
+                Entrada =
+                    "Cuaderno" + Environment.NewLine +
+                    "25.50" + Environment.NewLine +
+                    "2",
+                SalidaEsperada =
+                    "Producto: Cuaderno" + Environment.NewLine +
+                    "Precio: 25.50" + Environment.NewLine +
+                    "Cantidad: 2" + Environment.NewLine +
+                    "Subtotal: 51.00" + Environment.NewLine +
+                    "Total: 51.00"
+            },
+            ErroresComunes = Array.AsReadOnly(new[] {
+                "Usar int para el precio y perder los decimales.",
+                "Leer precio y cantidad en un orden diferente.",
+                "Sumar precio y cantidad en lugar de multiplicarlos.",
+                "Olvidar mostrar el subtotal o el total.",
+                "Mostrar los números sin etiquetas claras.",
+                "Suponer que una cantidad igual a cero debe reemplazarse por otro valor.",
+                "Escribir directamente los resultados del ejemplo."
+            })
+        };
+    }
+
+    private static GuiaPractica CrearGuiaConversorTemperatura() {
+        return new GuiaPractica {
+            QueVasAConstruir =
+                "Crear un conversor de consola que reciba una temperatura en grados Celsius, " +
+                "calcule su equivalente en Fahrenheit y muestre ambos valores.",
+            DatosNecesarios = Array.AsReadOnly(new[] {
+                new DatoGuiaPractica {
+                    Nombre = "Temperatura Celsius",
+                    Tipo = "double",
+                    Descripcion = "Valor original que puede contener decimales o ser negativo",
+                    Ejemplo = "25.0"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Temperatura Fahrenheit",
+                    Tipo = "double",
+                    Descripcion = "Resultado decimal de aplicar la fórmula de conversión",
+                    Ejemplo = "77.0"
+                }
+            }),
+            ExplicacionesConceptos = Array.AsReadOnly(new[] {
+                new ConceptoGuiaPractica {
+                    Nombre = "double",
+                    Explicacion = "Conserva temperaturas con decimales y admite valores negativos.",
+                    Fragmento = "double celsius;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Operaciones decimales",
+                    Explicacion = "Usar 9.0 y 5.0 deja claro que la división debe conservar decimales.",
+                    Fragmento = "double factorEjemplo = 9.0 / 5.0;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Fórmula de conversión",
+                    Explicacion = "Primero se escala el valor Celsius y después se suma 32.",
+                    Fragmento = "fahrenheit = (celsius * 9.0 / 5.0) + 32;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Paréntesis",
+                    Explicacion = "Agrupan la parte principal del cálculo y hacen más fácil leer la fórmula.",
+                    Fragmento = "(celsius * 9.0 / 5.0)"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "cin y cout",
+                    Explicacion = "cin recibe la temperatura y cout muestra el valor original y el convertido.",
+                    Fragmento = "cin >> celsius;"
+                }
+            }),
+            PasosSugeridos = Array.AsReadOnly(new[] {
+                "Declara variables double para Celsius y Fahrenheit.",
+                "Lee la temperatura Celsius recibida por consola.",
+                "Aplica la fórmula fahrenheit = (celsius * 9.0 / 5.0) + 32.",
+                "Usa 9.0 y 5.0 para expresar una operación decimal.",
+                "Muestra tanto el valor Celsius como el resultado Fahrenheit con etiquetas.",
+                "Prueba con un valor positivo, con cero y con un valor negativo.",
+                "No escribas respuestas específicas para los ejemplos."
+            }),
+            AdvertenciaEvaluacion =
+                "EndForge envía una sola temperatura decimal en Celsius." + Environment.NewLine +
+                "También puede utilizar cero o valores negativos, por lo que no debes limitar la entrada a números positivos.",
+            HerramientaUtil = new HerramientaGuiaPractica {
+                Nombre = "Constantes con const double",
+                Descripcion =
+                    "Una constante guarda un valor que no debe cambiar durante la ejecución del programa.",
+                ParaQueSirve =
+                    "Permite dar nombres claros al factor y al ajuste usados en una fórmula.",
+                Codigo =
+                    "#include <iostream>" + Environment.NewLine +
+                    "using namespace std;" + Environment.NewLine + Environment.NewLine +
+                    "int main() {" + Environment.NewLine +
+                    "    const double factorConversion = 9.0 / 5.0;" + Environment.NewLine +
+                    "    const double ajusteFahrenheit = 32.0;" + Environment.NewLine +
+                    "    cout << factorConversion << ' ' << ajusteFahrenheit << '\\n';" + Environment.NewLine +
+                    "    return 0;" + Environment.NewLine +
+                    "}",
+                AclaracionOpcional =
+                    "Usar constantes es opcional, pero ayuda a explicar los números de la fórmula. " +
+                    "El fragmento no recibe ni convierte una temperatura."
+            },
+            EjemploEjecucion = new EjemploEjecucionPractica {
+                Entrada = "25",
+                SalidaEsperada =
+                    "Celsius: 25" + Environment.NewLine +
+                    "Fahrenheit: 77"
+            },
+            ErroresComunes = Array.AsReadOnly(new[] {
+                "Guardar las temperaturas en variables int.",
+                "Usar una fórmula diferente o sumar 32 en el lugar incorrecto.",
+                "Escribir 9 / 5 sin dejar clara la intención decimal.",
+                "Omitir el valor Celsius original en la salida.",
+                "No contemplar temperaturas negativas.",
+                "Mostrar valores sin las etiquetas Celsius y Fahrenheit.",
+                "Escribir directamente 77 para el ejemplo de 25 grados."
+            })
+        };
+    }
+
+    private static GuiaPractica CrearGuiaPromedioCalificaciones() {
+        return new GuiaPractica {
+            QueVasAConstruir =
+                "Crear un programa de consola que solicite exactamente tres calificaciones, " +
+                "calcule su promedio aritmético y muestre el resultado con una etiqueta clara.",
+            DatosNecesarios = Array.AsReadOnly(new[] {
+                new DatoGuiaPractica {
+                    Nombre = "Primera calificación",
+                    Tipo = "double",
+                    Descripcion = "Primer valor que participa en el promedio",
+                    Ejemplo = "8.0"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Segunda calificación",
+                    Tipo = "double",
+                    Descripcion = "Segundo valor que participa en el promedio",
+                    Ejemplo = "9.0"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Tercera calificación",
+                    Tipo = "double",
+                    Descripcion = "Tercer valor que participa en el promedio",
+                    Ejemplo = "10.0"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Promedio",
+                    Tipo = "double",
+                    Descripcion = "Suma de las tres calificaciones dividida entre 3.0",
+                    Ejemplo = "9.0"
+                }
+            }),
+            ExplicacionesConceptos = Array.AsReadOnly(new[] {
+                new ConceptoGuiaPractica {
+                    Nombre = "double",
+                    Explicacion = "Conserva calificaciones y resultados que pueden tener decimales.",
+                    Fragmento = "double calificacion1;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Suma",
+                    Explicacion = "Reúne las tres calificaciones antes de calcular el promedio.",
+                    Fragmento = "double sumaEjemplo = 8.0 + 9.0 + 10.0;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "División entre 3.0",
+                    Explicacion = "Reparte la suma entre las tres calificaciones manteniendo decimales.",
+                    Fragmento = "double promedioEjemplo = sumaEjemplo / 3.0;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Paréntesis",
+                    Explicacion = "Garantizan que primero se sumen todas las calificaciones.",
+                    Fragmento = "(calificacion1 + calificacion2 + calificacion3) / 3.0"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "cin y cout",
+                    Explicacion = "cin lee los tres valores y cout muestra el promedio calculado.",
+                    Fragmento = "cin >> calificacion1 >> calificacion2 >> calificacion3;"
+                }
+            }),
+            PasosSugeridos = Array.AsReadOnly(new[] {
+                "Declara tres variables double para las calificaciones y otra para el promedio.",
+                "Lee la primera, segunda y tercera calificación en ese orden.",
+                "Suma los tres valores dentro de paréntesis.",
+                "Divide la suma entre 3.0 para obtener el promedio.",
+                "Muestra el resultado con la etiqueta Promedio.",
+                "Prueba valores enteros, decimales y algún cero.",
+                "Calcula siempre con la entrada recibida y no con los ejemplos."
+            }),
+            AdvertenciaEvaluacion =
+                "EndForge envía exactamente tres calificaciones decimales, una por línea." + Environment.NewLine +
+                "Debes usar las tres y dividir su suma entre 3.0.",
+            HerramientaUtil = new HerramientaGuiaPractica {
+                Nombre = "Constante para la cantidad de calificaciones",
+                Descripcion =
+                    "Una constante asigna un nombre claro a un valor que no cambia.",
+                ParaQueSirve =
+                    "const int cantidadCalificaciones = 3 evita dejar un número sin explicación dentro del código.",
+                Codigo =
+                    "#include <iostream>" + Environment.NewLine +
+                    "using namespace std;" + Environment.NewLine + Environment.NewLine +
+                    "int main() {" + Environment.NewLine +
+                    "    const int cantidadCalificaciones = 3;" + Environment.NewLine +
+                    "    cout << \"Cantidad: \" << cantidadCalificaciones << '\\n';" + Environment.NewLine +
+                    "    return 0;" + Environment.NewLine +
+                    "}",
+                AclaracionOpcional =
+                    "La constante es opcional: dividir directamente entre 3.0 también es válido. " +
+                    "Este fragmento no lee calificaciones ni calcula el promedio."
+            },
+            EjemploEjecucion = new EjemploEjecucionPractica {
+                Entrada =
+                    "8" + Environment.NewLine +
+                    "9" + Environment.NewLine +
+                    "10",
+                SalidaEsperada = "Promedio: 9"
+            },
+            ErroresComunes = Array.AsReadOnly(new[] {
+                "Usar int y perder resultados decimales.",
+                "Leer menos o más de tres calificaciones.",
+                "Dividir solamente la última calificación por no usar paréntesis.",
+                "Dividir entre un valor distinto de 3.0.",
+                "Mostrar la suma en lugar del promedio.",
+                "Omitir la etiqueta Promedio.",
+                "Escribir directamente el resultado de los ejemplos."
+            })
+        };
+    }
+
+    private static GuiaPractica CrearGuiaMiniRecibo() {
+        return new GuiaPractica {
+            QueVasAConstruir =
+                "Crear un recibo de consola para un cliente y exactamente dos productos, " +
+                "calculando el subtotal de cada producto y el total general.",
+            DatosNecesarios = Array.AsReadOnly(new[] {
+                new DatoGuiaPractica {
+                    Nombre = "Cliente",
+                    Tipo = "string",
+                    Descripcion = "Nombre de la persona que recibe el comprobante",
+                    Ejemplo = "Ana"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Producto 1 y producto 2",
+                    Tipo = "string",
+                    Descripcion = "Nombres de los dos artículos del recibo",
+                    Ejemplo = "Pan y Leche"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Precio 1 y precio 2",
+                    Tipo = "double",
+                    Descripcion = "Precios unitarios que pueden contener decimales",
+                    Ejemplo = "12.50 y 18.00"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Cantidad 1 y cantidad 2",
+                    Tipo = "int",
+                    Descripcion = "Número entero de unidades de cada producto",
+                    Ejemplo = "2 y 1"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Subtotal 1 y subtotal 2",
+                    Tipo = "double",
+                    Descripcion = "Precio por cantidad para cada producto",
+                    Ejemplo = "25.00 y 18.00"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Total general",
+                    Tipo = "double",
+                    Descripcion = "Suma de los dos subtotales",
+                    Ejemplo = "43.00"
+                }
+            }),
+            ExplicacionesConceptos = Array.AsReadOnly(new[] {
+                new ConceptoGuiaPractica {
+                    Nombre = "string",
+                    Explicacion = "Guarda el nombre del cliente y los nombres de los productos.",
+                    Fragmento = "string cliente;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "int",
+                    Explicacion = "Guarda las cantidades enteras compradas.",
+                    Fragmento = "int cantidadProducto1;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "double",
+                    Explicacion = "Guarda precios, subtotales y el total con decimales.",
+                    Fragmento = "double precioProducto1;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Subtotal",
+                    Explicacion = "Cada producto necesita su propio cálculo de precio por cantidad.",
+                    Fragmento = "double importeEjemplo = 4.25 * 3;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Total general",
+                    Explicacion = "Se obtiene sumando los dos subtotales ya calculados.",
+                    Fragmento = "double totalEjemplo = 12.75 + 51.00;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Texto después de números",
+                    Explicacion = "Al combinar cin >> con getline puede quedar pendiente un salto de línea.",
+                    Fragmento = "cin.ignore();"
+                }
+            }),
+            PasosSugeridos = Array.AsReadOnly(new[] {
+                "Declara variables separadas para el cliente y para los datos de los dos productos.",
+                "Lee cliente, producto 1, precio 1, cantidad 1, producto 2, precio 2 y cantidad 2 en ese orden.",
+                "Calcula el subtotal del primer producto multiplicando su precio por su cantidad.",
+                "Calcula el subtotal del segundo producto de la misma forma.",
+                "Suma ambos subtotales para obtener el total general.",
+                "Muestra cliente, productos, precios, cantidades, subtotales y total con etiquetas claras.",
+                "Prueba cantidades o precios iguales a cero y no reemplaces los valores recibidos."
+            }),
+            AdvertenciaEvaluacion =
+                "EndForge envía exactamente siete líneas: cliente; producto 1; precio 1; cantidad 1; " +
+                "producto 2; precio 2; cantidad 2." + Environment.NewLine +
+                "Conserva ese orden y no sobrescribas los datos del primer producto al leer el segundo.",
+            HerramientaUtil = new HerramientaGuiaPractica {
+                Nombre = "cin.ignore() antes de getline",
+                Descripcion =
+                    "cin.ignore() puede descartar el salto de línea que queda después de leer un número con cin >>.",
+                ParaQueSirve =
+                    "Ayuda a que un getline posterior espere correctamente una nueva línea de texto.",
+                Codigo =
+                    "#include <iostream>" + Environment.NewLine +
+                    "#include <string>" + Environment.NewLine +
+                    "using namespace std;" + Environment.NewLine + Environment.NewLine +
+                    "int main() {" + Environment.NewLine +
+                    "    int cantidadEjemplo;" + Environment.NewLine +
+                    "    string descripcionEjemplo;" + Environment.NewLine + Environment.NewLine +
+                    "    cin >> cantidadEjemplo;" + Environment.NewLine +
+                    "    cin.ignore();" + Environment.NewLine +
+                    "    getline(cin, descripcionEjemplo);" + Environment.NewLine +
+                    "    return 0;" + Environment.NewLine +
+                    "}",
+                AclaracionOpcional =
+                    "Esta técnica es opcional y resulta útil solo cuando combinas cin >> con getline. " +
+                    "El fragmento no crea ni calcula el mini recibo completo."
+            },
+            EjemploEjecucion = new EjemploEjecucionPractica {
+                Entrada =
+                    "Ana" + Environment.NewLine +
+                    "Pan" + Environment.NewLine +
+                    "12.50" + Environment.NewLine +
+                    "2" + Environment.NewLine +
+                    "Leche" + Environment.NewLine +
+                    "18.00" + Environment.NewLine +
+                    "1",
+                SalidaEsperada =
+                    "Cliente: Ana" + Environment.NewLine +
+                    "Producto 1: Pan" + Environment.NewLine +
+                    "Precio 1: 12.50" + Environment.NewLine +
+                    "Cantidad 1: 2" + Environment.NewLine +
+                    "Subtotal 1: 25.00" + Environment.NewLine +
+                    "Producto 2: Leche" + Environment.NewLine +
+                    "Precio 2: 18.00" + Environment.NewLine +
+                    "Cantidad 2: 1" + Environment.NewLine +
+                    "Subtotal 2: 18.00" + Environment.NewLine +
+                    "Total: 43.00"
+            },
+            ErroresComunes = Array.AsReadOnly(new[] {
+                "Leer los siete datos en un orden diferente.",
+                "Reutilizar las mismas variables y perder los datos del primer producto.",
+                "Usar int para precios, subtotales o total.",
+                "Olvidar limpiar el salto de línea antes de un getline posterior.",
+                "Calcular el total sin obtener antes ambos subtotales.",
+                "Omitir precios, cantidades o etiquetas en la salida.",
+                "Escribir directamente los productos o importes del ejemplo."
+            })
+        };
     }
 }
