@@ -1404,7 +1404,8 @@ public sealed class CursoService {
                 "La función muestra correctamente el saludo utilizando el dato recibido.",
                 "Fácil",
                 "15–25 min",
-                new[] { "Variables 01", "Condicionales 01" }),
+                new[] { "Variables 01", "Condicionales 01" },
+                CrearGuiaSaludoPersonalizado()),
             CrearPractica(
                 "funciones-sumar-dos-numeros",
                 "funciones",
@@ -1423,7 +1424,8 @@ public sealed class CursoService {
                 "El programa obtiene y muestra correctamente la suma devuelta por la función.",
                 "Fácil",
                 "20–25 min",
-                new[] { "Funciones 01", "Variables 02" }),
+                new[] { "Funciones 01", "Variables 02" },
+                CrearGuiaSumarDosNumeros()),
             CrearPractica(
                 "funciones-numero-par",
                 "funciones",
@@ -1442,7 +1444,8 @@ public sealed class CursoService {
                 "El programa identifica correctamente números pares e impares.",
                 "Intermedia",
                 "25–30 min",
-                new[] { "Funciones 02", "Condicionales 01" }),
+                new[] { "Funciones 02", "Condicionales 01" },
+                CrearGuiaNumeroPar()),
             CrearPractica(
                 "funciones-calcular-promedio",
                 "funciones",
@@ -1467,7 +1470,8 @@ public sealed class CursoService {
                 "El programa calcula el promedio utilizando funciones separadas y reutilizables.",
                 "Intermedia",
                 "30–40 min",
-                new[] { "Funciones 01–03", "Ciclos 03" }),
+                new[] { "Funciones 01–03", "Ciclos 03" },
+                CrearGuiaCalcularPromedio()),
             CrearPractica(
                 "funciones-calculadora-modular",
                 "funciones",
@@ -1495,8 +1499,605 @@ public sealed class CursoService {
                 "La calculadora ejecuta cada operación mediante una función independiente.",
                 "Reto",
                 "40–60 min",
-                new[] { "Funciones 01–04", "Condicionales 05", "Ciclos 05" })
+                new[] { "Funciones 01–04", "Condicionales 05", "Ciclos 05" },
+                CrearGuiaCalculadoraModular())
         });
+    }
+
+    private static GuiaPractica CrearGuiaNumeroPar() {
+        return new GuiaPractica {
+            QueVasAConstruir =
+                "Un programa que envíe un número entero a una función y reciba un valor booleano que indique si es par.",
+            DatosNecesarios = Array.AsReadOnly(new[] {
+                new DatoGuiaPractica {
+                    Nombre = "Número",
+                    Tipo = "int",
+                    Descripcion = "Almacena el entero positivo, negativo o cero que se comprobará",
+                    Ejemplo = "-8"
+                }
+            }),
+            ExplicacionesConceptos = Array.AsReadOnly(new[] {
+                new ConceptoGuiaPractica {
+                    Nombre = "Función",
+                    Explicacion = "Agrupa una tarea que puede recibir datos, procesarlos y devolver una respuesta.",
+                    Fragmento = "bool nombreFuncion(int numero)"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Parámetro",
+                    Explicacion = "Es la variable declarada por la función para recibir un dato.",
+                    Fragmento = "int numero"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Argumento",
+                    Explicacion = "Es el valor que se envía al llamar la función.",
+                    Fragmento = "nombreFuncion(valor)"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Parámetro por valor",
+                    Explicacion = "La función recibe una copia del entero; modificar esa copia no cambia la variable original de main.",
+                    Fragmento = "int numero"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Tipo de retorno",
+                    Explicacion = "El tipo bool antes del nombre indica que la función devolverá verdadero o falso.",
+                    Fragmento = "bool nombreFuncion(int numero)"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "return",
+                    Explicacion = "Entrega el resultado calculado al lugar desde donde se llamó la función.",
+                    Fragmento = "return resultado;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "bool",
+                    Explicacion = "Representa una respuesta lógica con los valores true o false.",
+                    Fragmento = "bool resultado;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Operador módulo",
+                    Explicacion = "Obtiene el residuo de una división entera y permite comprobar divisibilidad.",
+                    Fragmento = "valor % divisor"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Llamada de función",
+                    Explicacion = "Ejecuta la función enviándole el número como argumento.",
+                    Fragmento = "nombreFuncion(valor)"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Uso del valor retornado",
+                    Explicacion = "main puede guardar o consultar el bool devuelto para decidir si muestra Par o Impar.",
+                    Fragmento = "bool resultado = nombreFuncion(valor);"
+                }
+            }),
+            PasosSugeridos = Array.AsReadOnly(new[] {
+                "Lee un número entero en main.",
+                "Envía ese número como argumento a una función.",
+                "Recibe el número en un parámetro int por valor.",
+                "Comprueba dentro de la función si el número es divisible entre 2.",
+                "Retorna true o false.",
+                "Guarda o utiliza el valor retornado en main.",
+                "Muestra Par o Impar según el resultado."
+            }),
+            AdvertenciaEvaluacion = "",
+            HerramientaUtil = new HerramientaGuiaPractica {
+                Nombre = "Retornar una expresión booleana",
+                Descripcion =
+                    "Una comparación puede producir directamente un valor true o false.",
+                ParaQueSirve =
+                    "Permite que una función responda una pregunta lógica sin encargarse de mostrar mensajes.",
+                Codigo =
+                    "bool esPositivo(int numero) {" + Environment.NewLine +
+                    "    return numero > 0;" + Environment.NewLine +
+                    "}" + Environment.NewLine + Environment.NewLine +
+                    "int main() {" + Environment.NewLine +
+                    "    int valor = 5;" + Environment.NewLine +
+                    "    bool resultado = esPositivo(valor);" + Environment.NewLine + Environment.NewLine +
+                    "    return 0;" + Environment.NewLine +
+                    "}",
+                AclaracionOpcional =
+                    "Esta herramienta es opcional. El ejemplo enseña cómo una función recibe un parámetro y devuelve un bool, " +
+                    "pero no resuelve la práctica de número par. También puedes guardar primero una respuesta lógica en una " +
+                    "variable bool y después retornarla."
+            },
+            EjemploEjecucion = new EjemploEjecucionPractica {
+                Entrada = "-8",
+                SalidaEsperada =
+                    "Número: -8" + Environment.NewLine +
+                    "Clasificación: Par" + Environment.NewLine + Environment.NewLine +
+                    "COMPORTAMIENTOS" + Environment.NewLine +
+                    "0 → Par" + Environment.NewLine +
+                    "7 → Impar" + Environment.NewLine +
+                    "-3 → Impar" + Environment.NewLine +
+                    "-8 → Par"
+            },
+            ErroresComunes = Array.AsReadOnly(new[] {
+                "Usar división en lugar del operador módulo.",
+                "Comprobar únicamente si el residuo es igual a 1.",
+                "Clasificar cero como impar.",
+                "No aceptar enteros negativos.",
+                "Imprimir dentro de la función en lugar de retornar bool.",
+                "Declarar una función bool y olvidar return.",
+                "No utilizar el valor retornado desde main.",
+                "Devolver texto en lugar de true o false.",
+                "Realizar toda la comprobación directamente en main sin delegarla a una función."
+            })
+        };
+    }
+
+    private static GuiaPractica CrearGuiaSaludoPersonalizado() {
+        return new GuiaPractica {
+            QueVasAConstruir =
+                "Un programa que lea un nombre completo y lo envíe a una función void para mostrar un saludo personalizado.",
+            DatosNecesarios = Array.AsReadOnly(new[] {
+                new DatoGuiaPractica {
+                    Nombre = "Nombre completo",
+                    Tipo = "string",
+                    Descripcion = "Guarda el nombre escrito por el usuario, incluidos los espacios interiores",
+                    Ejemplo = "Ana López"
+                }
+            }),
+            ExplicacionesConceptos = Array.AsReadOnly(new[] {
+                new ConceptoGuiaPractica {
+                    Nombre = "getline",
+                    Explicacion = "Lee una línea completa y conserva los espacios que forman parte del nombre.",
+                    Fragmento = "getline(cin, nombreCompleto);"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Declaración de una función",
+                    Explicacion = "Informa antes de main el tipo de retorno y los datos que recibirá la función.",
+                    Fragmento = "void nombreFuncion(string texto);"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Definición de una función",
+                    Explicacion = "Contiene las instrucciones que se ejecutarán cuando se llame la función.",
+                    Fragmento = "void nombreFuncion(string texto) { ... }"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Función void",
+                    Explicacion = "Realiza una acción, como mostrar un mensaje, sin devolver un valor.",
+                    Fragmento = "void nombreFuncion(string texto)"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Parámetro string por valor",
+                    Explicacion = "La función recibe una copia del texto; no necesita modificar la variable original de main.",
+                    Fragmento = "string texto"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Llamada de función",
+                    Explicacion = "Ejecuta la función y envía el nombre completo como argumento.",
+                    Fragmento = "nombreFuncion(nombreCompleto);"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Validación de entrada",
+                    Explicacion = "Una línea vacía no contiene un nombre y debe producir el mensaje Nombre inválido.",
+                    Fragmento = "nombreCompleto.empty()"
+                }
+            }),
+            PasosSugeridos = Array.AsReadOnly(new[] {
+                "Declara una variable string en main.",
+                "Lee el nombre completo con getline para conservar sus espacios.",
+                "Comprueba si la línea está vacía.",
+                "Si está vacía, muestra Nombre inválido y no llames la función de saludo.",
+                "Si contiene un nombre, envíalo como argumento a una función void.",
+                "Recibe el nombre en un parámetro string por valor.",
+                "Muestra desde la función un saludo que incluya el nombre completo."
+            }),
+            AdvertenciaEvaluacion = "",
+            HerramientaUtil = new HerramientaGuiaPractica {
+                Nombre = "Declarar, definir y llamar una función void",
+                Descripcion =
+                    "Una función puede declararse antes de main, llamarse desde main y definirse después.",
+                ParaQueSirve =
+                    "Permite organizar el programa y usar getline para enviar una línea completa a una función sin mezclar todas las tareas.",
+                Codigo =
+                    "void mostrarAviso(string texto);" + Environment.NewLine + Environment.NewLine +
+                    "int main() {" + Environment.NewLine +
+                    "    string mensaje;" + Environment.NewLine +
+                    "    getline(cin, mensaje);" + Environment.NewLine +
+                    "    mostrarAviso(mensaje);" + Environment.NewLine + Environment.NewLine +
+                    "    return 0;" + Environment.NewLine +
+                    "}" + Environment.NewLine + Environment.NewLine +
+                    "void mostrarAviso(string texto) {" + Environment.NewLine +
+                    "    cout << \"Aviso: \" << texto << '\\n';" + Environment.NewLine +
+                    "}",
+                AclaracionOpcional =
+                    "Esta organización es opcional y los nombres pueden cambiar. El fragmento muestra un aviso distinto, " +
+                    "no valida el nombre y no contiene el saludo solicitado por la práctica."
+            },
+            EjemploEjecucion = new EjemploEjecucionPractica {
+                Entrada = "Ana López",
+                SalidaEsperada =
+                    "Hola, Ana López." + Environment.NewLine + Environment.NewLine +
+                    "CASOS LÍMITE" + Environment.NewLine +
+                    "Línea vacía → Nombre inválido" + Environment.NewLine +
+                    "Ana María López → El saludo conserva el nombre completo" + Environment.NewLine +
+                    "Luis → El saludo también acepta un nombre sin espacios"
+            },
+            ErroresComunes = Array.AsReadOnly(new[] {
+                "Usar cin >> nombre y perder las palabras posteriores al primer espacio.",
+                "Llamar la función cuando el nombre está vacío.",
+                "No incluir el nombre recibido dentro del saludo.",
+                "Declarar un tipo de retorno distinto de void.",
+                "Recibir el string por referencia aunque no es necesario.",
+                "Escribir un nombre fijo dentro de la función.",
+                "Realizar el saludo directamente en main sin delegarlo a una función.",
+                "Usar una declaración y una definición con parámetros diferentes."
+            })
+        };
+    }
+
+    private static GuiaPractica CrearGuiaSumarDosNumeros() {
+        return new GuiaPractica {
+            QueVasAConstruir =
+                "Un programa que envíe dos valores decimales a una función, reciba su suma y muestre el resultado desde main.",
+            DatosNecesarios = Array.AsReadOnly(new[] {
+                new DatoGuiaPractica {
+                    Nombre = "Primer valor",
+                    Tipo = "double",
+                    Descripcion = "Primer número que se enviará a la función",
+                    Ejemplo = "5.5"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Segundo valor",
+                    Tipo = "double",
+                    Descripcion = "Segundo número que se enviará a la función",
+                    Ejemplo = "-2"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Resultado",
+                    Tipo = "double",
+                    Descripcion = "Valor retornado por la función y utilizado en main",
+                    Ejemplo = "3.5"
+                }
+            }),
+            ExplicacionesConceptos = Array.AsReadOnly(new[] {
+                new ConceptoGuiaPractica {
+                    Nombre = "Función con retorno",
+                    Explicacion = "Calcula un valor y lo devuelve al lugar desde donde fue llamada.",
+                    Fragmento = "double nombreFuncion(double valor1, double valor2)"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Dos parámetros",
+                    Explicacion = "Cada parámetro recibe uno de los valores necesarios para realizar el cálculo.",
+                    Fragmento = "double valor1, double valor2"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Parámetros por valor",
+                    Explicacion = "La función trabaja con copias de ambos números y no modifica las variables de main.",
+                    Fragmento = "double valor1, double valor2"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Argumentos",
+                    Explicacion = "Son los dos valores enviados al llamar la función.",
+                    Fragmento = "nombreFuncion(numero1, numero2)"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Tipo double",
+                    Explicacion = "Permite trabajar con positivos, negativos, cero y valores con decimales.",
+                    Fragmento = "double numero;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "return",
+                    Explicacion = "Entrega el resultado double para que main pueda utilizarlo.",
+                    Fragmento = "return resultado;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Recepción del resultado",
+                    Explicacion = "main puede guardar el valor retornado antes de mostrarlo.",
+                    Fragmento = "double resultado = nombreFuncion(numero1, numero2);"
+                }
+            }),
+            PasosSugeridos = Array.AsReadOnly(new[] {
+                "Lee dos valores double en main.",
+                "Envía ambos valores como argumentos a una función.",
+                "Recibe los valores en dos parámetros double por valor.",
+                "Realiza la suma dentro de la función.",
+                "Retorna el resultado como double.",
+                "Recibe o guarda el valor retornado en main.",
+                "Muestra el resultado retornado."
+            }),
+            AdvertenciaEvaluacion = "",
+            HerramientaUtil = new HerramientaGuiaPractica {
+                Nombre = "Parámetros por valor y recepción de return",
+                Descripcion =
+                    "Una función puede recibir copias de varios datos y devolver un nuevo valor calculado.",
+                ParaQueSirve =
+                    "Mantiene el cálculo dentro de la función y permite que main decida cómo utilizar o mostrar el resultado.",
+                Codigo =
+                    "double multiplicar(double valor1, double valor2) {" + Environment.NewLine +
+                    "    return valor1 * valor2;" + Environment.NewLine +
+                    "}" + Environment.NewLine + Environment.NewLine +
+                    "int main() {" + Environment.NewLine +
+                    "    double resultado = multiplicar(2.5, 4);" + Environment.NewLine + Environment.NewLine +
+                    "    return 0;" + Environment.NewLine +
+                    "}",
+                AclaracionOpcional =
+                    "La variable resultado es opcional y los nombres pueden cambiar. El ejemplo utiliza multiplicación para " +
+                    "enseñar parámetros y retorno, por lo que no contiene la solución de la suma solicitada."
+            },
+            EjemploEjecucion = new EjemploEjecucionPractica {
+                Entrada =
+                    "5.5" + Environment.NewLine +
+                    "-2",
+                SalidaEsperada =
+                    "Resultado: 3.5" + Environment.NewLine + Environment.NewLine +
+                    "CASOS LÍMITE" + Environment.NewLine +
+                    "0 y 0 → Resultado: 0" + Environment.NewLine +
+                    "-4 y -6 → Resultado: -10" + Environment.NewLine +
+                    "2.25 y 0.5 → Resultado: 2.75"
+            },
+            ErroresComunes = Array.AsReadOnly(new[] {
+                "Usar int y perder la parte decimal.",
+                "Declarar menos o más de dos parámetros.",
+                "Modificar los argumentos mediante paso por referencia.",
+                "Mostrar el cálculo dentro de la función en lugar de retornarlo.",
+                "Declarar retorno double y olvidar return.",
+                "Ignorar uno de los dos parámetros.",
+                "No utilizar en main el valor retornado.",
+                "Realizar toda la suma directamente en main."
+            })
+        };
+    }
+
+    private static GuiaPractica CrearGuiaCalcularPromedio() {
+        return new GuiaPractica {
+            QueVasAConstruir =
+                "Un programa que use funciones separadas para leer tres calificaciones, calcular su promedio y mostrar el resultado.",
+            DatosNecesarios = Array.AsReadOnly(new[] {
+                new DatoGuiaPractica {
+                    Nombre = "Primera calificación",
+                    Tipo = "double",
+                    Descripcion = "Primer valor de la escala válida de 0 a 10",
+                    Ejemplo = "8"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Segunda calificación",
+                    Tipo = "double",
+                    Descripcion = "Segundo valor de la escala válida de 0 a 10",
+                    Ejemplo = "9.5"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Tercera calificación",
+                    Tipo = "double",
+                    Descripcion = "Tercer valor de la escala válida de 0 a 10",
+                    Ejemplo = "7"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Promedio",
+                    Tipo = "double",
+                    Descripcion = "Resultado retornado por la función de cálculo",
+                    Ejemplo = "8.17"
+                }
+            }),
+            ExplicacionesConceptos = Array.AsReadOnly(new[] {
+                new ConceptoGuiaPractica {
+                    Nombre = "Separación de responsabilidades",
+                    Explicacion = "Cada función realiza una sola tarea: leer, calcular o presentar.",
+                    Fragmento = "leer → calcular → mostrar"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Función de captura",
+                    Explicacion = "Lee una calificación double y devuelve ese valor a main.",
+                    Fragmento = "double leerCalificacion()"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Función de cálculo",
+                    Explicacion = "Recibe exactamente tres calificaciones por valor y retorna el promedio como double.",
+                    Fragmento = "double calcularPromedio(double valor1, double valor2, double valor3)"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Función de presentación",
+                    Explicacion = "Recibe el promedio y lo muestra; puede ser void porque no necesita devolver otro dato.",
+                    Fragmento = "void mostrarPromedio(double promedio)"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Parámetros por valor",
+                    Explicacion = "La función de cálculo recibe copias de las tres calificaciones y no modifica las originales.",
+                    Fragmento = "double valor1, double valor2, double valor3"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Validación de rango",
+                    Explicacion = "Cada calificación debe ser mayor o igual que 0 y menor o igual que 10.",
+                    Fragmento = "calificacion < 0 || calificacion > 10"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Fórmula del promedio",
+                    Explicacion = "Primero se suman las tres calificaciones y después se divide el total entre 3.0.",
+                    Fragmento = "(calificacion1 + calificacion2 + calificacion3) / 3.0"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Retorno double",
+                    Explicacion = "Conserva la parte decimal del promedio calculado.",
+                    Fragmento = "return promedio;"
+                }
+            }),
+            PasosSugeridos = Array.AsReadOnly(new[] {
+                "Crea una función que lea y retorne una calificación double.",
+                "Llama esa función exactamente tres veces desde main.",
+                "Valida que cada calificación esté entre 0 y 10.",
+                "Si alguna está fuera del rango, muestra Calificación inválida y no calcules el promedio.",
+                "Envía las tres calificaciones por valor a una función de cálculo.",
+                "Calcula (calificacion1 + calificacion2 + calificacion3) / 3.0.",
+                "Retorna el promedio como double.",
+                "Envía el valor retornado a una función de presentación y muéstralo."
+            }),
+            AdvertenciaEvaluacion = "",
+            HerramientaUtil = new HerramientaGuiaPractica {
+                Nombre = "Una función para cada responsabilidad",
+                Descripcion =
+                    "Dividir captura, cálculo y presentación hace que cada parte del programa tenga una tarea clara.",
+                ParaQueSirve =
+                    "Permite revisar y reutilizar cada operación por separado sin mezclar entrada, fórmula y salida en una sola función.",
+                Codigo =
+                    "double leerDato();" + Environment.NewLine +
+                    "double calcularResultado(double valor1, double valor2, double valor3);" + Environment.NewLine +
+                    "void mostrarResultado(double resultado);" + Environment.NewLine + Environment.NewLine +
+                    "double dato1 = leerDato();" + Environment.NewLine +
+                    "double dato2 = leerDato();" + Environment.NewLine +
+                    "double dato3 = leerDato();" + Environment.NewLine +
+                    "double resultado = calcularResultado(dato1, dato2, dato3);" + Environment.NewLine +
+                    "mostrarResultado(resultado);",
+                AclaracionOpcional =
+                    "Los nombres mostrados son solo ejemplos y esta organización es opcional mientras se respeten las tres " +
+                    "responsabilidades. El fragmento no implementa la lectura, la validación, la fórmula ni la presentación."
+            },
+            EjemploEjecucion = new EjemploEjecucionPractica {
+                Entrada =
+                    "8" + Environment.NewLine +
+                    "9.5" + Environment.NewLine +
+                    "7",
+                SalidaEsperada =
+                    "Promedio: 8.17" + Environment.NewLine + Environment.NewLine +
+                    "CASOS LÍMITE" + Environment.NewLine +
+                    "0, 0 y 0 → Promedio: 0" + Environment.NewLine +
+                    "10, 10 y 10 → Promedio: 10" + Environment.NewLine +
+                    "-0.1 en cualquier posición → Calificación inválida" + Environment.NewLine +
+                    "10.1 en cualquier posición → Calificación inválida"
+            },
+            ErroresComunes = Array.AsReadOnly(new[] {
+                "Leer una cantidad diferente de tres calificaciones.",
+                "Aceptar valores menores que 0 o mayores que 10.",
+                "Calcular el promedio aunque exista una calificación inválida.",
+                "Usar división entera en lugar de dividir entre 3.0.",
+                "Olvidar los paréntesis alrededor de la suma.",
+                "Usar paso por referencia para las calificaciones.",
+                "Hacer captura, cálculo y presentación dentro de una sola función.",
+                "No retornar el promedio desde la función de cálculo.",
+                "No utilizar desde main el valor retornado."
+            })
+        };
+    }
+
+    private static GuiaPractica CrearGuiaCalculadoraModular() {
+        return new GuiaPractica {
+            QueVasAConstruir =
+                "Una calculadora de una sola ejecución que use una función independiente para cada operación.",
+            DatosNecesarios = Array.AsReadOnly(new[] {
+                new DatoGuiaPractica {
+                    Nombre = "Opción",
+                    Tipo = "int",
+                    Descripcion = "Selecciona 1 Suma, 2 Resta, 3 Multiplicación o 4 División",
+                    Ejemplo = "4"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Primer operando",
+                    Tipo = "double",
+                    Descripcion = "Primer valor enviado a la función seleccionada",
+                    Ejemplo = "10"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Segundo operando",
+                    Tipo = "double",
+                    Descripcion = "Segundo valor y divisor cuando se selecciona la división",
+                    Ejemplo = "2"
+                },
+                new DatoGuiaPractica {
+                    Nombre = "Resultado",
+                    Tipo = "double",
+                    Descripcion = "Valor retornado por la función correspondiente",
+                    Ejemplo = "5"
+                }
+            }),
+            ExplicacionesConceptos = Array.AsReadOnly(new[] {
+                new ConceptoGuiaPractica {
+                    Nombre = "Prototipo",
+                    Explicacion = "Declara antes de main qué recibe y qué retorna cada función.",
+                    Fragmento = "double nombreOperacion(double valor1, double valor2);"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Una función por operación",
+                    Explicacion = "Suma, resta, multiplicación y división se implementan por separado.",
+                    Fragmento = "double operacion(double valor1, double valor2)"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Parámetros por valor",
+                    Explicacion = "Cada operación recibe copias de los dos operandos double.",
+                    Fragmento = "double valor1, double valor2"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Retorno double",
+                    Explicacion = "Cada función entrega su resultado para que main lo muestre.",
+                    Fragmento = "return resultado;"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "switch como coordinador",
+                    Explicacion = "El switch decide qué función llamar, pero no realiza directamente las operaciones.",
+                    Fragmento = "switch (opcion)"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Validación de opción",
+                    Explicacion = "Solo las opciones 1, 2, 3 y 4 permiten solicitar operandos.",
+                    Fragmento = "opcion < 1 || opcion > 4"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "División entre cero",
+                    Explicacion = "El segundo operando debe comprobarse antes de llamar la función de división.",
+                    Fragmento = "segundoOperando == 0"
+                },
+                new ConceptoGuiaPractica {
+                    Nombre = "Ejecución única",
+                    Explicacion = "El menú se procesa una sola vez y no necesita ningún ciclo.",
+                    Fragmento = ""
+                }
+            }),
+            PasosSugeridos = Array.AsReadOnly(new[] {
+                "Declara una función independiente para cada una de las cuatro operaciones.",
+                "Muestra el menú y lee primero la opción como int.",
+                "Si la opción no está entre 1 y 4, muestra Opción inválida y no solicites operandos.",
+                "Si la opción es válida, lee dos valores double.",
+                "Usa switch únicamente para decidir qué función llamar.",
+                "Envía ambos operandos por valor y utiliza el double retornado.",
+                "Antes de llamar la función de división, comprueba si el segundo operando es cero.",
+                "Si el divisor es cero, muestra No se puede dividir entre cero.",
+                "En otro caso, muestra Resultado y finaliza sin repetir el menú."
+            }),
+            AdvertenciaEvaluacion = "",
+            HerramientaUtil = new HerramientaGuiaPractica {
+                Nombre = "Prototipos y selección de funciones",
+                Descripcion =
+                    "Los prototipos separan las operaciones y el switch coordina cuál debe ejecutarse.",
+                ParaQueSirve =
+                    "Evita escribir los cálculos dentro del menú y mantiene una responsabilidad clara para cada función.",
+                Codigo =
+                    "double sumarValores(double valor1, double valor2);" + Environment.NewLine +
+                    "double restarValores(double valor1, double valor2);" + Environment.NewLine +
+                    "double multiplicarValores(double valor1, double valor2);" + Environment.NewLine +
+                    "double dividirValores(double valor1, double valor2);" + Environment.NewLine + Environment.NewLine +
+                    "switch (opcion) {" + Environment.NewLine +
+                    "    case 1:" + Environment.NewLine +
+                    "        resultado = sumarValores(valor1, valor2);" + Environment.NewLine +
+                    "        break;" + Environment.NewLine +
+                    "    // Los demás casos siguen el mismo patrón." + Environment.NewLine +
+                    "}",
+                AclaracionOpcional =
+                    "Los nombres son ejemplos y pueden cambiar. El fragmento solo muestra prototipos y una llamada; no " +
+                    "implementa las operaciones, la lectura, las validaciones ni la salida completa de la calculadora."
+            },
+            EjemploEjecucion = new EjemploEjecucionPractica {
+                Entrada =
+                    "4" + Environment.NewLine +
+                    "10" + Environment.NewLine +
+                    "2",
+                SalidaEsperada =
+                    "Resultado: 5" + Environment.NewLine + Environment.NewLine +
+                    "CASOS LÍMITE" + Environment.NewLine +
+                    "Opción 0 o 5 → Opción inválida y no se solicitan operandos" + Environment.NewLine +
+                    "Opción 4 con segundo operando 0 → No se puede dividir entre cero" + Environment.NewLine +
+                    "Operandos negativos o decimales → Se procesan normalmente" + Environment.NewLine +
+                    "Después del resultado → El menú no se repite"
+            },
+            ErroresComunes = Array.AsReadOnly(new[] {
+                "Pedir los operandos antes de validar la opción.",
+                "Repetir el menú mediante un ciclo.",
+                "Realizar las operaciones directamente dentro del switch.",
+                "Usar una sola función para todas las operaciones.",
+                "Declarar funciones void en lugar de retornar double.",
+                "Recibir operandos por referencia.",
+                "Usar int y perder decimales.",
+                "Comprobar el divisor después de llamar la función de división.",
+                "Olvidar break y ejecutar más de una opción.",
+                "Solicitar operandos o calcular un resultado para una opción inválida."
+            })
+        };
     }
 
     private static PracticaCurso CrearPractica(
