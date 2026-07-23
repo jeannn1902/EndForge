@@ -43,6 +43,10 @@ public sealed class ResultadoValorNumericoComparado {
 
     public double Tolerancia { get; init; }
 
+    public bool EsOpcional { get; init; }
+
+    public bool DebeEstarAusente { get; init; }
+
     public bool Coincide { get; init; }
 
     public string EtiquetaEncontrada { get; init; } = "";

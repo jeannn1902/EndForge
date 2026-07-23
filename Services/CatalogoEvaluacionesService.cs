@@ -14,6 +14,7 @@ public sealed class CatalogoEvaluacionesService {
     public const string CalificacionAprobatoriaId =
         "condicionales-calificacion-aprobatoria";
     public const string DescuentoCompraId = "condicionales-descuento-compra";
+    public const string MenuOperacionesId = "condicionales-menu-operaciones";
 
     private const int PuntosCompilacion = 20;
     private const int PuntosCasosPrueba = 60;
@@ -63,7 +64,8 @@ public sealed class CatalogoEvaluacionesService {
             CrearClasificarNumero(rubrica),
             CrearMayorDeEdad(rubrica),
             CrearCalificacionAprobatoria(rubrica),
-            CrearDescuentoCompra(rubrica)
+            CrearDescuentoCompra(rubrica),
+            CrearMenuOperaciones(rubrica)
         });
     }
 
@@ -750,6 +752,126 @@ public sealed class CatalogoEvaluacionesService {
         };
     }
 
+    private static DefinicionEvaluacionPractica CrearMenuOperaciones(
+        IReadOnlyList<CriterioEvaluacion> rubrica) {
+        return new DefinicionEvaluacionPractica {
+            PracticaId = MenuOperacionesId,
+            NombrePractica = "Menú de operaciones",
+            Objetivo = "Ejecutar una operación aritmética seleccionada en un menú de una sola ejecución.",
+            Descripcion = "Se comprobarán suma, resta, multiplicación, división, división entre cero y una opción fuera del menú.",
+            ContratoEntrada = "La primera línea contiene la opción. Las opciones 1 a 4 reciben después dos operandos decimales; cualquier otra opción debe rechazarse sin realizar una operación.",
+            CamposEntrada = Array.AsReadOnly(new[] {
+                "Opción entera",
+                "Primer operando decimal cuando la opción es válida",
+                "Segundo operando decimal cuando la opción es válida"
+            }),
+            ValidacionesRequeridas = Array.AsReadOnly(new[] {
+                "Mostrar el resultado correcto para las cuatro operaciones.",
+                "Rechazar la división cuando el segundo operando es cero.",
+                "Rechazar opciones distintas de 1, 2, 3 y 4.",
+                "No mostrar un resultado numérico en los casos de error."
+            }),
+            CasosPrueba = Array.AsReadOnly(new[] {
+                CrearCasoOperacionNumerica(
+                    "menu-operaciones-suma",
+                    "Suma decimal",
+                    1,
+                    5.5D,
+                    2D,
+                    7.5D,
+                    "Suma",
+                    esVisible: true),
+                CrearCasoOperacionNumerica(
+                    "menu-operaciones-resta",
+                    "Resta decimal",
+                    2,
+                    10D,
+                    3.5D,
+                    6.5D,
+                    "Resta",
+                    esVisible: true),
+                CrearCasoOperacionNumerica(
+                    "menu-operaciones-multiplicacion",
+                    "Multiplicación con signo",
+                    3,
+                    -4D,
+                    2.5D,
+                    -10D,
+                    "Multiplicación",
+                    esVisible: true),
+                CrearCasoOperacionNumerica(
+                    "menu-operaciones-division",
+                    "División decimal",
+                    4,
+                    9D,
+                    2D,
+                    4.5D,
+                    "División",
+                    esVisible: true),
+                CrearCaso(
+                    "menu-operaciones-division-cero",
+                    "División entre cero",
+                    "4\n9\n0\n",
+                    "Operación: División\nNo se puede dividir entre cero",
+                    "Comprueba que no se muestre un resultado numérico cuando el divisor es cero.",
+                    Array.Empty<string>(),
+                    new[] {
+                        CrearOpcionMenuEsperada(4, opcional: true),
+                        CrearResultadoOperacionProhibido()
+                    },
+                    gruposAlternativos: new[] {
+                        CrearGrupoTextoLibre(
+                            "Error de división entre cero",
+                            "no se puede dividir entre cero",
+                            "división entre cero",
+                            "division entre cero",
+                            "divisor inválido",
+                            "divisor igual a cero",
+                            "operación inválida por división entre cero")
+                    },
+                    puntos: 10,
+                    modoComparacion: ModoComparacionCaso.Mixto,
+                    valoresTextuales: new[] {
+                        CrearOperacionMenuEsperada(
+                            "División",
+                            opcional: true)
+                    }),
+                CrearCaso(
+                    "menu-operaciones-opcion-invalida-oculta",
+                    "Opción fuera del menú",
+                    "9\n",
+                    "Opción: 9\nEstado: Opción inválida",
+                    "Comprueba de forma adicional una opción que no pertenece al menú.",
+                    Array.Empty<string>(),
+                    new[] {
+                        CrearOpcionMenuEsperada(9, opcional: true),
+                        CrearResultadoOperacionProhibido()
+                    },
+                    gruposAlternativos: new[] {
+                        CrearGrupoTextoLibre(
+                            "Opción inválida",
+                            "opción inválida",
+                            "opcion invalida",
+                            "operación inválida",
+                            "operacion invalida",
+                            "selección inválida",
+                            "seleccion invalida",
+                            "opción no válida",
+                            "fuera del menú")
+                    },
+                    puntos: 10,
+                    esVisible: false,
+                    modoComparacion: ModoComparacionCaso.Mixto,
+                    valoresTextuales: new[] {
+                        CrearOperacionMenuEsperada(
+                            "Opción inválida",
+                            opcional: true)
+                    })
+            }),
+            Criterios = rubrica
+        };
+    }
+
     private static IReadOnlyList<CriterioEvaluacion> CrearRubrica() {
         return Array.AsReadOnly(new[] {
             new CriterioEvaluacion {
@@ -1154,6 +1276,129 @@ public sealed class CatalogoEvaluacionesService {
 
     private static string FormatearNumeroCatalogo(double valor) {
         return valor.ToString("0.##", CultureInfo.InvariantCulture);
+    }
+
+    private static CasoPrueba CrearCasoOperacionNumerica(
+        string id,
+        string nombre,
+        int opcion,
+        double primerOperando,
+        double segundoOperando,
+        double resultado,
+        string operacion,
+        bool esVisible) {
+        string opcionTexto = opcion.ToString(CultureInfo.InvariantCulture);
+        string primeroTexto = FormatearNumeroCatalogo(primerOperando);
+        string segundoTexto = FormatearNumeroCatalogo(segundoOperando);
+        string resultadoTexto = FormatearNumeroCatalogo(resultado);
+
+        return CrearCaso(
+            id,
+            nombre,
+            $"{opcionTexto}\n{primeroTexto}\n{segundoTexto}\n",
+            $"Operación: {operacion}\nResultado: {resultadoTexto}",
+            $"Comprueba el resultado decimal de la operación {operacion.ToLowerInvariant()}.",
+            Array.Empty<string>(),
+            new[] {
+                CrearOpcionMenuEsperada(opcion, opcional: true),
+                CrearResultadoOperacionEsperado(resultado)
+            },
+            puntos: 10,
+            esVisible: esVisible,
+            modoComparacion: ModoComparacionCaso.Mixto,
+            valoresTextuales: new[] {
+                CrearOperacionMenuEsperada(operacion, opcional: true)
+            });
+    }
+
+    private static ValorNumericoEsperado CrearOpcionMenuEsperada(
+        int opcion,
+        bool opcional) {
+        return new ValorNumericoEsperado {
+            Nombre = "Opción",
+            Valor = opcion,
+            Tolerancia = 0D,
+            EsOpcional = opcional,
+            EtiquetasAlternativas = Array.AsReadOnly(new[] {
+                "Opcion",
+                "Operación",
+                "Operacion",
+                "Selección",
+                "Seleccion"
+            })
+        };
+    }
+
+    private static ValorNumericoEsperado CrearResultadoOperacionEsperado(
+        double resultado) {
+        return new ValorNumericoEsperado {
+            Nombre = "Resultado",
+            Valor = resultado,
+            Tolerancia = 0.01D,
+            EtiquetasAlternativas = Array.AsReadOnly(new[] {
+                "Total",
+                "Respuesta",
+                "Valor obtenido",
+                "Resultado final"
+            })
+        };
+    }
+
+    private static ValorNumericoEsperado CrearResultadoOperacionProhibido() {
+        return new ValorNumericoEsperado {
+            Nombre = "Resultado",
+            DebeEstarAusente = true,
+            EtiquetasAlternativas = Array.AsReadOnly(new[] {
+                "Total",
+                "Respuesta",
+                "Valor obtenido",
+                "Resultado final"
+            })
+        };
+    }
+
+    private static ValorTextualEsperado CrearOperacionMenuEsperada(
+        string operacion,
+        bool opcional) {
+        return new ValorTextualEsperado {
+            Nombre = "Operación",
+            Valor = operacion,
+            EsOpcional = opcional,
+            EtiquetasAlternativas = Array.AsReadOnly(new[] { "Operacion" }),
+            Opciones = Array.AsReadOnly(new[] {
+                CrearOpcionTextual(
+                    "Suma",
+                    "suma",
+                    "sumando",
+                    "adición",
+                    "adicion"),
+                CrearOpcionTextual(
+                    "Resta",
+                    "resta",
+                    "sustracción",
+                    "sustraccion"),
+                CrearOpcionTextual(
+                    "Multiplicación",
+                    "multiplicación",
+                    "multiplicacion",
+                    "producto"),
+                CrearOpcionTextual(
+                    "División",
+                    "división",
+                    "division",
+                    "cociente")
+            })
+        };
+    }
+
+    private static GrupoTokensEsperados CrearGrupoTextoLibre(
+        string nombre,
+        params string[] alternativas) {
+        return new GrupoTokensEsperados {
+            Nombre = nombre,
+            Alternativas = Array.AsReadOnly(alternativas),
+            EtiquetasAsociadas = Array.Empty<string>()
+        };
     }
 
     private static OpcionValorTextual CrearOpcionTextual(

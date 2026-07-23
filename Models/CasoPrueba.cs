@@ -60,6 +60,10 @@ public sealed class ValorNumericoEsperado {
 
     public double Tolerancia { get; init; } = 0.01D;
 
+    public bool EsOpcional { get; init; }
+
+    public bool DebeEstarAusente { get; init; }
+
     public IReadOnlyList<string> EtiquetasAlternativas { get; init; } =
         Array.Empty<string>();
 

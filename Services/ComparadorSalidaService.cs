@@ -68,7 +68,10 @@ public sealed partial class ComparadorSalidaService {
                 booleanosComparados.All(valor => valor.Coincide)
         };
         bool etiquetasValoresPresentes = !compararValores ||
-            valoresComparados.All(valor => !string.IsNullOrWhiteSpace(valor.EtiquetaEncontrada)) &&
+            valoresComparados.All(valor =>
+                valor.EsOpcional ||
+                valor.DebeEstarAusente ||
+                !string.IsNullOrWhiteSpace(valor.EtiquetaEncontrada)) &&
             booleanosComparados.All(valor => !string.IsNullOrWhiteSpace(valor.EtiquetaEncontrada));
         bool etiquetasTextoPresentes = !compararTexto ||
             textosComparados.All(valor =>
@@ -200,11 +203,14 @@ public sealed partial class ComparadorSalidaService {
                 candidato.Valor,
                 otro.Valor,
                 esperado)));
-        bool coincide = encontrados.Length > 0 &&
-            !tieneContradiccion &&
-            encontrados.All(candidato => CoincideValorNumericoEsperado(
-                candidato.Valor,
-                esperado));
+        bool coincide = esperado.DebeEstarAusente
+            ? encontrados.Length == 0
+            : encontrados.Length == 0
+                ? esperado.EsOpcional
+                : !tieneContradiccion &&
+                    encontrados.All(candidato => CoincideValorNumericoEsperado(
+                        candidato.Valor,
+                        esperado));
         CandidatoNumero? primerCandidato = encontrados.FirstOrDefault();
 
         return CrearResultadoValor(
@@ -675,6 +681,8 @@ public sealed partial class ComparadorSalidaService {
             ValorEsperado = esperado.Valor,
             ValorObtenido = valorObtenido,
             Tolerancia = esperado.Tolerancia,
+            EsOpcional = esperado.EsOpcional,
+            DebeEstarAusente = esperado.DebeEstarAusente,
             Coincide = coincide,
             EtiquetaEncontrada = etiquetaEncontrada,
             TieneContradiccion = tieneContradiccion,
@@ -944,7 +952,12 @@ public sealed partial class ComparadorSalidaService {
 
         if (compararValores) {
             reglas.AddRange(valores
-                .Where(valor => valor.Coincide && !valor.TieneContradiccion)
+                .Where(valor =>
+                    valor.Coincide &&
+                    !valor.TieneContradiccion &&
+                    !valor.DebeEstarAusente &&
+                    (!valor.EsOpcional ||
+                     !string.IsNullOrWhiteSpace(valor.EtiquetaEncontrada)))
                 .Select(valor => $"Valor correcto: {valor.Nombre}"));
             reglas.AddRange(booleanos
                 .Where(valor => valor.Coincide && !valor.TieneContradiccion)
@@ -982,7 +995,9 @@ public sealed partial class ComparadorSalidaService {
                 .Where(valor => !valor.Coincide)
                 .Select(valor => valor.TieneContradiccion
                     ? $"Valores contradictorios: {valor.Nombre}"
-                    : $"Valor incorrecto o ausente: {valor.Nombre}"));
+                    : valor.DebeEstarAusente
+                        ? $"No debe mostrarse un valor numérico para: {valor.Nombre}"
+                        : $"Valor incorrecto o ausente: {valor.Nombre}"));
             reglas.AddRange(booleanos
                 .Where(valor => !valor.Coincide)
                 .Select(valor => valor.TieneContradiccion
