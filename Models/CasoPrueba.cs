@@ -51,6 +51,10 @@ public sealed class CasoPrueba {
 
     public IReadOnlyList<SecuenciaEsperada> SecuenciasEsperadas { get; init; } =
         Array.Empty<SecuenciaEsperada>();
+
+    public IReadOnlyList<SecuenciaCompuestaEsperada>
+        SecuenciasCompuestasEsperadas { get; init; } =
+            Array.Empty<SecuenciaCompuestaEsperada>();
 }
 
 public sealed class GrupoTokensEsperados {
@@ -147,5 +151,47 @@ public sealed class ElementoTextualSecuenciaEsperado {
     public string Valor { get; init; } = "";
 
     public IReadOnlyList<string> Alternativas { get; init; } =
+        Array.Empty<string>();
+}
+
+public sealed class SecuenciaCompuestaEsperada {
+    public string Nombre { get; init; } = "";
+
+    public IReadOnlyList<PasoSecuenciaCompuestaEsperado> PasosEsperados { get; init; } =
+        Array.Empty<PasoSecuenciaCompuestaEsperado>();
+
+    public bool OrdenObligatorio { get; init; } = true;
+
+    public int? CantidadExacta { get; init; }
+
+    public bool PermitirPasosAdicionales { get; init; }
+
+    public bool PermitirPasosDuplicados { get; init; }
+
+    public bool PermitirTextoAdicional { get; init; } = true;
+
+    public bool RequerirMismaLinea { get; init; } = true;
+
+    public IReadOnlyList<string> SeparadoresTextualesPermitidos { get; init; } =
+        Array.Empty<string>();
+}
+
+public sealed class PasoSecuenciaCompuestaEsperado {
+    public string Nombre { get; init; } = "";
+
+    public IReadOnlyList<ComponenteNumericoPasoEsperado> Componentes { get; init; } =
+        Array.Empty<ComponenteNumericoPasoEsperado>();
+}
+
+public sealed class ComponenteNumericoPasoEsperado {
+    public string Nombre { get; init; } = "";
+
+    public double Valor { get; init; }
+
+    public double Tolerancia { get; init; } = 0.01D;
+
+    public int Posicion { get; init; }
+
+    public IReadOnlyList<string> EtiquetasOSeparadoresOpcionales { get; init; } =
         Array.Empty<string>();
 }

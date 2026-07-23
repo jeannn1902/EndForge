@@ -17,7 +17,8 @@ public sealed partial class ComparadorSalidaService {
             ModoComparacionCaso.Valores or ModoComparacionCaso.Mixto;
         bool compararSecuencias = caso.ModoComparacion == ModoComparacionCaso.Secuencia ||
             caso.ModoComparacion == ModoComparacionCaso.Mixto &&
-            caso.SecuenciasEsperadas.Count > 0;
+            (caso.SecuenciasEsperadas.Count > 0 ||
+             caso.SecuenciasCompuestasEsperadas.Count > 0);
 
         List<string> tokensFaltantes = compararTexto
             ? caso.TokensObligatorios
@@ -57,6 +58,13 @@ public sealed partial class ComparadorSalidaService {
                 .Select(secuencia => CompararSecuencia(salida, secuencia))
                 .ToList()
             : new List<ResultadoSecuenciaComparada>();
+        List<ResultadoSecuenciaCompuestaComparada> secuenciasCompuestasComparadas =
+            compararSecuencias
+                ? caso.SecuenciasCompuestasEsperadas
+                    .Select(secuencia =>
+                        CompararSecuenciaCompuesta(salida, secuencia))
+                    .ToList()
+                : new List<ResultadoSecuenciaCompuestaComparada>();
 
         bool cumpleTexto =
             tokensFaltantes.Count == 0 &&
@@ -77,8 +85,9 @@ public sealed partial class ComparadorSalidaService {
                 booleanosComparados.All(valor => valor.Coincide)
         };
         bool secuenciasCorrectas = !compararSecuencias ||
-            secuenciasComparadas.Count > 0 &&
-            secuenciasComparadas.All(secuencia => secuencia.Coincide);
+            secuenciasComparadas.Count + secuenciasCompuestasComparadas.Count > 0 &&
+            secuenciasComparadas.All(secuencia => secuencia.Coincide) &&
+            secuenciasCompuestasComparadas.All(secuencia => secuencia.Coincide);
         bool etiquetasValoresPresentes = !compararValores ||
             valoresComparados.All(valor =>
                 valor.EsOpcional ||
@@ -125,7 +134,8 @@ public sealed partial class ComparadorSalidaService {
             valoresComparados,
             booleanosComparados,
             textosComparados,
-            secuenciasComparadas);
+            secuenciasComparadas,
+            secuenciasCompuestasComparadas);
         List<string> reglasIncumplidas = CrearReglasIncumplidas(
             caso,
             compararTexto,
@@ -135,14 +145,17 @@ public sealed partial class ComparadorSalidaService {
             valoresComparados,
             booleanosComparados,
             textosComparados,
-            secuenciasComparadas);
+            secuenciasComparadas,
+            secuenciasCompuestasComparadas);
         bool salidaLegible = EsLegible(
             salida,
             compararTexto
                 ? caso.TokensObligatorios.Count - tokensFaltantes.Count
                 : 0,
             compararTexto ? caso.TokensObligatorios.Count : 0,
-            secuenciasComparadas.Any(secuencia => secuencia.CantidadEncontrada > 0));
+            secuenciasComparadas.Any(secuencia => secuencia.CantidadEncontrada > 0) ||
+            secuenciasCompuestasComparadas.Any(secuencia =>
+                secuencia.CantidadEncontrada > 0));
         bool esCorrecta =
             cumpleTexto &&
             valoresCorrectos &&
@@ -159,6 +172,7 @@ public sealed partial class ComparadorSalidaService {
             ValoresBooleanos = booleanosComparados.AsReadOnly(),
             ValoresTextuales = textosComparados.AsReadOnly(),
             Secuencias = secuenciasComparadas.AsReadOnly(),
+            SecuenciasCompuestas = secuenciasCompuestasComparadas.AsReadOnly(),
             ReglasCumplidas = reglasCumplidas.AsReadOnly(),
             ReglasIncumplidas = reglasIncumplidas.AsReadOnly(),
             ContradiccionesDetectadas = contradicciones.AsReadOnly(),
@@ -171,6 +185,7 @@ public sealed partial class ComparadorSalidaService {
                 booleanosComparados,
                 textosComparados,
                 secuenciasComparadas,
+                secuenciasCompuestasComparadas,
                 contradicciones)
         };
     }
@@ -357,6 +372,469 @@ public sealed partial class ComparadorSalidaService {
         return new ResultadoSecuenciaComparada {
             Nombre = esperada.Nombre,
             Tipo = esperada.Tipo,
+            CantidadEsperada = esperada.CantidadExacta ?? 0,
+            Mensaje = mensaje
+        };
+    }
+
+    private static ResultadoSecuenciaCompuestaComparada CompararSecuenciaCompuesta(
+        string salida,
+        SecuenciaCompuestaEsperada esperada) {
+        if (!IntentarCrearRegexPasoCompuesto(esperada, out Regex expresion)) {
+            return CrearResultadoSecuenciaCompuestaInvalida(
+                esperada,
+                "La secuencia de filas no tiene una estructura válida.");
+        }
+
+        (
+            IReadOnlyList<PasoCompuestoEncontrado> encontrados,
+            IReadOnlyList<FilaCompuestaInvalida> invalidos) =
+                ExtraerPasosCompuestos(salida, esperada, expresion);
+        PasoSecuenciaCompuestaEsperado[] pasosEsperados =
+            esperada.PasosEsperados.ToArray();
+        int cantidadEsperada = esperada.CantidadExacta ?? pasosEsperados.Length;
+        bool cantidadCorrecta = esperada.PermitirPasosAdicionales
+            ? encontrados.Count >= cantidadEsperada
+            : encontrados.Count == cantidadEsperada && invalidos.Count == 0;
+        bool ordenCorrecto = !esperada.OrdenObligatorio ||
+            CoincideOrdenPasosCompuestos(
+                pasosEsperados,
+                encontrados,
+                esperada.PermitirPasosAdicionales);
+        (
+            IReadOnlyList<PasoSecuenciaCompuestaEsperado> faltantes,
+            IReadOnlyList<PasoCompuestoEncontrado> adicionales) =
+                CalcularDiferenciasPasosCompuestos(pasosEsperados, encontrados);
+        IReadOnlyList<PasoCompuestoEncontrado> duplicados =
+            esperada.PermitirPasosDuplicados
+                ? Array.Empty<PasoCompuestoEncontrado>()
+                : EncontrarDuplicadosPasosCompuestos(encontrados);
+        List<string> filasAdicionales = adicionales
+            .Select(paso => paso.Representacion)
+            .Concat(invalidos.Select(fila => fila.Representacion))
+            .ToList();
+        List<ResultadoFilaSecuenciaCompuesta> filas = CrearResultadosFilasCompuestas(
+            pasosEsperados,
+            encontrados);
+        int? primeraFilaIncorrecta = EncontrarPrimeraFilaCompuestaIncorrecta(
+            filas,
+            pasosEsperados.Length,
+            encontrados.Count,
+            invalidos);
+        bool coincide =
+            cantidadCorrecta &&
+            ordenCorrecto &&
+            faltantes.Count == 0 &&
+            (esperada.PermitirPasosAdicionales || filasAdicionales.Count == 0) &&
+            (esperada.PermitirPasosDuplicados || duplicados.Count == 0) &&
+            invalidos.Count == 0;
+
+        return new ResultadoSecuenciaCompuestaComparada {
+            Nombre = esperada.Nombre,
+            Filas = filas.AsReadOnly(),
+            CantidadEsperada = cantidadEsperada,
+            CantidadEncontrada = encontrados.Count,
+            CantidadCorrecta = cantidadCorrecta,
+            OrdenCorrecto = ordenCorrecto,
+            FilasFaltantes = Array.AsReadOnly(
+                faltantes.Select(FormatearPasoCompuesto).ToArray()),
+            FilasDuplicadas = Array.AsReadOnly(
+                duplicados.Select(paso => paso.Representacion).ToArray()),
+            FilasAdicionales = filasAdicionales.AsReadOnly(),
+            PrimeraFilaIncorrecta = primeraFilaIncorrecta,
+            Coincide = coincide,
+            Mensaje = CrearMensajeSecuenciaCompuesta(
+                coincide,
+                cantidadCorrecta,
+                ordenCorrecto,
+                filas,
+                faltantes.Count,
+                filasAdicionales.Count,
+                duplicados.Count,
+                invalidos.Count,
+                primeraFilaIncorrecta)
+        };
+    }
+
+    private static bool IntentarCrearRegexPasoCompuesto(
+        SecuenciaCompuestaEsperada esperada,
+        out Regex expresion) {
+        expresion = RegexNumeroSecuenciaConComaDecimal();
+        PasoSecuenciaCompuestaEsperado? primerPaso =
+            esperada.PasosEsperados.FirstOrDefault();
+        ComponenteNumericoPasoEsperado[] componentes = primerPaso?.Componentes
+            .OrderBy(componente => componente.Posicion)
+            .ToArray() ?? Array.Empty<ComponenteNumericoPasoEsperado>();
+
+        if (!esperada.RequerirMismaLinea ||
+            componentes.Length != 3 ||
+            componentes.Select(componente => componente.Posicion)
+                .Distinct()
+                .Count() != 3 ||
+            componentes.Skip(1)
+                .SelectMany(componente =>
+                    componente.EtiquetasOSeparadoresOpcionales)
+                .Any(separador =>
+                    !esperada.SeparadoresTextualesPermitidos.Contains(
+                        separador,
+                        StringComparer.OrdinalIgnoreCase))) {
+            return false;
+        }
+
+        string numero =
+            @"[-+]?(?:\d+(?:[.,]\d+)?|[.,]\d+)";
+        string separadorSegundo = CrearPatronSeparadores(
+            componentes[1].EtiquetasOSeparadoresOpcionales);
+        string separadorTercero = CrearPatronSeparadores(
+            componentes[2].EtiquetasOSeparadoresOpcionales);
+
+        if (separadorSegundo.Length == 0 || separadorTercero.Length == 0) {
+            return false;
+        }
+
+        expresion = new Regex(
+            $@"(?<![\p{{L}}\p{{N}}_])(?<c0>{numero})\s*" +
+            $@"(?:{separadorSegundo})\s*(?<c1>{numero})\s*" +
+            $@"(?:{separadorTercero})\s*(?<c2>{numero})" +
+            @"(?![\p{L}\p{N}_])",
+            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+        return true;
+    }
+
+    private static string CrearPatronSeparadores(
+        IReadOnlyList<string> separadores) {
+        return string.Join(
+            "|",
+            separadores
+                .Where(separador => !string.IsNullOrWhiteSpace(separador))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(separador => separador.Length)
+                .Select(Regex.Escape));
+    }
+
+    private static (
+        IReadOnlyList<PasoCompuestoEncontrado> Pasos,
+        IReadOnlyList<FilaCompuestaInvalida> Invalidos)
+        ExtraerPasosCompuestos(
+            string salida,
+            SecuenciaCompuestaEsperada esperada,
+            Regex expresion) {
+        List<PasoCompuestoEncontrado> pasos = new();
+        List<FilaCompuestaInvalida> invalidos = new();
+        string[] lineas = SepararLineas(salida);
+
+        for (int indiceLinea = 0; indiceLinea < lineas.Length; indiceLinea++) {
+            string linea = lineas[indiceLinea];
+
+            if (string.IsNullOrWhiteSpace(linea)) {
+                continue;
+            }
+
+            Match[] operaciones = expresion.Matches(linea)
+                .Cast<Match>()
+                .ToArray();
+            Match[] numeros = RegexNumeroSecuenciaConComaDecimal()
+                .Matches(linea)
+                .Cast<Match>()
+                .ToArray();
+
+            if (operaciones.Length == 0 && numeros.Length == 0) {
+                if (!esperada.PermitirTextoAdicional) {
+                    invalidos.Add(new FilaCompuestaInvalida(
+                        indiceLinea + 1,
+                        linea.Trim()));
+                }
+
+                continue;
+            }
+
+            if (operaciones.Length != 1 || numeros.Length != 3) {
+                invalidos.Add(new FilaCompuestaInvalida(
+                    indiceLinea + 1,
+                    linea.Trim()));
+                continue;
+            }
+
+            Match operacion = operaciones[0];
+
+            if (!IntentarConvertirNumero(operacion.Groups["c0"].Value, out double primero) ||
+                !IntentarConvertirNumero(operacion.Groups["c1"].Value, out double segundo) ||
+                !IntentarConvertirNumero(operacion.Groups["c2"].Value, out double tercero)) {
+                invalidos.Add(new FilaCompuestaInvalida(
+                    indiceLinea + 1,
+                    linea.Trim()));
+                continue;
+            }
+
+            pasos.Add(new PasoCompuestoEncontrado(
+                indiceLinea + 1,
+                linea.Trim(),
+                Array.AsReadOnly(new[] { primero, segundo, tercero })));
+        }
+
+        return (pasos, invalidos);
+    }
+
+    private static bool CoincideOrdenPasosCompuestos(
+        IReadOnlyList<PasoSecuenciaCompuestaEsperado> esperados,
+        IReadOnlyList<PasoCompuestoEncontrado> encontrados,
+        bool permitirAdicionales) {
+        if (!permitirAdicionales) {
+            return esperados.Count == encontrados.Count &&
+                esperados.Select((paso, indice) =>
+                    CoincidePasoCompuesto(paso, encontrados[indice]))
+                .All(coincide => coincide);
+        }
+
+        int indiceEsperado = 0;
+
+        foreach (PasoCompuestoEncontrado encontrado in encontrados) {
+            if (indiceEsperado < esperados.Count &&
+                CoincidePasoCompuesto(esperados[indiceEsperado], encontrado)) {
+                indiceEsperado++;
+            }
+        }
+
+        return indiceEsperado == esperados.Count;
+    }
+
+    private static (
+        IReadOnlyList<PasoSecuenciaCompuestaEsperado> Faltantes,
+        IReadOnlyList<PasoCompuestoEncontrado> Adicionales)
+        CalcularDiferenciasPasosCompuestos(
+            IReadOnlyList<PasoSecuenciaCompuestaEsperado> esperados,
+            IReadOnlyList<PasoCompuestoEncontrado> encontrados) {
+        bool[] utilizados = new bool[encontrados.Count];
+        List<PasoSecuenciaCompuestaEsperado> faltantes = new();
+
+        foreach (PasoSecuenciaCompuestaEsperado esperado in esperados) {
+            int indiceEncontrado = -1;
+
+            for (int indice = 0; indice < encontrados.Count; indice++) {
+                if (!utilizados[indice] &&
+                    CoincidePasoCompuesto(esperado, encontrados[indice])) {
+                    indiceEncontrado = indice;
+                    break;
+                }
+            }
+
+            if (indiceEncontrado < 0) {
+                faltantes.Add(esperado);
+            } else {
+                utilizados[indiceEncontrado] = true;
+            }
+        }
+
+        PasoCompuestoEncontrado[] adicionales = encontrados
+            .Where((_, indice) => !utilizados[indice])
+            .ToArray();
+        return (faltantes, adicionales);
+    }
+
+    private static IReadOnlyList<PasoCompuestoEncontrado>
+        EncontrarDuplicadosPasosCompuestos(
+            IReadOnlyList<PasoCompuestoEncontrado> encontrados) {
+        List<PasoCompuestoEncontrado> revisados = new();
+        List<PasoCompuestoEncontrado> duplicados = new();
+
+        foreach (PasoCompuestoEncontrado encontrado in encontrados) {
+            bool repetido = revisados.Any(revisado =>
+                SonPasosEncontradosEquivalentes(revisado, encontrado));
+
+            if (repetido &&
+                !duplicados.Any(duplicado =>
+                    SonPasosEncontradosEquivalentes(duplicado, encontrado))) {
+                duplicados.Add(encontrado);
+            } else if (!repetido) {
+                revisados.Add(encontrado);
+            }
+        }
+
+        return duplicados;
+    }
+
+    private static bool CoincidePasoCompuesto(
+        PasoSecuenciaCompuestaEsperado esperado,
+        PasoCompuestoEncontrado encontrado) {
+        ComponenteNumericoPasoEsperado[] componentes = esperado.Componentes
+            .OrderBy(componente => componente.Posicion)
+            .ToArray();
+
+        return componentes.Length == encontrado.Valores.Count &&
+            componentes.Select((componente, indice) =>
+                SonEquivalentes(
+                    componente.Valor,
+                    encontrado.Valores[indice],
+                    componente.Tolerancia))
+            .All(coincide => coincide);
+    }
+
+    private static bool SonPasosEncontradosEquivalentes(
+        PasoCompuestoEncontrado primero,
+        PasoCompuestoEncontrado segundo) {
+        const double tolerancia = 0.000_001D;
+        return primero.Valores.Count == segundo.Valores.Count &&
+            primero.Valores.Select((valor, indice) =>
+                SonEquivalentes(
+                    valor,
+                    segundo.Valores[indice],
+                    tolerancia))
+            .All(coincide => coincide);
+    }
+
+    private static List<ResultadoFilaSecuenciaCompuesta>
+        CrearResultadosFilasCompuestas(
+            IReadOnlyList<PasoSecuenciaCompuestaEsperado> esperados,
+            IReadOnlyList<PasoCompuestoEncontrado> encontrados) {
+        List<ResultadoFilaSecuenciaCompuesta> filas = new();
+        int cantidad = Math.Max(esperados.Count, encontrados.Count);
+
+        for (int indice = 0; indice < cantidad; indice++) {
+            PasoSecuenciaCompuestaEsperado? esperado =
+                indice < esperados.Count ? esperados[indice] : null;
+            PasoCompuestoEncontrado? encontrado =
+                indice < encontrados.Count ? encontrados[indice] : null;
+            ComponenteNumericoPasoEsperado[] componentes = esperado?.Componentes
+                .OrderBy(componente => componente.Posicion)
+                .ToArray() ?? Array.Empty<ComponenteNumericoPasoEsperado>();
+
+            filas.Add(new ResultadoFilaSecuenciaCompuesta {
+                NumeroFila = indice + 1,
+                FilaEsperada = esperado is null
+                    ? string.Empty
+                    : FormatearPasoCompuesto(esperado),
+                FilaEncontrada = encontrado?.Representacion ?? string.Empty,
+                BaseCorrecta = CoincideComponente(componentes, encontrado, 0),
+                MultiplicadorCorrecto = CoincideComponente(componentes, encontrado, 1),
+                ResultadoCorrecto = CoincideComponente(componentes, encontrado, 2)
+            });
+        }
+
+        return filas;
+    }
+
+    private static bool CoincideComponente(
+        IReadOnlyList<ComponenteNumericoPasoEsperado> componentes,
+        PasoCompuestoEncontrado? encontrado,
+        int posicion) {
+        return encontrado is not null &&
+            posicion < componentes.Count &&
+            posicion < encontrado.Valores.Count &&
+            SonEquivalentes(
+                componentes[posicion].Valor,
+                encontrado.Valores[posicion],
+                componentes[posicion].Tolerancia);
+    }
+
+    private static int? EncontrarPrimeraFilaCompuestaIncorrecta(
+        IReadOnlyList<ResultadoFilaSecuenciaCompuesta> filas,
+        int cantidadEsperada,
+        int cantidadEncontrada,
+        IReadOnlyList<FilaCompuestaInvalida> invalidos) {
+        int? filaComparada = filas
+            .FirstOrDefault(fila => !fila.Coincide)
+            ?.NumeroFila;
+        int? filaInvalida = invalidos
+            .OrderBy(fila => fila.NumeroLinea)
+            .FirstOrDefault()
+            ?.NumeroLinea;
+
+        if (filaComparada.HasValue && filaInvalida.HasValue) {
+            return Math.Min(filaComparada.Value, filaInvalida.Value);
+        }
+
+        if (filaComparada.HasValue) {
+            return filaComparada;
+        }
+
+        if (filaInvalida.HasValue) {
+            return filaInvalida;
+        }
+
+        return cantidadEsperada == cantidadEncontrada
+            ? null
+            : Math.Min(cantidadEsperada, cantidadEncontrada) + 1;
+    }
+
+    private static string FormatearPasoCompuesto(
+        PasoSecuenciaCompuestaEsperado paso) {
+        ComponenteNumericoPasoEsperado[] componentes = paso.Componentes
+            .OrderBy(componente => componente.Posicion)
+            .ToArray();
+
+        return componentes.Length == 3
+            ? $"{FormatearNumeroSecuencia(componentes[0].Valor)} x " +
+              $"{FormatearNumeroSecuencia(componentes[1].Valor)} = " +
+              FormatearNumeroSecuencia(componentes[2].Valor)
+            : paso.Nombre;
+    }
+
+    private static string CrearMensajeSecuenciaCompuesta(
+        bool coincide,
+        bool cantidadCorrecta,
+        bool ordenCorrecto,
+        IReadOnlyList<ResultadoFilaSecuenciaCompuesta> filas,
+        int faltantes,
+        int adicionales,
+        int duplicados,
+        int invalidos,
+        int? primeraFilaIncorrecta) {
+        if (coincide) {
+            return "La tabla contiene las diez operaciones correctas y en orden.";
+        }
+
+        if (invalidos > 0) {
+            return "Cada operación debe aparecer como una fila independiente con base, multiplicador y resultado.";
+        }
+
+        if (!cantidadCorrecta) {
+            return "La tabla debe contener exactamente diez filas.";
+        }
+
+        if (duplicados > 0) {
+            return "La tabla contiene una fila duplicada.";
+        }
+
+        if (!ordenCorrecto && faltantes == 0 && adicionales == 0) {
+            return "Revisa el orden de los multiplicadores de la tabla.";
+        }
+
+        ResultadoFilaSecuenciaCompuesta? filaIncorrecta = filas
+            .FirstOrDefault(fila => !fila.Coincide);
+
+        if (filaIncorrecta is not null) {
+            string numero = primeraFilaIncorrecta.HasValue
+                ? $" {primeraFilaIncorrecta.Value}"
+                : string.Empty;
+
+            if (!filaIncorrecta.BaseCorrecta) {
+                return $"Revisa el número base de la fila{numero}.";
+            }
+
+            if (!filaIncorrecta.MultiplicadorCorrecto) {
+                return $"Revisa el multiplicador de la fila{numero}.";
+            }
+
+            if (!filaIncorrecta.ResultadoCorrecto) {
+                return $"Revisa el resultado de la fila{numero}.";
+            }
+        }
+
+        if (faltantes > 0) {
+            return "Falta una o más filas de la tabla.";
+        }
+
+        return adicionales > 0
+            ? "La tabla contiene una o más filas adicionales."
+            : "Revisa la estructura de la tabla.";
+    }
+
+    private static ResultadoSecuenciaCompuestaComparada
+        CrearResultadoSecuenciaCompuestaInvalida(
+            SecuenciaCompuestaEsperada esperada,
+            string mensaje) {
+        return new ResultadoSecuenciaCompuestaComparada {
+            Nombre = esperada.Nombre,
             CantidadEsperada = esperada.CantidadExacta ?? 0,
             Mensaje = mensaje
         };
@@ -1547,7 +2025,8 @@ public sealed partial class ComparadorSalidaService {
         IReadOnlyList<ResultadoValorNumericoComparado> valores,
         IReadOnlyList<ResultadoValorBooleanoComparado> booleanos,
         IReadOnlyList<ResultadoValorTextualComparado> textos,
-        IReadOnlyList<ResultadoSecuenciaComparada> secuencias) {
+        IReadOnlyList<ResultadoSecuenciaComparada> secuencias,
+        IReadOnlyList<ResultadoSecuenciaCompuestaComparada> secuenciasCompuestas) {
         List<string> reglas = new();
 
         if (compararTexto) {
@@ -1587,6 +2066,9 @@ public sealed partial class ComparadorSalidaService {
         reglas.AddRange(secuencias
             .Where(secuencia => secuencia.Coincide)
             .Select(secuencia => $"Secuencia correcta: {secuencia.Nombre}"));
+        reglas.AddRange(secuenciasCompuestas
+            .Where(secuencia => secuencia.Coincide)
+            .Select(secuencia => $"Secuencia de filas correcta: {secuencia.Nombre}"));
 
         return reglas;
     }
@@ -1600,7 +2082,8 @@ public sealed partial class ComparadorSalidaService {
         IReadOnlyList<ResultadoValorNumericoComparado> valores,
         IReadOnlyList<ResultadoValorBooleanoComparado> booleanos,
         IReadOnlyList<ResultadoValorTextualComparado> textos,
-        IReadOnlyList<ResultadoSecuenciaComparada> secuencias) {
+        IReadOnlyList<ResultadoSecuenciaComparada> secuencias,
+        IReadOnlyList<ResultadoSecuenciaCompuestaComparada> secuenciasCompuestas) {
         List<string> reglas = new();
 
         if (compararTexto) {
@@ -1639,6 +2122,10 @@ public sealed partial class ComparadorSalidaService {
         reglas.AddRange(secuencias
             .Where(secuencia => !secuencia.Coincide)
             .Select(secuencia => $"Secuencia incorrecta: {secuencia.Nombre}"));
+        reglas.AddRange(secuenciasCompuestas
+            .Where(secuencia => !secuencia.Coincide)
+            .Select(secuencia =>
+                $"Secuencia de filas incorrecta: {secuencia.Nombre}"));
 
         return reglas;
     }
@@ -1651,6 +2138,7 @@ public sealed partial class ComparadorSalidaService {
         IReadOnlyList<ResultadoValorBooleanoComparado> booleanos,
         IReadOnlyList<ResultadoValorTextualComparado> textos,
         IReadOnlyList<ResultadoSecuenciaComparada> secuencias,
+        IReadOnlyList<ResultadoSecuenciaCompuestaComparada> secuenciasCompuestas,
         IReadOnlyList<string> contradicciones) {
         if (string.IsNullOrWhiteSpace(salida)) {
             return "El programa terminó sin mostrar una salida que pueda evaluarse.";
@@ -1669,6 +2157,13 @@ public sealed partial class ComparadorSalidaService {
 
         if (secuenciaIncorrecta is not null) {
             return secuenciaIncorrecta.Mensaje;
+        }
+
+        ResultadoSecuenciaCompuestaComparada? secuenciaCompuestaIncorrecta =
+            secuenciasCompuestas.FirstOrDefault(secuencia => !secuencia.Coincide);
+
+        if (secuenciaCompuestaIncorrecta is not null) {
+            return secuenciaCompuestaIncorrecta.Mensaje;
         }
 
         if (!cumpleEstructura) {
@@ -1742,4 +2237,13 @@ public sealed partial class ComparadorSalidaService {
     private readonly record struct IntervaloSecuencia(
         int Indice,
         int Longitud);
+
+    private sealed record PasoCompuestoEncontrado(
+        int NumeroLinea,
+        string Representacion,
+        IReadOnlyList<double> Valores);
+
+    private sealed record FilaCompuestaInvalida(
+        int NumeroLinea,
+        string Representacion);
 }

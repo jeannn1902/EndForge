@@ -24,6 +24,10 @@ public sealed class ResultadoComparacionSalida {
     public IReadOnlyList<ResultadoSecuenciaComparada> Secuencias { get; init; } =
         Array.Empty<ResultadoSecuenciaComparada>();
 
+    public IReadOnlyList<ResultadoSecuenciaCompuestaComparada>
+        SecuenciasCompuestas { get; init; } =
+            Array.Empty<ResultadoSecuenciaCompuestaComparada>();
+
     public IReadOnlyList<string> ReglasCumplidas { get; init; } = Array.Empty<string>();
 
     public IReadOnlyList<string> ReglasIncumplidas { get; init; } = Array.Empty<string>();
@@ -133,4 +137,51 @@ public sealed class ResultadoSecuenciaComparada {
     public bool Coincide { get; init; }
 
     public string Mensaje { get; init; } = "";
+}
+
+public sealed class ResultadoSecuenciaCompuestaComparada {
+    public string Nombre { get; init; } = "";
+
+    public IReadOnlyList<ResultadoFilaSecuenciaCompuesta> Filas { get; init; } =
+        Array.Empty<ResultadoFilaSecuenciaCompuesta>();
+
+    public int CantidadEsperada { get; init; }
+
+    public int CantidadEncontrada { get; init; }
+
+    public bool CantidadCorrecta { get; init; }
+
+    public bool OrdenCorrecto { get; init; }
+
+    public IReadOnlyList<string> FilasFaltantes { get; init; } =
+        Array.Empty<string>();
+
+    public IReadOnlyList<string> FilasDuplicadas { get; init; } =
+        Array.Empty<string>();
+
+    public IReadOnlyList<string> FilasAdicionales { get; init; } =
+        Array.Empty<string>();
+
+    public int? PrimeraFilaIncorrecta { get; init; }
+
+    public bool Coincide { get; init; }
+
+    public string Mensaje { get; init; } = "";
+}
+
+public sealed class ResultadoFilaSecuenciaCompuesta {
+    public int NumeroFila { get; init; }
+
+    public string FilaEsperada { get; init; } = "";
+
+    public string FilaEncontrada { get; init; } = "";
+
+    public bool BaseCorrecta { get; init; }
+
+    public bool MultiplicadorCorrecto { get; init; }
+
+    public bool ResultadoCorrecto { get; init; }
+
+    public bool Coincide =>
+        BaseCorrecta && MultiplicadorCorrecto && ResultadoCorrecto;
 }

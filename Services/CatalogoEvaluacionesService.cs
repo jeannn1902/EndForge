@@ -16,6 +16,7 @@ public sealed class CatalogoEvaluacionesService {
     public const string DescuentoCompraId = "condicionales-descuento-compra";
     public const string MenuOperacionesId = "condicionales-menu-operaciones";
     public const string ContarUnoADiezId = "ciclos-contar-uno-a-diez";
+    public const string TablaMultiplicarId = "ciclos-tabla-multiplicar";
 
     private const int PuntosCompilacion = 20;
     private const int PuntosCasosPrueba = 60;
@@ -67,7 +68,8 @@ public sealed class CatalogoEvaluacionesService {
             CrearCalificacionAprobatoria(rubrica),
             CrearDescuentoCompra(rubrica),
             CrearMenuOperaciones(rubrica),
-            CrearContarUnoADiez(rubrica)
+            CrearContarUnoADiez(rubrica),
+            CrearTablaMultiplicar(rubrica)
         });
     }
 
@@ -922,6 +924,49 @@ public sealed class CatalogoEvaluacionesService {
         };
     }
 
+    private static DefinicionEvaluacionPractica CrearTablaMultiplicar(
+        IReadOnlyList<CriterioEvaluacion> rubrica) {
+        return new DefinicionEvaluacionPractica {
+            PracticaId = TablaMultiplicarId,
+            NombrePractica = "Tabla de multiplicar",
+            Objetivo = "Mostrar la tabla de un número entero desde el multiplicador 1 hasta el 10.",
+            Descripcion = "Se comprobarán diez filas con base, multiplicador y producto relacionados correctamente.",
+            ContratoEntrada = "La entrada contiene un número entero. Cada operación debe aparecer en una fila independiente.",
+            CamposEntrada = Array.AsReadOnly(new[] {
+                "Número base entero"
+            }),
+            ValidacionesRequeridas = Array.AsReadOnly(new[] {
+                "Mantener la misma base en las diez filas.",
+                "Recorrer los multiplicadores del 1 al 10 en orden.",
+                "Mostrar el producto correcto en cada fila.",
+                "No omitir, duplicar ni agregar filas."
+            }),
+            CasosPrueba = Array.AsReadOnly(new[] {
+                CrearCasoTablaMultiplicar(
+                    "tabla-multiplicar-cinco",
+                    "Tabla de un número positivo",
+                    5,
+                    esVisible: true),
+                CrearCasoTablaMultiplicar(
+                    "tabla-multiplicar-cero",
+                    "Tabla de cero",
+                    0,
+                    esVisible: true),
+                CrearCasoTablaMultiplicar(
+                    "tabla-multiplicar-negativa",
+                    "Tabla de un número negativo",
+                    -3,
+                    esVisible: true),
+                CrearCasoTablaMultiplicar(
+                    "tabla-multiplicar-siete-oculta",
+                    "Tabla adicional",
+                    7,
+                    esVisible: false)
+            }),
+            Criterios = rubrica
+        };
+    }
+
     private static IReadOnlyList<CriterioEvaluacion> CrearRubrica() {
         return Array.AsReadOnly(new[] {
             new CriterioEvaluacion {
@@ -969,7 +1014,8 @@ public sealed class CatalogoEvaluacionesService {
         ModoComparacionCaso modoComparacion = ModoComparacionCaso.Mixto,
         ValorBooleanoEsperado[]? valoresBooleanos = null,
         ValorTextualEsperado[]? valoresTextuales = null,
-        SecuenciaEsperada[]? secuencias = null) {
+        SecuenciaEsperada[]? secuencias = null,
+        SecuenciaCompuestaEsperada[]? secuenciasCompuestas = null) {
         return new CasoPrueba {
             Id = id,
             Nombre = nombre,
@@ -989,7 +1035,9 @@ public sealed class CatalogoEvaluacionesService {
             ValoresTextualesEsperados = Array.AsReadOnly(
                 valoresTextuales ?? Array.Empty<ValorTextualEsperado>()),
             SecuenciasEsperadas = Array.AsReadOnly(
-                secuencias ?? Array.Empty<SecuenciaEsperada>())
+                secuencias ?? Array.Empty<SecuenciaEsperada>()),
+            SecuenciasCompuestasEsperadas = Array.AsReadOnly(
+                secuenciasCompuestas ?? Array.Empty<SecuenciaCompuestaEsperada>())
         };
     }
 
@@ -1487,6 +1535,96 @@ public sealed class CatalogoEvaluacionesService {
         };
     }
 
+    private static CasoPrueba CrearCasoTablaMultiplicar(
+        string id,
+        string nombre,
+        int numeroBase,
+        bool esVisible) {
+        return CrearCaso(
+            id,
+            nombre,
+            numeroBase.ToString(CultureInfo.InvariantCulture) + "\n",
+            CrearSalidaTablaMultiplicar(numeroBase),
+            $"Comprueba las diez operaciones de la tabla de {numeroBase}.",
+            Array.Empty<string>(),
+            Array.Empty<ValorNumericoEsperado>(),
+            puntos: 15,
+            esVisible: esVisible,
+            modoComparacion: ModoComparacionCaso.Secuencia,
+            secuenciasCompuestas: new[] {
+                CrearSecuenciaCompuestaTabla(numeroBase)
+            });
+    }
+
+    private static string CrearSalidaTablaMultiplicar(int numeroBase) {
+        return string.Join(
+            Environment.NewLine,
+            Enumerable.Range(1, 10).Select(multiplicador =>
+                $"{numeroBase} x {multiplicador} = {numeroBase * multiplicador}"));
+    }
+
+    private static SecuenciaCompuestaEsperada CrearSecuenciaCompuestaTabla(
+        int numeroBase) {
+        return new SecuenciaCompuestaEsperada {
+            Nombre = $"Tabla de {numeroBase}",
+            PasosEsperados = Array.AsReadOnly(
+                Enumerable.Range(1, 10)
+                    .Select(multiplicador =>
+                        CrearPasoTabla(numeroBase, multiplicador))
+                    .ToArray()),
+            OrdenObligatorio = true,
+            CantidadExacta = 10,
+            PermitirPasosAdicionales = false,
+            PermitirPasosDuplicados = false,
+            PermitirTextoAdicional = true,
+            RequerirMismaLinea = true,
+            SeparadoresTextualesPermitidos = Array.AsReadOnly(new[] {
+                "x",
+                "×",
+                "*",
+                "por",
+                "="
+            })
+        };
+    }
+
+    private static PasoSecuenciaCompuestaEsperado CrearPasoTabla(
+        int numeroBase,
+        int multiplicador) {
+        return new PasoSecuenciaCompuestaEsperado {
+            Nombre = $"{numeroBase} por {multiplicador}",
+            Componentes = Array.AsReadOnly(new[] {
+                new ComponenteNumericoPasoEsperado {
+                    Nombre = "Base",
+                    Valor = numeroBase,
+                    Tolerancia = 0D,
+                    Posicion = 0
+                },
+                new ComponenteNumericoPasoEsperado {
+                    Nombre = "Multiplicador",
+                    Valor = multiplicador,
+                    Tolerancia = 0D,
+                    Posicion = 1,
+                    EtiquetasOSeparadoresOpcionales = Array.AsReadOnly(new[] {
+                        "x",
+                        "×",
+                        "*",
+                        "por"
+                    })
+                },
+                new ComponenteNumericoPasoEsperado {
+                    Nombre = "Resultado",
+                    Valor = numeroBase * multiplicador,
+                    Tolerancia = 0D,
+                    Posicion = 2,
+                    EtiquetasOSeparadoresOpcionales = Array.AsReadOnly(new[] {
+                        "="
+                    })
+                }
+            })
+        };
+    }
+
     private static OpcionValorTextual CrearOpcionTextual(
         string valor,
         params string[] alternativas) {
@@ -1516,7 +1654,9 @@ public sealed class CatalogoEvaluacionesService {
                     string.IsNullOrWhiteSpace(caso.Id) ||
                     caso.Puntos <= 0 ||
                     !TieneReglasAplicables(caso) ||
-                    caso.SecuenciasEsperadas.Any(SecuenciaInvalida)) ||
+                    caso.SecuenciasEsperadas.Any(SecuenciaInvalida) ||
+                    caso.SecuenciasCompuestasEsperadas.Any(
+                        SecuenciaCompuestaInvalida)) ||
                 definicion.CasosPrueba.Sum(caso => caso.Puntos) != PuntosCasosPrueba;
 
             if (casosInvalidos ||
@@ -1535,12 +1675,19 @@ public sealed class CatalogoEvaluacionesService {
         bool tieneValores = caso.ValoresNumericosEsperados.Count > 0 ||
             caso.ValoresBooleanosEsperados.Count > 0;
         bool tieneSecuencias = caso.SecuenciasEsperadas.Count > 0;
+        bool tieneSecuenciasCompuestas =
+            caso.SecuenciasCompuestasEsperadas.Count > 0;
 
         return caso.ModoComparacion switch {
             ModoComparacionCaso.Texto => tieneTexto,
             ModoComparacionCaso.Valores => tieneValores,
-            ModoComparacionCaso.Secuencia => tieneSecuencias,
-            _ => tieneTexto || tieneValores || tieneSecuencias
+            ModoComparacionCaso.Secuencia =>
+                tieneSecuencias || tieneSecuenciasCompuestas,
+            _ =>
+                tieneTexto ||
+                tieneValores ||
+                tieneSecuencias ||
+                tieneSecuenciasCompuestas
         };
     }
 
@@ -1566,5 +1713,36 @@ public sealed class CatalogoEvaluacionesService {
                     string.IsNullOrWhiteSpace(elemento.Valor)),
             _ => true
         };
+    }
+
+    private static bool SecuenciaCompuestaInvalida(
+        SecuenciaCompuestaEsperada secuencia) {
+        if (string.IsNullOrWhiteSpace(secuencia.Nombre) ||
+            !secuencia.RequerirMismaLinea ||
+            secuencia.CantidadExacta.HasValue &&
+            secuencia.CantidadExacta.Value <= 0 ||
+            secuencia.PasosEsperados.Count == 0 ||
+            secuencia.SeparadoresTextualesPermitidos.Count == 0) {
+            return true;
+        }
+
+        return secuencia.PasosEsperados.Any(paso => {
+            ComponenteNumericoPasoEsperado[] componentes = paso.Componentes
+                .OrderBy(componente => componente.Posicion)
+                .ToArray();
+
+            return string.IsNullOrWhiteSpace(paso.Nombre) ||
+                componentes.Length != 3 ||
+                componentes.Select(componente => componente.Posicion)
+                    .Distinct()
+                    .Count() != 3 ||
+                componentes.Any(componente =>
+                    string.IsNullOrWhiteSpace(componente.Nombre) ||
+                    !double.IsFinite(componente.Valor) ||
+                    !double.IsFinite(componente.Tolerancia) ||
+                    componente.Tolerancia < 0D) ||
+                componentes.Skip(1).Any(componente =>
+                    componente.EtiquetasOSeparadoresOpcionales.Count == 0);
+        });
     }
 }
