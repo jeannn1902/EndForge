@@ -10,6 +10,8 @@ public sealed class CatalogoEvaluacionesService {
     public const string MiniReciboId = "variables-mini-recibo";
     public const string ClasificarNumeroId = "condicionales-clasificar-numero";
     public const string MayorDeEdadId = "condicionales-mayor-de-edad";
+    public const string CalificacionAprobatoriaId =
+        "condicionales-calificacion-aprobatoria";
 
     private const int PuntosCompilacion = 20;
     private const int PuntosCasosPrueba = 60;
@@ -57,7 +59,8 @@ public sealed class CatalogoEvaluacionesService {
             CrearPromedioCalificaciones(rubrica),
             CrearMiniRecibo(rubrica),
             CrearClasificarNumero(rubrica),
-            CrearMayorDeEdad(rubrica)
+            CrearMayorDeEdad(rubrica),
+            CrearCalificacionAprobatoria(rubrica)
         });
     }
 
@@ -587,6 +590,94 @@ public sealed class CatalogoEvaluacionesService {
         };
     }
 
+    private static DefinicionEvaluacionPractica CrearCalificacionAprobatoria(
+        IReadOnlyList<CriterioEvaluacion> rubrica) {
+        return new DefinicionEvaluacionPractica {
+            PracticaId = CalificacionAprobatoriaId,
+            NombrePractica = "Calificación aprobatoria",
+            Objetivo = "Clasificar una calificación decimal dentro de la escala de 0 a 10.",
+            Descripcion = "Se comprobará que el programa repita la calificación recibida y la clasifique como reprobatoria, suficiente, buena, excelente o inválida.",
+            ContratoEntrada = "1 línea: calificación decimal. La escala válida es de 0 a 10: menos de 6 es reprobatoria; de 6 a menos de 8, suficiente; de 8 a menos de 9, buena; y de 9 a 10, excelente.",
+            CamposEntrada = Array.AsReadOnly(new[] { "Calificación decimal" }),
+            ValidacionesRequeridas = Array.AsReadOnly(new[] {
+                "Mostrar la calificación recibida con una etiqueta reconocible.",
+                "Aplicar correctamente los límites 6, 8 y 9.",
+                "Rechazar calificaciones menores que 0 o mayores que 10.",
+                "Mostrar una sola clasificación sin resultados contradictorios."
+            }),
+            CasosPrueba = Array.AsReadOnly(new[] {
+                CrearCaso(
+                    "calificacion-reprobatoria",
+                    "Calificación reprobatoria",
+                    "5.5\n",
+                    "Calificación: 5.5\nClasificación: Reprobatoria",
+                    "Comprueba una calificación decimal menor que 6.",
+                    Array.Empty<string>(),
+                    new[] { CrearCalificacionEsperada(5.5D) },
+                    puntos: 12,
+                    modoComparacion: ModoComparacionCaso.Mixto,
+                    valoresTextuales: new[] {
+                        CrearClasificacionCalificacionEsperada("Reprobatoria")
+                    }),
+                CrearCaso(
+                    "calificacion-suficiente",
+                    "Límite de calificación suficiente",
+                    "6\n",
+                    "Calificación: 6\nClasificación: Suficiente",
+                    "Comprueba que el límite de 6 se clasifique como suficiente.",
+                    Array.Empty<string>(),
+                    new[] { CrearCalificacionEsperada(6D) },
+                    puntos: 12,
+                    modoComparacion: ModoComparacionCaso.Mixto,
+                    valoresTextuales: new[] {
+                        CrearClasificacionCalificacionEsperada("Suficiente")
+                    }),
+                CrearCaso(
+                    "calificacion-buena",
+                    "Calificación buena",
+                    "8.5\n",
+                    "Calificación: 8.5\nClasificación: Buena",
+                    "Comprueba una calificación decimal entre 8 y 9.",
+                    Array.Empty<string>(),
+                    new[] { CrearCalificacionEsperada(8.5D) },
+                    puntos: 12,
+                    modoComparacion: ModoComparacionCaso.Mixto,
+                    valoresTextuales: new[] {
+                        CrearClasificacionCalificacionEsperada("Buena")
+                    }),
+                CrearCaso(
+                    "calificacion-excelente",
+                    "Límite de calificación excelente",
+                    "9\n",
+                    "Calificación: 9\nClasificación: Excelente",
+                    "Comprueba que el límite de 9 se clasifique como excelente.",
+                    Array.Empty<string>(),
+                    new[] { CrearCalificacionEsperada(9D) },
+                    puntos: 12,
+                    modoComparacion: ModoComparacionCaso.Mixto,
+                    valoresTextuales: new[] {
+                        CrearClasificacionCalificacionEsperada("Excelente")
+                    }),
+                CrearCaso(
+                    "calificacion-superior-oculta",
+                    "Calificación superior a la escala",
+                    "10.5\n",
+                    "Calificación: 10.5\nClasificación: Calificación inválida",
+                    "Comprueba de forma adicional una calificación mayor que 10.",
+                    Array.Empty<string>(),
+                    new[] { CrearCalificacionEsperada(10.5D) },
+                    puntos: 12,
+                    esVisible: false,
+                    modoComparacion: ModoComparacionCaso.Mixto,
+                    valoresTextuales: new[] {
+                        CrearClasificacionCalificacionEsperada(
+                            "Calificación inválida")
+                    })
+            }),
+            Criterios = rubrica
+        };
+    }
+
     private static IReadOnlyList<CriterioEvaluacion> CrearRubrica() {
         return Array.AsReadOnly(new[] {
             new CriterioEvaluacion {
@@ -799,6 +890,65 @@ public sealed class CatalogoEvaluacionesService {
                     "valor inválido",
                     "fuera de rango",
                     "rango inválido")
+            })
+        };
+    }
+
+    private static ValorNumericoEsperado CrearCalificacionEsperada(
+        double calificacion) {
+        return new ValorNumericoEsperado {
+            Nombre = "Calificación",
+            Valor = calificacion,
+            Tolerancia = 0D,
+            EtiquetasAlternativas = Array.AsReadOnly(new[] {
+                "Calificacion",
+                "Nota",
+                "Puntaje",
+                "Valor ingresado"
+            })
+        };
+    }
+
+    private static ValorTextualEsperado CrearClasificacionCalificacionEsperada(
+        string valorEsperado) {
+        return new ValorTextualEsperado {
+            Nombre = "Clasificación",
+            Valor = valorEsperado,
+            EtiquetasAlternativas = Array.AsReadOnly(new[] {
+                "Clasificacion",
+                "Resultado",
+                "Nivel",
+                "Estado"
+            }),
+            Opciones = Array.AsReadOnly(new[] {
+                CrearOpcionTextual(
+                    "Reprobatoria",
+                    "reprobatoria",
+                    "reprobado",
+                    "no aprobatoria",
+                    "insuficiente"),
+                CrearOpcionTextual(
+                    "Suficiente",
+                    "suficiente",
+                    "aprobatoria",
+                    "aprobado",
+                    "regular"),
+                CrearOpcionTextual(
+                    "Buena",
+                    "buena",
+                    "buen desempeño"),
+                CrearOpcionTextual(
+                    "Excelente",
+                    "excelente",
+                    "sobresaliente",
+                    "muy buena"),
+                CrearOpcionTextual(
+                    "Calificación inválida",
+                    "calificación inválida",
+                    "calificación no válida",
+                    "nota inválida",
+                    "fuera de rango",
+                    "valor inválido")
             })
         };
     }

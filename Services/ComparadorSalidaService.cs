@@ -575,7 +575,7 @@ public sealed partial class ComparadorSalidaService {
             string representacionNormalizada = NormalizarTexto(representacion);
 
             if (representacionNormalizada.Length == 0 ||
-                !EmpiezaConToken(valorNormalizado, representacionNormalizada)) {
+                !CoincideValorTextual(valorNormalizado, representacionNormalizada)) {
                 continue;
             }
 
@@ -611,6 +611,13 @@ public sealed partial class ComparadorSalidaService {
         return representaciones.Values
             .OrderByDescending(elemento => elemento.Representacion.Length)
             .ToArray();
+    }
+
+    private static bool CoincideValorTextual(string texto, string valor) {
+        return texto.Equals(valor, StringComparison.Ordinal) ||
+            texto.StartsWith(valor + ".", StringComparison.Ordinal) ||
+            texto.StartsWith(valor + ",", StringComparison.Ordinal) ||
+            texto.StartsWith(valor + ";", StringComparison.Ordinal);
     }
 
     private static bool EmpiezaConToken(string texto, string token) {
