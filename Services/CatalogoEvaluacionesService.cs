@@ -15,6 +15,7 @@ public sealed class CatalogoEvaluacionesService {
         "condicionales-calificacion-aprobatoria";
     public const string DescuentoCompraId = "condicionales-descuento-compra";
     public const string MenuOperacionesId = "condicionales-menu-operaciones";
+    public const string ContarUnoADiezId = "ciclos-contar-uno-a-diez";
 
     private const int PuntosCompilacion = 20;
     private const int PuntosCasosPrueba = 60;
@@ -65,7 +66,8 @@ public sealed class CatalogoEvaluacionesService {
             CrearMayorDeEdad(rubrica),
             CrearCalificacionAprobatoria(rubrica),
             CrearDescuentoCompra(rubrica),
-            CrearMenuOperaciones(rubrica)
+            CrearMenuOperaciones(rubrica),
+            CrearContarUnoADiez(rubrica)
         });
     }
 
@@ -872,6 +874,54 @@ public sealed class CatalogoEvaluacionesService {
         };
     }
 
+    private static DefinicionEvaluacionPractica CrearContarUnoADiez(
+        IReadOnlyList<CriterioEvaluacion> rubrica) {
+        return new DefinicionEvaluacionPractica {
+            PracticaId = ContarUnoADiezId,
+            NombrePractica = "Contar del 1 al 10",
+            Objetivo = "Mostrar los números del 1 al 10 en orden mediante una estructura repetitiva.",
+            Descripcion = "Se comprobarán el orden, la cantidad exacta, los duplicados y cualquier número adicional.",
+            ContratoEntrada = "Esta práctica no necesita entrada. La salida debe contener exactamente los diez números del 1 al 10.",
+            CamposEntrada = Array.Empty<string>(),
+            ValidacionesRequeridas = Array.AsReadOnly(new[] {
+                "Mostrar los números del 1 al 10 en orden ascendente.",
+                "Mostrar exactamente diez valores numéricos.",
+                "No repetir valores.",
+                "No incluir 0, 11 ni ningún otro número adicional."
+            }),
+            CasosPrueba = Array.AsReadOnly(new[] {
+                CrearCaso(
+                    "contar-uno-diez-secuencia-visible",
+                    "Secuencia ordenada",
+                    "",
+                    "1 2 3 4 5 6 7 8 9 10",
+                    "Comprueba que aparezcan exactamente los números del 1 al 10 en orden.",
+                    Array.Empty<string>(),
+                    Array.Empty<ValorNumericoEsperado>(),
+                    puntos: 30,
+                    modoComparacion: ModoComparacionCaso.Secuencia,
+                    secuencias: new[] {
+                        CrearSecuenciaConteoUnoADiez()
+                    }),
+                CrearCaso(
+                    "contar-uno-diez-limites-oculto",
+                    "Límites exactos de la secuencia",
+                    "",
+                    "1 2 3 4 5 6 7 8 9 10",
+                    "Comprueba de forma adicional que no existan límites, duplicados o repeticiones inesperadas.",
+                    Array.Empty<string>(),
+                    Array.Empty<ValorNumericoEsperado>(),
+                    puntos: 30,
+                    esVisible: false,
+                    modoComparacion: ModoComparacionCaso.Secuencia,
+                    secuencias: new[] {
+                        CrearSecuenciaConteoUnoADiez()
+                    })
+            }),
+            Criterios = rubrica
+        };
+    }
+
     private static IReadOnlyList<CriterioEvaluacion> CrearRubrica() {
         return Array.AsReadOnly(new[] {
             new CriterioEvaluacion {
@@ -918,7 +968,8 @@ public sealed class CatalogoEvaluacionesService {
         bool esVisible = true,
         ModoComparacionCaso modoComparacion = ModoComparacionCaso.Mixto,
         ValorBooleanoEsperado[]? valoresBooleanos = null,
-        ValorTextualEsperado[]? valoresTextuales = null) {
+        ValorTextualEsperado[]? valoresTextuales = null,
+        SecuenciaEsperada[]? secuencias = null) {
         return new CasoPrueba {
             Id = id,
             Nombre = nombre,
@@ -936,7 +987,9 @@ public sealed class CatalogoEvaluacionesService {
             ValoresBooleanosEsperados = Array.AsReadOnly(
                 valoresBooleanos ?? Array.Empty<ValorBooleanoEsperado>()),
             ValoresTextualesEsperados = Array.AsReadOnly(
-                valoresTextuales ?? Array.Empty<ValorTextualEsperado>())
+                valoresTextuales ?? Array.Empty<ValorTextualEsperado>()),
+            SecuenciasEsperadas = Array.AsReadOnly(
+                secuencias ?? Array.Empty<SecuenciaEsperada>())
         };
     }
 
@@ -1401,6 +1454,39 @@ public sealed class CatalogoEvaluacionesService {
         };
     }
 
+    private static SecuenciaEsperada CrearSecuenciaConteoUnoADiez() {
+        return new SecuenciaEsperada {
+            Nombre = "Números del 1 al 10",
+            Tipo = TipoSecuenciaEsperada.Numerica,
+            ValoresNumericosEsperados = Array.AsReadOnly(new[] {
+                1D,
+                2D,
+                3D,
+                4D,
+                5D,
+                6D,
+                7D,
+                8D,
+                9D,
+                10D
+            }),
+            OrdenObligatorio = true,
+            CantidadExacta = 10,
+            PermitirDuplicados = false,
+            PermitirElementosAdicionales = false,
+            ToleranciaNumerica = 0D,
+            SeparadoresPermitidos = Array.AsReadOnly(new[] {
+                " ",
+                "\t",
+                "\r",
+                "\n",
+                ",",
+                ";"
+            }),
+            PermitirTextoAdicional = true
+        };
+    }
+
     private static OpcionValorTextual CrearOpcionTextual(
         string valor,
         params string[] alternativas) {
@@ -1429,7 +1515,8 @@ public sealed class CatalogoEvaluacionesService {
                 definicion.CasosPrueba.Any(caso =>
                     string.IsNullOrWhiteSpace(caso.Id) ||
                     caso.Puntos <= 0 ||
-                    !TieneReglasAplicables(caso)) ||
+                    !TieneReglasAplicables(caso) ||
+                    caso.SecuenciasEsperadas.Any(SecuenciaInvalida)) ||
                 definicion.CasosPrueba.Sum(caso => caso.Puntos) != PuntosCasosPrueba;
 
             if (casosInvalidos ||
@@ -1447,11 +1534,37 @@ public sealed class CatalogoEvaluacionesService {
             caso.ValoresTextualesEsperados.Count > 0;
         bool tieneValores = caso.ValoresNumericosEsperados.Count > 0 ||
             caso.ValoresBooleanosEsperados.Count > 0;
+        bool tieneSecuencias = caso.SecuenciasEsperadas.Count > 0;
 
         return caso.ModoComparacion switch {
             ModoComparacionCaso.Texto => tieneTexto,
             ModoComparacionCaso.Valores => tieneValores,
-            _ => tieneTexto || tieneValores
+            ModoComparacionCaso.Secuencia => tieneSecuencias,
+            _ => tieneTexto || tieneValores || tieneSecuencias
+        };
+    }
+
+    private static bool SecuenciaInvalida(SecuenciaEsperada secuencia) {
+        if (string.IsNullOrWhiteSpace(secuencia.Nombre) ||
+            secuencia.CantidadExacta.HasValue &&
+            secuencia.CantidadExacta.Value <= 0 ||
+            secuencia.SeparadoresPermitidos.Count == 0 ||
+            secuencia.SeparadoresPermitidos.Any(string.IsNullOrEmpty) ||
+            !double.IsFinite(secuencia.ToleranciaNumerica) ||
+            secuencia.ToleranciaNumerica < 0D) {
+            return true;
+        }
+
+        return secuencia.Tipo switch {
+            TipoSecuenciaEsperada.Numerica =>
+                secuencia.ValoresNumericosEsperados.Count == 0 ||
+                secuencia.ValoresNumericosEsperados.Any(valor =>
+                    !double.IsFinite(valor)),
+            TipoSecuenciaEsperada.Textual =>
+                secuencia.AlternativasTextualesEsperadas.Count == 0 ||
+                secuencia.AlternativasTextualesEsperadas.Any(elemento =>
+                    string.IsNullOrWhiteSpace(elemento.Valor)),
+            _ => true
         };
     }
 }

@@ -3,7 +3,13 @@ namespace EndForge.Models;
 public enum ModoComparacionCaso {
     Valores,
     Texto,
-    Mixto
+    Mixto,
+    Secuencia
+}
+
+public enum TipoSecuenciaEsperada {
+    Numerica,
+    Textual
 }
 
 public sealed class CasoPrueba {
@@ -42,6 +48,9 @@ public sealed class CasoPrueba {
 
     public IReadOnlyList<ValorTextualEsperado> ValoresTextualesEsperados { get; init; } =
         Array.Empty<ValorTextualEsperado>();
+
+    public IReadOnlyList<SecuenciaEsperada> SecuenciasEsperadas { get; init; } =
+        Array.Empty<SecuenciaEsperada>();
 }
 
 public sealed class GrupoTokensEsperados {
@@ -104,4 +113,39 @@ public sealed class OpcionValorTextual {
     public string Valor { get; init; } = "";
 
     public IReadOnlyList<string> Alternativas { get; init; } = Array.Empty<string>();
+}
+
+public sealed class SecuenciaEsperada {
+    public string Nombre { get; init; } = "";
+
+    public TipoSecuenciaEsperada Tipo { get; init; }
+
+    public IReadOnlyList<double> ValoresNumericosEsperados { get; init; } =
+        Array.Empty<double>();
+
+    public IReadOnlyList<ElementoTextualSecuenciaEsperado>
+        AlternativasTextualesEsperadas { get; init; } =
+            Array.Empty<ElementoTextualSecuenciaEsperado>();
+
+    public bool OrdenObligatorio { get; init; } = true;
+
+    public int? CantidadExacta { get; init; }
+
+    public bool PermitirDuplicados { get; init; }
+
+    public bool PermitirElementosAdicionales { get; init; }
+
+    public double ToleranciaNumerica { get; init; } = 0.01D;
+
+    public IReadOnlyList<string> SeparadoresPermitidos { get; init; } =
+        Array.AsReadOnly(new[] { " ", "\t", "\r", "\n", ",", ";" });
+
+    public bool PermitirTextoAdicional { get; init; } = true;
+}
+
+public sealed class ElementoTextualSecuenciaEsperado {
+    public string Valor { get; init; } = "";
+
+    public IReadOnlyList<string> Alternativas { get; init; } =
+        Array.Empty<string>();
 }

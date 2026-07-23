@@ -21,6 +21,9 @@ public sealed class ResultadoComparacionSalida {
     public IReadOnlyList<ResultadoValorTextualComparado> ValoresTextuales { get; init; } =
         Array.Empty<ResultadoValorTextualComparado>();
 
+    public IReadOnlyList<ResultadoSecuenciaComparada> Secuencias { get; init; } =
+        Array.Empty<ResultadoSecuenciaComparada>();
+
     public IReadOnlyList<string> ReglasCumplidas { get; init; } = Array.Empty<string>();
 
     public IReadOnlyList<string> ReglasIncumplidas { get; init; } = Array.Empty<string>();
@@ -98,4 +101,36 @@ public sealed class ResultadoValorTextualComparado {
     public bool UsoEtiquetaAlternativa { get; init; }
 
     public IReadOnlyList<string> ValoresEncontrados { get; init; } = Array.Empty<string>();
+}
+
+public sealed class ResultadoSecuenciaComparada {
+    public string Nombre { get; init; } = "";
+
+    public TipoSecuenciaEsperada Tipo { get; init; }
+
+    public IReadOnlyList<string> SecuenciaEncontrada { get; init; } =
+        Array.Empty<string>();
+
+    public int CantidadEsperada { get; init; }
+
+    public int CantidadEncontrada { get; init; }
+
+    public bool CantidadCorrecta { get; init; }
+
+    public bool OrdenCorrecto { get; init; }
+
+    public IReadOnlyList<string> ElementosFaltantes { get; init; } =
+        Array.Empty<string>();
+
+    public IReadOnlyList<string> ElementosAdicionales { get; init; } =
+        Array.Empty<string>();
+
+    public IReadOnlyList<string> DuplicadosInesperados { get; init; } =
+        Array.Empty<string>();
+
+    public int? PrimerIndiceDiferente { get; init; }
+
+    public bool Coincide { get; init; }
+
+    public string Mensaje { get; init; } = "";
 }
