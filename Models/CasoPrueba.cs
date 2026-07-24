@@ -133,6 +133,10 @@ public sealed class SecuenciaEsperada {
         AlternativasTextualesEsperadas { get; init; } =
             Array.Empty<ElementoTextualSecuenciaEsperado>();
 
+    public IReadOnlyList<ElementoTextualSecuenciaEsperado>
+        EventosTextualesReconocibles { get; init; } =
+            Array.Empty<ElementoTextualSecuenciaEsperado>();
+
     public bool OrdenObligatorio { get; init; } = true;
 
     public int? CantidadExacta { get; init; }
@@ -154,8 +158,21 @@ public sealed class SecuenciaEsperada {
 public sealed class ElementoTextualSecuenciaEsperado {
     public string Valor { get; init; } = "";
 
+    public bool BuscarComoTexto { get; init; } = true;
+
+    public bool RequerirTextoAlInicioDeLinea { get; init; }
+
     public IReadOnlyList<string> Alternativas { get; init; } =
         Array.Empty<string>();
+
+    public double? ValorNumericoAsociado { get; init; }
+
+    public IReadOnlyList<string> EtiquetasNumericasAsociadas { get; init; } =
+        Array.Empty<string>();
+
+    public bool RequerirSeparadorEtiquetaNumerica { get; init; }
+
+    public bool RequerirEtiquetaNumericaAlInicioDeLinea { get; init; }
 
     public IReadOnlyList<string> EtiquetasNumericasPosteriores { get; init; } =
         Array.Empty<string>();

@@ -19,6 +19,7 @@ public sealed class CatalogoEvaluacionesService {
     public const string TablaMultiplicarId = "ciclos-tabla-multiplicar";
     public const string SumaAcumuladaId = "ciclos-suma-acumulada";
     public const string AdivinaNumeroId = "ciclos-adivina-numero";
+    public const string MenuRepetitivoId = "ciclos-menu-repetitivo";
 
     private const int PuntosCompilacion = 20;
     private const int PuntosCasosPrueba = 60;
@@ -73,7 +74,8 @@ public sealed class CatalogoEvaluacionesService {
             CrearContarUnoADiez(rubrica),
             CrearTablaMultiplicar(rubrica),
             CrearSumaAcumulada(rubrica),
-            CrearAdivinaNumero(rubrica)
+            CrearAdivinaNumero(rubrica),
+            CrearMenuRepetitivo(rubrica)
         });
     }
 
@@ -1093,6 +1095,69 @@ public sealed class CatalogoEvaluacionesService {
         };
     }
 
+    private static DefinicionEvaluacionPractica CrearMenuRepetitivo(
+        IReadOnlyList<CriterioEvaluacion> rubrica) {
+        return new DefinicionEvaluacionPractica {
+            PracticaId = MenuRepetitivoId,
+            NombrePractica = "Menú repetitivo",
+            Objetivo = "Procesar opciones de un menú hasta seleccionar Salir.",
+            Descripcion = "Se comprobarán las acciones en el orden solicitado, las opciones inválidas y la terminación después de la despedida.",
+            ContratoEntrada = "Cada línea contiene una opción numérica. Las opciones 1, 2 y 3 ejecutan una acción; la opción 4 muestra una despedida y termina el programa.",
+            CamposEntrada = Array.AsReadOnly(new[] {
+                "Secuencia de opciones numéricas"
+            }),
+            ValidacionesRequeridas = Array.AsReadOnly(new[] {
+                "Responder con un saludo para la opción 1.",
+                "Mostrar un mensaje motivador reconocido para la opción 2.",
+                "Mostrar el valor 10 con una etiqueta inequívoca para la opción 3.",
+                "Rechazar opciones fuera del menú.",
+                "Mostrar una despedida y no procesar opciones posteriores a la opción 4."
+            }),
+            CasosPrueba = Array.AsReadOnly(new[] {
+                CrearCasoMenuRepetitivo(
+                    "menu-repetitivo-saludo",
+                    "Saludo y salida",
+                    "1\n4\n",
+                    true,
+                    "Hola",
+                    "Hasta luego"),
+                CrearCasoMenuRepetitivo(
+                    "menu-repetitivo-motivacion-numero",
+                    "Motivación, número y salida",
+                    "2\n3\n4\n",
+                    true,
+                    "Sigue adelante",
+                    "Número 10",
+                    "Hasta luego"),
+                CrearCasoMenuRepetitivo(
+                    "menu-repetitivo-opcion-invalida",
+                    "Opción inválida y salida",
+                    "9\n4\n",
+                    true,
+                    "Opción inválida",
+                    "Hasta luego"),
+                CrearCasoMenuRepetitivo(
+                    "menu-repetitivo-varias-acciones",
+                    "Varias acciones antes de salir",
+                    "1\n3\n2\n4\n",
+                    true,
+                    "Hola",
+                    "Número 10",
+                    "Sigue adelante",
+                    "Hasta luego"),
+                CrearCasoMenuRepetitivo(
+                    "menu-repetitivo-entrada-posterior-oculta",
+                    "Terminación después de salir",
+                    "3\n9\n4\n1\n",
+                    false,
+                    "Número 10",
+                    "Opción inválida",
+                    "Hasta luego")
+            }),
+            Criterios = rubrica
+        };
+    }
+
     private static IReadOnlyList<CriterioEvaluacion> CrearRubrica() {
         return Array.AsReadOnly(new[] {
             new CriterioEvaluacion {
@@ -2003,6 +2068,163 @@ public sealed class CatalogoEvaluacionesService {
         };
     }
 
+    private static CasoPrueba CrearCasoMenuRepetitivo(
+        string id,
+        string nombre,
+        string entrada,
+        bool esVisible,
+        params string[] eventos) {
+        bool incluyeNumero = eventos.Contains(
+            "Número 10",
+            StringComparer.OrdinalIgnoreCase);
+        ValorNumericoEsperado[] valoresNumericos = incluyeNumero
+            ? new[] { CrearNumeroMostradoEsperado() }
+            : Array.Empty<ValorNumericoEsperado>();
+        string salidaEsperada = string.Join(
+            Environment.NewLine,
+            eventos.Select(FormatearEventoMenuRepetitivo));
+
+        return CrearCaso(
+            id,
+            nombre,
+            entrada,
+            salidaEsperada,
+            "Comprueba que cada opción produzca una sola acción y que el programa termine después de la despedida.",
+            Array.Empty<string>(),
+            valoresNumericos,
+            puntos: 12,
+            esVisible: esVisible,
+            modoComparacion: ModoComparacionCaso.Mixto,
+            secuencias: new[] {
+                CrearSecuenciaEventosMenuRepetitivo(eventos)
+            });
+    }
+
+    private static string FormatearEventoMenuRepetitivo(string evento) {
+        return evento.Equals(
+            "Número 10",
+            StringComparison.OrdinalIgnoreCase)
+                ? "Número: 10"
+                : evento;
+    }
+
+    private static ValorNumericoEsperado CrearNumeroMostradoEsperado() {
+        return new ValorNumericoEsperado {
+            Nombre = "Número",
+            Valor = 10D,
+            Tolerancia = 0D,
+            EtiquetasAlternativas = Array.AsReadOnly(new[] {
+                "Numero",
+                "Valor",
+                "Resultado",
+                "Número mostrado",
+                "Numero mostrado"
+            })
+        };
+    }
+
+    private static SecuenciaEsperada CrearSecuenciaEventosMenuRepetitivo(
+        IReadOnlyList<string> eventos) {
+        return new SecuenciaEsperada {
+            Nombre = "Acciones del menú",
+            Tipo = TipoSecuenciaEsperada.Textual,
+            AlternativasTextualesEsperadas = Array.AsReadOnly(
+                eventos.Select(CrearEventoMenuRepetitivo).ToArray()),
+            EventosTextualesReconocibles = Array.AsReadOnly(new[] {
+                CrearEventoMenuRepetitivo("Hola"),
+                CrearEventoMenuRepetitivo("Sigue adelante"),
+                CrearEventoMenuRepetitivo("Número 10"),
+                CrearEventoMenuRepetitivo("Opción inválida"),
+                CrearEventoMenuRepetitivo("Hasta luego")
+            }),
+            OrdenObligatorio = true,
+            CantidadExacta = eventos.Count,
+            PermitirDuplicados = true,
+            PermitirElementosAdicionales = false,
+            PermitirTextoAdicional = true,
+            RequerirEventosEnLineasIndependientes = true
+        };
+    }
+
+    private static ElementoTextualSecuenciaEsperado CrearEventoMenuRepetitivo(
+        string evento) {
+        return evento switch {
+            "Hola" =>
+                new ElementoTextualSecuenciaEsperado {
+                    Valor = evento,
+                    RequerirTextoAlInicioDeLinea = true,
+                    Alternativas = Array.AsReadOnly(new[] {
+                        "Bienvenido",
+                        "Bienvenida",
+                        "Saludos",
+                        "Buen día",
+                        "Buen dia"
+                    })
+                },
+            "Sigue adelante" =>
+                new ElementoTextualSecuenciaEsperado {
+                    Valor = evento,
+                    RequerirTextoAlInicioDeLinea = true,
+                    Alternativas = Array.AsReadOnly(new[] {
+                        "Tú puedes",
+                        "Tu puedes",
+                        "Continúa aprendiendo",
+                        "Continua aprendiendo",
+                        "No te rindas",
+                        "Sigue practicando",
+                        "Vas muy bien"
+                    })
+                },
+            "Número 10" =>
+                new ElementoTextualSecuenciaEsperado {
+                    Valor = evento,
+                    BuscarComoTexto = false,
+                    ValorNumericoAsociado = 10D,
+                    EtiquetasNumericasAsociadas = Array.AsReadOnly(new[] {
+                        "Número",
+                        "Numero",
+                        "Valor",
+                        "Resultado",
+                        "Número mostrado",
+                        "Numero mostrado"
+                    }),
+                    RequerirSeparadorEtiquetaNumerica = true,
+                    RequerirEtiquetaNumericaAlInicioDeLinea = true
+                },
+            "Opción inválida" =>
+                new ElementoTextualSecuenciaEsperado {
+                    Valor = evento,
+                    RequerirTextoAlInicioDeLinea = true,
+                    Alternativas = Array.AsReadOnly(new[] {
+                        "Opcion invalida",
+                        "Opción no válida",
+                        "Opcion no valida",
+                        "Selección inválida",
+                        "Seleccion invalida",
+                        "Fuera del menú",
+                        "Opción desconocida",
+                        "Opcion desconocida"
+                    })
+                },
+            "Hasta luego" =>
+                new ElementoTextualSecuenciaEsperado {
+                    Valor = evento,
+                    RequerirTextoAlInicioDeLinea = true,
+                    Alternativas = Array.AsReadOnly(new[] {
+                        "Adiós",
+                        "Adios",
+                        "Programa finalizado",
+                        "Fin del programa",
+                        "Gracias por usar el programa",
+                        "Saliendo"
+                    })
+                },
+            _ => throw new ArgumentException(
+                "El evento del menú no está definido.",
+                nameof(evento))
+        };
+    }
+
     private static OpcionValorTextual CrearOpcionTextual(
         string valor,
         params string[] alternativas) {
@@ -2087,12 +2309,28 @@ public sealed class CatalogoEvaluacionesService {
                     !double.IsFinite(valor)),
             TipoSecuenciaEsperada.Textual =>
                 secuencia.AlternativasTextualesEsperadas.Count == 0 ||
-                secuencia.AlternativasTextualesEsperadas.Any(elemento =>
-                    string.IsNullOrWhiteSpace(elemento.Valor) ||
-                    elemento.EtiquetasNumericasPosteriores.Any(
-                        string.IsNullOrWhiteSpace)),
+                secuencia.AlternativasTextualesEsperadas.Any(
+                    EventoTextualInvalido) ||
+                secuencia.EventosTextualesReconocibles.Any(
+                    EventoTextualInvalido),
             _ => true
         };
+    }
+
+    private static bool EventoTextualInvalido(
+        ElementoTextualSecuenciaEsperado evento) {
+        bool tieneValorNumerico = evento.ValorNumericoAsociado.HasValue;
+        bool tieneEtiquetasNumericas =
+            evento.EtiquetasNumericasAsociadas.Count > 0;
+
+        return string.IsNullOrWhiteSpace(evento.Valor) ||
+            !evento.BuscarComoTexto &&
+            !tieneValorNumerico ||
+            tieneValorNumerico != tieneEtiquetasNumericas ||
+            evento.ValorNumericoAsociado.HasValue &&
+            !double.IsFinite(evento.ValorNumericoAsociado.Value) ||
+            evento.EtiquetasNumericasAsociadas.Any(string.IsNullOrWhiteSpace) ||
+            evento.EtiquetasNumericasPosteriores.Any(string.IsNullOrWhiteSpace);
     }
 
     private static bool SecuenciaCompuestaInvalida(
