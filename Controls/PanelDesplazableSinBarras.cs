@@ -523,20 +523,11 @@ internal sealed class PanelDesplazableSinBarras : Panel {
     }
 
     private void AplicarDesplazamiento(Rectangle indicadorAnterior) {
-        Rectangle limitesAnteriores = Contenido.Bounds;
         Contenido.Top = Padding.Top - desplazamientoVertical;
-        Rectangle limitesNuevos = Contenido.Bounds;
         Rectangle viewport = ObtenerRectanguloViewport();
 
         if (!viewport.IsEmpty) {
-            Rectangle regionExpuesta = CalcularRegionExpuestaPorDesplazamiento(
-                viewport,
-                limitesAnteriores,
-                limitesNuevos);
-
-            if (!regionExpuesta.IsEmpty) {
-                Invalidate(regionExpuesta, invalidateChildren: true);
-            }
+            Invalidate(viewport, invalidateChildren: true);
         }
 
         Rectangle indicadorNuevo = ObtenerRectanguloIndicador();
@@ -624,35 +615,6 @@ internal sealed class PanelDesplazableSinBarras : Panel {
         return ancho > 0 && alto > 0
             ? new Rectangle(Padding.Left, Padding.Top, ancho, alto)
             : Rectangle.Empty;
-    }
-
-    private static Rectangle CalcularRegionExpuestaPorDesplazamiento(
-        Rectangle viewport,
-        Rectangle limitesAnteriores,
-        Rectangle limitesNuevos) {
-        int delta = limitesNuevos.Top - limitesAnteriores.Top;
-
-        if (delta == 0 || viewport.IsEmpty) {
-            return Rectangle.Empty;
-        }
-
-        int altoExpuesto = (int)Math.Min(
-            viewport.Height,
-            Math.Abs((long)delta));
-        Rectangle region = delta > 0
-            ? new Rectangle(
-                viewport.Left,
-                viewport.Top,
-                viewport.Width,
-                altoExpuesto)
-            : new Rectangle(
-                viewport.Left,
-                viewport.Bottom - altoExpuesto,
-                viewport.Width,
-                altoExpuesto);
-
-        region.Inflate(0, MargenRepintadoDesplazamiento);
-        return Rectangle.Intersect(region, viewport);
     }
 
     private void InvalidarCambioIndicador(
