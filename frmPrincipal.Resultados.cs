@@ -84,7 +84,10 @@ public partial class frmPrincipal {
             VaciarYDisponerControles(contenidoResultadoEvaluacion);
             AgregarLabelFluido(
                 contenidoResultadoEvaluacion,
-                "Ruta de aprendizaje  ›  Grado 1  ›  Evaluación  ›  Resultado",
+                $"Ruta de aprendizaje  ›  {ObtenerEtiquetaGradoActual()}  ›  " +
+                $"{temaCursoSeleccionado?.Nombre ?? "Tema"}  ›  " +
+                $"{practicaCursoSeleccionada?.Nombre ?? "Práctica"}  ›  " +
+                "Evaluación  ›  Resultado",
                 ancho,
                 TamanoFuenteCurso.NumeroCabecera,
                 FontStyle.Bold,
@@ -422,7 +425,9 @@ public partial class frmPrincipal {
             VaciarYDisponerControles(contenidoHistorialEvaluaciones);
             AgregarLabelFluido(
                 contenidoHistorialEvaluaciones,
-                "Ruta de aprendizaje  ›  Grado 1  ›  Historial",
+                $"Ruta de aprendizaje  ›  {ObtenerEtiquetaGradoActual()}  ›  " +
+                $"{temaCursoSeleccionado?.Nombre ?? "Tema"}  ›  " +
+                $"{practicaCursoSeleccionada.Nombre}  ›  Historial",
                 ancho,
                 TamanoFuenteCurso.NumeroCabecera,
                 FontStyle.Bold,

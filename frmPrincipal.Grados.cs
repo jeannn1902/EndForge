@@ -17,6 +17,7 @@ public partial class frmPrincipal {
     }
 
     private GradosService gradosService = null!;
+    private GradoCurso? gradoCursoSeleccionado;
     private VistaRutaAprendizaje vistaRutaActual;
     private Panel panelGradosVista = null!;
     private PanelDesplazableSinBarras desplazamientoGrados = null!;
@@ -116,8 +117,42 @@ public partial class frmPrincipal {
             return;
         }
 
-        gradoSeleccionadoEnSesion = true;
+        CursoService? catalogo = gradosService.ObtenerCurso(grado.Id);
+        GradoCurso? gradoActualizado = gradosService.ObtenerGrado(
+            grado.Id,
+            progresoCurso);
+
+        if (catalogo is null ||
+            gradoActualizado is null ||
+            !gradoActualizado.EsContenidoDisponible) {
+            return;
+        }
+
+        bool cambioCatalogo = !cursoService.GradoId.Equals(
+            catalogo.GradoId,
+            StringComparison.OrdinalIgnoreCase);
+        cursoService = catalogo;
+        gradoCursoSeleccionado = gradoActualizado;
+        temaCursoSeleccionado = null;
+        practicaCursoSeleccionada = null;
+
+        if (cambioCatalogo) {
+            LimpiarEstadoVisualAlCambiarCatalogo();
+        }
+
         MostrarCursoPrincipal();
+    }
+
+    private void LimpiarEstadoVisualAlCambiarCatalogo() {
+        LimpiarHoverTarjetaCurso();
+        estadoTarjetasTemas = Array.Empty<EstadoContenidoTema>();
+        ultimoAnchoTarjetasTemas = -1;
+        ultimoDpiTarjetasTemas = -1;
+        temaTarjetasPracticasId = string.Empty;
+        estadoTarjetasPracticas = Array.Empty<EstadoContenidoPractica>();
+        practicaDetalleConstruida = null;
+        rutaProyectoDetalleConstruida = string.Empty;
+        ultimoAnchoContenidoEstadisticas = -1;
     }
 
     private void ReconstruirVistaGrados(bool volverAlInicio) {

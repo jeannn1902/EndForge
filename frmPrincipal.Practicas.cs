@@ -444,7 +444,9 @@ public partial class frmPrincipal {
         string nombreIntroducido,
         string objetivo,
         Action accionAlPrepararApertura,
-        out string rutaProyecto
+        out string rutaProyecto,
+        bool crearCarpetaTemaSiNoExiste = false,
+        string? nombreTemaParaDocumentacion = null
     ) {
         rutaProyecto = string.Empty;
         temaSeleccionado = temaSeleccionado.Trim();
@@ -470,6 +472,12 @@ public partial class frmPrincipal {
             return null;
         }
 
+        if (!temasService.ExisteTema(rutaBase, temaSeleccionado) &&
+            crearCarpetaTemaSiNoExiste &&
+            !IntentarCrearCarpetaTemaCurso(temaSeleccionado)) {
+            return null;
+        }
+
         if (!temasService.ExisteTema(rutaBase, temaSeleccionado)) {
             MessageBox.Show(
                 "El tema seleccionado ya no está disponible en la ruta base configurada.",
@@ -492,7 +500,9 @@ public partial class frmPrincipal {
             RutaPlantilla = rutaPlantilla,
             RutaProyecto = rutaProyecto,
             NombreProyecto = nombreProyecto,
-            Tema = temaSeleccionado,
+            Tema = string.IsNullOrWhiteSpace(nombreTemaParaDocumentacion)
+                ? temaSeleccionado
+                : nombreTemaParaDocumentacion.Trim(),
             Objetivo = objetivo.Trim(),
             RutaRelativaSolucionEsperada = seleccionSolucionesService.TransformarRutaRelativa(
                 validacionConfiguracion.RutaRelativaSolucion,
@@ -514,6 +524,59 @@ public partial class frmPrincipal {
             },
             accionAlPrepararApertura
         );
+    }
+
+    private bool IntentarCrearCarpetaTemaCurso(string rutaRelativaTema) {
+        try {
+            string rutaBaseCompleta = Path.GetFullPath(rutaBase);
+            string rutaTemaCompleta = Path.GetFullPath(
+                Path.Combine(rutaBaseCompleta, rutaRelativaTema));
+            string rutaRelativaNormalizada = Path.GetRelativePath(
+                rutaBaseCompleta,
+                rutaTemaCompleta);
+            bool estaFueraDeRutaBase =
+                Path.IsPathRooted(rutaRelativaNormalizada) ||
+                rutaRelativaNormalizada.Equals("..", StringComparison.Ordinal) ||
+                rutaRelativaNormalizada.StartsWith(
+                    $"..{Path.DirectorySeparatorChar}",
+                    StringComparison.Ordinal) ||
+                rutaRelativaNormalizada.StartsWith(
+                    $"..{Path.AltDirectorySeparatorChar}",
+                    StringComparison.Ordinal);
+
+            if (estaFueraDeRutaBase || File.Exists(rutaTemaCompleta)) {
+                MessageBox.Show(
+                    "No se pudo preparar la carpeta del tema dentro de la ruta base.",
+                    "EndForge",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return false;
+            }
+
+            Directory.CreateDirectory(rutaTemaCompleta);
+            return true;
+        } catch (UnauthorizedAccessException) {
+            MessageBox.Show(
+                "No hay permisos para crear la carpeta del grado y el tema.",
+                "EndForge",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            return false;
+        } catch (IOException) {
+            MessageBox.Show(
+                "No se pudo crear la carpeta del grado y el tema. Verifica que la ruta no esté bloqueada.",
+                "EndForge",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            return false;
+        } catch (Exception) {
+            MessageBox.Show(
+                "No se pudo preparar la carpeta del grado y el tema.",
+                "EndForge",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            return false;
+        }
     }
 
     private void BtnCrearProyecto_Click(object sender, EventArgs e) {

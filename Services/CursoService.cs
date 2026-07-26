@@ -3,15 +3,56 @@ using EndForge.Models;
 namespace EndForge.Services;
 
 public sealed class CursoService {
-    public const int TotalPracticasPlaneadas = 50;
+    public const int TotalPracticasPlaneadasGradoFundamentos = 20;
+    public const int TotalPracticasPlaneadasGradoJunior = 40;
     public const int PracticasPlaneadasPorTema = 5;
 
-    private const string MensajeProximamente = "Contenido próximamente";
     private readonly IReadOnlyList<TemaCurso> temas;
 
-    public CursoService() {
-        temas = CrearTemas();
+    public CursoService()
+        : this(
+            GradosService.GradoFundamentosId,
+            1,
+            "Fundamentos de C++",
+            "Aprende las bases esenciales de C++ mediante variables, decisiones, ciclos y funciones.",
+            "Grado_01",
+            TotalPracticasPlaneadasGradoFundamentos,
+            "Las prácticas de este grado todavía no están disponibles.",
+            CrearTemasGradoFundamentos()) {
     }
+
+    private CursoService(
+        string gradoId,
+        int numeroGrado,
+        string nombreGrado,
+        string descripcionGrado,
+        string nombreCarpetaGrado,
+        int totalPracticasPlaneadas,
+        string mensajeSinContenido,
+        IReadOnlyList<TemaCurso> temas) {
+        GradoId = gradoId;
+        NumeroGrado = numeroGrado;
+        NombreGrado = nombreGrado;
+        DescripcionGrado = descripcionGrado;
+        NombreCarpetaGrado = nombreCarpetaGrado;
+        TotalPracticasPlaneadas = totalPracticasPlaneadas;
+        MensajeSinContenido = mensajeSinContenido;
+        this.temas = temas;
+    }
+
+    public string GradoId { get; }
+
+    public int NumeroGrado { get; }
+
+    public string NombreGrado { get; }
+
+    public string DescripcionGrado { get; }
+
+    public string NombreCarpetaGrado { get; }
+
+    public int TotalPracticasPlaneadas { get; }
+
+    public string MensajeSinContenido { get; }
 
     public int TotalPracticasDisponibles => temas
         .Where(tema => !tema.EsProximamente)
@@ -41,7 +82,19 @@ public sealed class CursoService {
                 practica.Id.Equals(practicaId, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static IReadOnlyList<TemaCurso> CrearTemas() {
+    internal static CursoService CrearCatalogoGradoJuniorVacio() {
+        return new CursoService(
+            GradosService.GradoJuniorId,
+            2,
+            "C++ Junior",
+            "Consolida las bases y prepárate para trabajar con colecciones, matrices, estructuras y archivos.",
+            "Grado_02",
+            TotalPracticasPlaneadasGradoJunior,
+            "Las prácticas de Grado 2 están en desarrollo.",
+            Array.Empty<TemaCurso>());
+    }
+
+    private static IReadOnlyList<TemaCurso> CrearTemasGradoFundamentos() {
         IReadOnlyList<PracticaCurso> practicasVariables = CrearPracticasVariables();
         IReadOnlyList<PracticaCurso> practicasCondicionales = CrearPracticasCondicionales();
         IReadOnlyList<PracticaCurso> practicasCiclos = CrearPracticasCiclos();
@@ -71,37 +124,7 @@ public sealed class CursoService {
                 4,
                 "Funciones",
                 "Aprende a dividir tus programas en bloques reutilizables, claros y fáciles de mantener.",
-                practicasFunciones),
-            CrearTemaProximamente(
-                "strings",
-                5,
-                "Strings",
-                "Trabaja con texto, caracteres y operaciones sobre cadenas."),
-            CrearTemaProximamente(
-                "arrays",
-                6,
-                "Arrays",
-                "Agrupa y procesa colecciones de datos de tamaño fijo."),
-            CrearTemaProximamente(
-                "structs",
-                7,
-                "Structs",
-                "Modela información relacionada mediante estructuras."),
-            CrearTemaProximamente(
-                "vectores",
-                8,
-                "Vectores",
-                "Administra colecciones dinámicas con la biblioteca estándar."),
-            CrearTemaProximamente(
-                "archivos",
-                9,
-                "Archivos",
-                "Guarda y recupera información utilizando archivos."),
-            CrearTemaProximamente(
-                "poo",
-                10,
-                "POO",
-                "Construye programas mediante clases, objetos y encapsulamiento.")
+                practicasFunciones)
         });
     }
 
@@ -120,23 +143,6 @@ public sealed class CursoService {
             TotalPracticasPlaneadas = PracticasPlaneadasPorTema,
             Practicas = practicas,
             EsProximamente = false
-        };
-    }
-
-    private static TemaCurso CrearTemaProximamente(
-        string id,
-        int numero,
-        string nombre,
-        string descripcion) {
-        return new TemaCurso {
-            Id = id,
-            Numero = numero,
-            Nombre = nombre,
-            NombreCarpeta = $"{numero:00}_{nombre}",
-            Descripcion = descripcion,
-            TotalPracticasPlaneadas = PracticasPlaneadasPorTema,
-            EsProximamente = true,
-            MensajeDisponibilidad = MensajeProximamente
         };
     }
 

@@ -131,8 +131,7 @@ public partial class frmPrincipal {
     private int ultimoAnchoContenidoEstadisticas = -1;
     private int ultimoDpiEstadisticas = -1;
     private bool ultimoModoAmplioEstadisticas;
-    private readonly ProgresoCursoService progresoEstadisticasService = new();
-    private readonly CursoService cursoEstadisticasService = new();
+    private int ultimaCantidadFilasDominioVisibles = -1;
 
     private Panel panelEstadisticas = null!;
     private Panel panelIndicadorEstadisticas = null!;
@@ -309,7 +308,7 @@ public partial class frmPrincipal {
     }
 
     private void PanelEstadisticas_Click(object? sender, EventArgs e) {
-        if (!estructuraEstadisticasInicializada) {
+        if (!estructuraEstadisticasInicializada || !cursoPreparado) {
             return;
         }
 
@@ -613,7 +612,7 @@ public partial class frmPrincipal {
     }
 
     private DatosVistaEstadisticas CrearDatosEstadisticasReales() {
-        IReadOnlyList<TemaCurso> temasDisponibles = cursoEstadisticasService
+        IReadOnlyList<TemaCurso> temasDisponibles = cursoService
             .CargarTemas()
             .Where(tema => !tema.EsProximamente)
             .OrderBy(tema => tema.Numero)
@@ -626,7 +625,7 @@ public partial class frmPrincipal {
                 grupo => grupo.First(),
                 StringComparer.OrdinalIgnoreCase);
         ResultadoCargaProgreso cargaProgreso =
-            progresoEstadisticasService.CargarProgreso();
+            progresoCursoService.CargarProgreso();
         IReadOnlyList<ProgresoPractica> progreso = cargaProgreso.DatosDisponibles
             ? cargaProgreso.Progreso.Practicas
             : Array.Empty<ProgresoPractica>();
@@ -709,22 +708,9 @@ public partial class frmPrincipal {
         CrearProgresoTemasEstadisticas(
             IReadOnlyList<TemaCurso> temasDisponibles,
             IReadOnlySet<string> practicasRealizadas) {
-        string[] temasMostrados = {
-            "variables",
-            "condicionales",
-            "ciclos",
-            "funciones"
-        };
-        Dictionary<string, TemaCurso> temasPorId = temasDisponibles.ToDictionary(
-            tema => tema.Id,
-            StringComparer.OrdinalIgnoreCase);
-        List<DatosDominioTemaEstadistica> resultado = new(temasMostrados.Length);
+        List<DatosDominioTemaEstadistica> resultado = new(temasDisponibles.Count);
 
-        foreach (string temaId in temasMostrados) {
-            if (!temasPorId.TryGetValue(temaId, out TemaCurso? tema)) {
-                continue;
-            }
-
+        foreach (TemaCurso tema in temasDisponibles.OrderBy(item => item.Numero)) {
             int publicadas = tema.Practicas.Count;
             int realizadas = tema.Practicas.Count(practica =>
                 practicasRealizadas.Contains(practica.Id));
@@ -838,6 +824,15 @@ public partial class frmPrincipal {
             return;
         }
 
+        lblTituloEstadisticas.Text =
+            $"Tus estadísticas · {ObtenerEtiquetaGradoActual()}";
+        lblSubtituloEstadisticas.Text =
+            $"Consulta tu progreso, rendimiento y actividad en {cursoService.NombreGrado}.";
+        lblDescripcionDominioEstadisticas.Text = datos.DominioTemas.Count == 0
+            ? cursoService.MensajeSinContenido
+            : "Tu nivel actual en los temas disponibles de este grado.";
+        AsegurarFilasDominioEstadisticas(datos.DominioTemas.Count);
+
         tarjetasResumenEstadisticas[0].Valor.Text =
             $"{datos.PracticasCompletadas} de {datos.TotalPracticas}";
         tarjetasResumenEstadisticas[1].Valor.Text = datos.PromedioGeneral.HasValue
@@ -881,10 +876,24 @@ public partial class frmPrincipal {
             presentacion.Nivel.ForeColor = ObtenerColorNivelEstadistica(tema.Nivel);
         }
 
+        if (ultimaCantidadFilasDominioVisibles != filasDisponibles) {
+            ultimaCantidadFilasDominioVisibles = filasDisponibles;
+            ultimoAnchoContenidoEstadisticas = -1;
+        }
+
         tarjetasActividadEstadisticas[0].Valor.Text = datos.MejorCalificacion;
         tarjetasActividadEstadisticas[1].Valor.Text = datos.TiempoPromedioPractica;
         tarjetasActividadEstadisticas[2].Valor.Text = datos.TiempoTotalProgramando;
         tarjetasActividadEstadisticas[3].Valor.Text = datos.TemaMasPracticado;
+    }
+
+    private void AsegurarFilasDominioEstadisticas(int cantidad) {
+        while (filasDominioEstadisticas.Count < cantidad) {
+            PresentacionDominioTemaEstadistica fila =
+                CrearFilaDominioTemaEstadistica(string.Empty);
+            filasDominioEstadisticas.Add(fila);
+            panelDominioEstadisticas.Controls.Add(fila.Fila);
+        }
     }
 
     private static Color ObtenerColorNivelEstadistica(string nivel) {
@@ -1114,9 +1123,11 @@ public partial class frmPrincipal {
         int altoFila = EscalarDiseno(modoAmplio ? 66 : 76);
         int inicioFilas = EscalarDiseno(58);
         int anchoFila = Math.Max(1, anchoContenido - margen * 2);
+        int filasVisibles = filasDominioEstadisticas.Count(fila =>
+            fila.Fila.Visible);
         int altoPanel = inicioFilas +
-            filasDominioEstadisticas.Count * altoFila +
-            Math.Max(0, filasDominioEstadisticas.Count - 1) * separacion +
+            filasVisibles * altoFila +
+            Math.Max(0, filasVisibles - 1) * separacion +
             margen;
 
         panelDominioEstadisticas.Size = new Size(anchoContenido, altoPanel);
@@ -1126,14 +1137,20 @@ public partial class frmPrincipal {
             anchoFila,
             EscalarDiseno(26));
 
-        for (int indice = 0; indice < filasDominioEstadisticas.Count; indice++) {
-            PresentacionDominioTemaEstadistica fila = filasDominioEstadisticas[indice];
+        int indiceVisible = 0;
+
+        foreach (PresentacionDominioTemaEstadistica fila in filasDominioEstadisticas) {
+            if (!fila.Fila.Visible) {
+                continue;
+            }
+
             fila.Fila.SetBounds(
                 margen,
-                inicioFilas + indice * (altoFila + separacion),
+                inicioFilas + indiceVisible * (altoFila + separacion),
                 anchoFila,
                 altoFila);
             ActualizarGeometriaFilaDominio(fila, anchoFila, altoFila, modoAmplio);
+            indiceVisible++;
         }
     }
 

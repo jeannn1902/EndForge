@@ -2,6 +2,7 @@ using EndForge.Models;
 using EndForge.Services;
 using EndForge.Controls;
 using System.Drawing.Drawing2D;
+using System.Security;
 
 namespace EndForge;
 
@@ -167,6 +168,7 @@ public partial class frmPrincipal {
     private PanelDesplazableSinBarras desplazamientoDetallePractica = null!;
     private Panel panelPerfilCurso = null!;
     private Label lblTituloTemasCurso = null!;
+    private Label? lblEstadoVacioTemasCurso;
     private FlowLayoutPanel listaTemasCurso = null!;
     private FlowLayoutPanel listaPracticasTema = null!;
     private FlowLayoutPanel contenidoDetallePractica = null!;
@@ -507,21 +509,21 @@ public partial class frmPrincipal {
         panelPerfilCurso.TabIndex = 0;
 
         lblTituloPerfilCurso = CrearLabelCurso(
-            "Grado 1",
+            "Grado",
             new Point(22, 18),
             new Size(232, 34),
             TamanoFuenteCurso.TituloPerfil,
             FontStyle.Bold,
             Color.White);
         lblNombrePerfilCurso = CrearLabelCurso(
-            "Fundamentos de C++",
+            "Curso de C++",
             new Point(22, 54),
             new Size(232, 24),
             TamanoFuenteCurso.NombrePerfil,
             FontStyle.Bold,
             ColorMoradoClaroCurso);
         lblNivelPerfilCurso = CrearLabelCurso(
-            "Aprende las bases esenciales de la programación en C++, desde variables y decisiones hasta archivos e introducción a la programación orientada a objetos.",
+            string.Empty,
             new Point(22, 80),
             new Size(232, 22),
             TamanoFuenteCurso.TextoPerfil,
@@ -551,7 +553,7 @@ public partial class frmPrincipal {
 
         lblContenidoGradoCurso = CrearLabelCurso(
             $"CONTENIDO DEL GRADO\n{cursoService.TotalPracticasDisponibles} de " +
-            $"{GradosService.MetaCurricularPracticasGradoFundamentos} prácticas publicadas",
+            $"{cursoService.TotalPracticasPlaneadas} prácticas publicadas",
             new Point(22, 174),
             new Size(232, 42),
             TamanoFuenteCurso.ProgresoPerfil,
@@ -799,7 +801,7 @@ public partial class frmPrincipal {
 
             SeleccionarPanelMenu(panelCurso);
 
-            if (gradoSeleccionadoEnSesion) {
+            if (gradoCursoSeleccionado is not null) {
                 MostrarCursoPrincipal();
                 return;
             }
@@ -2152,10 +2154,21 @@ public partial class frmPrincipal {
         int realizadas = ContarPracticasDisponiblesRealizadas();
         int totalDisponibles = cursoService.TotalPracticasDisponibles;
         GradoCurso? grado = gradosService.ObtenerGrado(
-            GradosService.GradoFundamentosId,
+            cursoService.GradoId,
             progresoCurso);
         int totalPlaneadas = grado?.CantidadPracticasPlaneadas ??
-            GradosService.MetaCurricularPracticasGradoFundamentos;
+            cursoService.TotalPracticasPlaneadas;
+
+        if (grado is not null &&
+            gradoCursoSeleccionado?.Id.Equals(
+                grado.Id,
+                StringComparison.OrdinalIgnoreCase) == true) {
+            gradoCursoSeleccionado = grado;
+        }
+
+        lblTituloPerfilCurso.Text = ObtenerEtiquetaGradoActual();
+        lblNombrePerfilCurso.Text = cursoService.NombreGrado;
+        lblNivelPerfilCurso.Text = cursoService.DescripcionGrado;
         int porcentajeDisponible = totalDisponibles == 0
             ? 0
             : Math.Clamp(
@@ -2246,10 +2259,9 @@ public partial class frmPrincipal {
 
     private void BtnContinuarAprendizaje_Click(object? sender, EventArgs e) {
         if (btnContinuarAprendizaje.Tag is PracticaCurso practica) {
-            ProgresoPractica? progreso = ObtenerProgresoPractica(practica.Id);
+            string rutaProyecto = ObtenerRutaProyectoExistente(practica);
 
-            if (string.IsNullOrWhiteSpace(progreso?.RutaProyecto) ||
-                !Directory.Exists(progreso.RutaProyecto)) {
+            if (string.IsNullOrWhiteSpace(rutaProyecto)) {
                 MessageBox.Show(
                     "La carpeta guardada para esta práctica ya no existe o no está disponible. " +
                     "Puedes revisar el detalle sin perder tu progreso.",
@@ -2275,7 +2287,7 @@ public partial class frmPrincipal {
             bool hayContenido = cursoService.CargarTemas().Any(tema =>
                 !tema.EsProximamente && tema.Practicas.Count > 0);
             GradoCurso? grado = gradosService.ObtenerGrado(
-                GradosService.GradoFundamentosId,
+                cursoService.GradoId,
                 progresoCurso);
             bool faltaContenidoPorPublicar =
                 grado is not null &&
@@ -2284,7 +2296,7 @@ public partial class frmPrincipal {
                 ? faltaContenidoPorPublicar
                     ? "Contenido disponible completado"
                     : "Grado completado"
-                : "No hay una práctica recomendada disponible.";
+                : cursoService.MensajeSinContenido;
             btnVerPracticaRecomendadaCurso.Visible = false;
             btnVerPracticaRecomendadaCurso.Tag = null;
             return;
@@ -2300,6 +2312,10 @@ public partial class frmPrincipal {
                 : NormalizarDificultad(practica.Dificultad));
         btnVerPracticaRecomendadaCurso.Visible = true;
         btnVerPracticaRecomendadaCurso.Tag = practica;
+    }
+
+    private string ObtenerEtiquetaGradoActual() {
+        return $"Grado {cursoService.NumeroGrado}";
     }
 
     private (TemaCurso Tema, PracticaCurso Practica)? ObtenerPracticaRecomendada() {
@@ -2395,10 +2411,16 @@ public partial class frmPrincipal {
         bool actualizarGeometriaSiVigente = true) {
         IReadOnlyList<TemaCurso> temas = cursoService.CargarTemas();
         EstadoContenidoTema[] estadoActual = CapturarEstadoTarjetasTemas(temas);
+        bool catalogoVacio = temas.Count == 0;
+        bool controlesVigentes = catalogoVacio
+            ? listaTemasCurso.Controls.Count == 1 &&
+              lblEstadoVacioTemasCurso is not null &&
+              !lblEstadoVacioTemasCurso.IsDisposed
+            : listaTemasCurso.Controls.Count == temas.Count &&
+              listaTemasCurso.Controls.OfType<Panel>().All(tarjeta =>
+                  tarjeta.Tag is PresentacionTarjetaTema);
         bool contenidoVigente =
-            listaTemasCurso.Controls.Count == temas.Count &&
-            listaTemasCurso.Controls.OfType<Panel>().All(tarjeta =>
-                tarjeta.Tag is PresentacionTarjetaTema) &&
+            controlesVigentes &&
             estadoTarjetasTemas.SequenceEqual(estadoActual);
 
         if (contenidoVigente) {
@@ -2413,6 +2435,7 @@ public partial class frmPrincipal {
 
         try {
             VaciarYDisponerControles(listaTemasCurso);
+            lblEstadoVacioTemasCurso = null;
 
             int anchoTarjeta = Math.Max(
                 1,
@@ -2446,6 +2469,23 @@ public partial class frmPrincipal {
             int anchoDescripcion = presentacionCompacta
                 ? anchoInterior
                 : anchoTextoAmplio;
+
+            if (catalogoVacio) {
+                lblEstadoVacioTemasCurso = CrearLabelCurso(
+                    cursoService.MensajeSinContenido,
+                    Point.Empty,
+                    new Size(anchoTarjeta, EscalarDiseno(96)),
+                    TamanoFuenteCurso.TextoDetalle,
+                    FontStyle.Regular,
+                    ColorTextoSecundarioCurso,
+                    ContentAlignment.MiddleCenter);
+                lblEstadoVacioTemasCurso.Margin = new Padding(
+                    0,
+                    EscalarDiseno(12),
+                    0,
+                    0);
+                listaTemasCurso.Controls.Add(lblEstadoVacioTemasCurso);
+            }
 
             foreach (TemaCurso tema in temas) {
                 int realizadas = ContarPracticasRealizadas(tema);
@@ -2742,6 +2782,11 @@ public partial class frmPrincipal {
             listaTemasCurso.SuspendLayout();
 
             try {
+                if (lblEstadoVacioTemasCurso is not null &&
+                    !lblEstadoVacioTemasCurso.IsDisposed) {
+                    lblEstadoVacioTemasCurso.Width = anchoTarjeta;
+                }
+
                 foreach (Panel tarjeta in listaTemasCurso.Controls.OfType<Panel>()) {
                     if (tarjeta.Tag is PresentacionTarjetaTema presentacion) {
                         AplicarGeometriaTarjetaTema(tarjeta, presentacion, anchoTarjeta);
@@ -3351,11 +3396,8 @@ public partial class frmPrincipal {
     }
 
     private void AsegurarDetallePracticaVigente(PracticaCurso practica) {
-        ProgresoPractica? progreso = ObtenerProgresoPractica(practica.Id);
-        string rutaProyecto = progreso?.RutaProyecto ?? string.Empty;
-        bool rutaProyectoExiste =
-            !string.IsNullOrWhiteSpace(rutaProyecto) &&
-            Directory.Exists(rutaProyecto);
+        string rutaProyecto = ObtenerRutaProyectoExistente(practica);
+        bool rutaProyectoExiste = !string.IsNullOrWhiteSpace(rutaProyecto);
         bool contenidoVigente =
             contenidoDetallePractica.Controls.Count > 0 &&
             ReferenceEquals(practicaDetalleConstruida, practica) &&
@@ -3376,8 +3418,7 @@ public partial class frmPrincipal {
     }
 
     private void RegistrarEstadoDetallePractica(PracticaCurso practica) {
-        ProgresoPractica? progreso = ObtenerProgresoPractica(practica.Id);
-        string rutaProyecto = progreso?.RutaProyecto ?? string.Empty;
+        string rutaProyecto = ObtenerRutaProyectoExistente(practica);
 
         practicaDetalleConstruida = practica;
         estadoPracticaDetalleConstruida = ObtenerEstadoPractica(practica.Id);
@@ -3719,17 +3760,25 @@ public partial class frmPrincipal {
         }
 
         ProgresoPractica? progreso = ObtenerProgresoPractica(practicaCursoSeleccionada.Id);
-        string rutaProyecto = progreso?.RutaProyecto ?? string.Empty;
-        bool proyectoExiste =
-            !string.IsNullOrWhiteSpace(rutaProyecto) && Directory.Exists(rutaProyecto);
+        string rutaProyecto = ObtenerRutaProyectoExistente(
+            practicaCursoSeleccionada,
+            temaCursoSeleccionado);
+        bool proyectoExiste = !string.IsNullOrWhiteSpace(rutaProyecto);
 
         if (proyectoExiste) {
             bool aperturaExitosa = IntentarAbrirPractica(rutaProyecto, promoverReciente: true);
 
-            if (aperturaExitosa && progreso?.Estado != EstadoPracticaCurso.Realizada) {
+            if (aperturaExitosa &&
+                (progreso?.Estado != EstadoPracticaCurso.Realizada ||
+                 !string.Equals(
+                     progreso.RutaProyecto,
+                     rutaProyecto,
+                     StringComparison.OrdinalIgnoreCase))) {
                 PersistirEstadoPractica(
                     practicaCursoSeleccionada.Id,
-                    EstadoPracticaCurso.EnProgreso,
+                    progreso?.Estado == EstadoPracticaCurso.Realizada
+                        ? EstadoPracticaCurso.Realizada
+                        : EstadoPracticaCurso.EnProgreso,
                     rutaProyecto);
             }
 
@@ -3740,11 +3789,13 @@ public partial class frmPrincipal {
         }
 
         ResultadoCreacionPractica? resultado = EjecutarCreacionPractica(
-            temaCursoSeleccionado.NombreCarpeta,
+            ObtenerRutaRelativaTemaCurso(temaCursoSeleccionado),
             practicaCursoSeleccionada.NombreProyecto,
             practicaCursoSeleccionada.Objetivo,
             () => { },
-            out rutaProyecto);
+            out rutaProyecto,
+            crearCarpetaTemaSiNoExiste: true,
+            nombreTemaParaDocumentacion: temaCursoSeleccionado.NombreCarpeta);
 
         if (resultado is null) {
             return;
@@ -3856,9 +3907,8 @@ public partial class frmPrincipal {
 
     private string ObtenerTextoAccionPractica(PracticaCurso practica) {
         ProgresoPractica? progreso = ObtenerProgresoPractica(practica.Id);
-        bool existe =
-            !string.IsNullOrWhiteSpace(progreso?.RutaProyecto) &&
-            Directory.Exists(progreso.RutaProyecto);
+        bool existe = !string.IsNullOrWhiteSpace(
+            ObtenerRutaProyectoExistente(practica));
 
         if (!existe) {
             return "Crear práctica";
@@ -3867,6 +3917,106 @@ public partial class frmPrincipal {
         return progreso!.Estado == EstadoPracticaCurso.Realizada
             ? "Abrir práctica"
             : "Continuar práctica";
+    }
+
+    private string ObtenerRutaRelativaTemaCurso(TemaCurso tema) {
+        return Path.Combine(
+            cursoService.NombreCarpetaGrado,
+            tema.NombreCarpeta);
+    }
+
+    private string ObtenerRutaProyectoExistente(
+        PracticaCurso practica,
+        TemaCurso? tema = null) {
+        ProgresoPractica? progreso = ObtenerProgresoPractica(practica.Id);
+
+        if (!string.IsNullOrWhiteSpace(progreso?.RutaProyecto) &&
+            Directory.Exists(progreso.RutaProyecto)) {
+            return progreso.RutaProyecto;
+        }
+
+        TemaCurso? temaPractica = tema ?? cursoService.ObtenerTema(practica.TemaId);
+
+        if (temaPractica is null || string.IsNullOrWhiteSpace(rutaBase)) {
+            return string.Empty;
+        }
+
+        IEnumerable<string> rutasRelativas = new[] {
+            ObtenerRutaRelativaTemaCurso(temaPractica)
+        };
+
+        if (cursoService.GradoId.Equals(
+            GradosService.GradoFundamentosId,
+            StringComparison.OrdinalIgnoreCase)) {
+            rutasRelativas = rutasRelativas.Append(temaPractica.NombreCarpeta);
+        }
+
+        foreach (string rutaRelativa in rutasRelativas) {
+            string? rutaTema = IntentarCombinarRutaBase(rutaRelativa);
+
+            if (string.IsNullOrWhiteSpace(rutaTema) || !Directory.Exists(rutaTema)) {
+                continue;
+            }
+
+            try {
+                string? coincidencia = Directory
+                    .EnumerateDirectories(rutaTema)
+                    .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
+                    .FirstOrDefault(ruta =>
+                        EsCarpetaDePractica(ruta, practica.NombreProyecto));
+
+                if (!string.IsNullOrWhiteSpace(coincidencia)) {
+                    return coincidencia;
+                }
+            } catch (UnauthorizedAccessException) {
+                continue;
+            } catch (SecurityException) {
+                continue;
+            } catch (IOException) {
+                continue;
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private string? IntentarCombinarRutaBase(string rutaRelativa) {
+        try {
+            string baseCompleta = Path.GetFullPath(rutaBase);
+            string rutaCompleta = Path.GetFullPath(
+                Path.Combine(baseCompleta, rutaRelativa));
+            string relativaNormalizada = Path.GetRelativePath(
+                baseCompleta,
+                rutaCompleta);
+
+            if (Path.IsPathRooted(relativaNormalizada) ||
+                relativaNormalizada.Equals("..", StringComparison.Ordinal) ||
+                relativaNormalizada.StartsWith(
+                    $"..{Path.DirectorySeparatorChar}",
+                    StringComparison.Ordinal) ||
+                relativaNormalizada.StartsWith(
+                    $"..{Path.AltDirectorySeparatorChar}",
+                    StringComparison.Ordinal)) {
+                return null;
+            }
+
+            return rutaCompleta;
+        } catch (Exception) {
+            return null;
+        }
+    }
+
+    private static bool EsCarpetaDePractica(
+        string ruta,
+        string nombreProyecto) {
+        string nombreCarpeta = Path.GetFileName(ruta);
+        int separador = nombreCarpeta.IndexOf('_');
+
+        return separador > 0 &&
+            int.TryParse(nombreCarpeta[..separador], out _) &&
+            nombreCarpeta[(separador + 1)..].Equals(
+                nombreProyecto,
+                StringComparison.OrdinalIgnoreCase);
     }
 
     private ProgresoPractica? ObtenerProgresoPractica(string practicaId) {

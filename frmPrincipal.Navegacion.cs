@@ -5,7 +5,6 @@ namespace EndForge;
 public partial class frmPrincipal {
     private bool eventosVistasRutaAprendizajeConfigurados;
     private bool rutaAprendizajeInmersivaActiva;
-    private bool gradoSeleccionadoEnSesion;
 
     private void ConfigurarEventosVistasRutaAprendizaje() {
         if (eventosVistasRutaAprendizajeConfigurados || !cursoInicializado) {
@@ -39,7 +38,6 @@ public partial class frmPrincipal {
             return;
         }
 
-        gradoSeleccionadoEnSesion = true;
         RestaurarNavegacionDetalleGrado();
     }
 
