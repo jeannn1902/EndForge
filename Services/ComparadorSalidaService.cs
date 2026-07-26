@@ -65,13 +65,17 @@ public sealed partial class ComparadorSalidaService {
                         CompararSecuenciaCompuesta(salida, secuencia))
                     .ToList()
                 : new List<ResultadoSecuenciaCompuestaComparada>();
+        ResultadoReglasEstructuradas reglasEstructuradas =
+            CompararReglasEstructuradas(caso, salida);
 
         bool cumpleTexto =
             tokensFaltantes.Count == 0 &&
             gruposFaltantes.Count == 0 &&
             textosComparados.All(valor => valor.Coincide);
         bool hayReglasValores =
-            valoresComparados.Count > 0 || booleanosComparados.Count > 0;
+            valoresComparados.Count > 0 ||
+            booleanosComparados.Count > 0 ||
+            reglasEstructuradas.TieneReglas;
         bool valoresCorrectos = caso.ModoComparacion switch {
             ModoComparacionCaso.Texto => true,
             ModoComparacionCaso.Secuencia => true,
@@ -85,9 +89,10 @@ public sealed partial class ComparadorSalidaService {
                 booleanosComparados.All(valor => valor.Coincide)
         };
         bool secuenciasCorrectas = !compararSecuencias ||
-            secuenciasComparadas.Count + secuenciasCompuestasComparadas.Count > 0 &&
-            secuenciasComparadas.All(secuencia => secuencia.Coincide) &&
-            secuenciasCompuestasComparadas.All(secuencia => secuencia.Coincide);
+            (secuenciasComparadas.Count + secuenciasCompuestasComparadas.Count > 0
+                ? secuenciasComparadas.All(secuencia => secuencia.Coincide) &&
+                  secuenciasCompuestasComparadas.All(secuencia => secuencia.Coincide)
+                : reglasEstructuradas.TieneReglas);
         bool etiquetasValoresPresentes = !compararValores ||
             valoresComparados.All(valor =>
                 valor.EsOpcional ||
@@ -102,7 +107,8 @@ public sealed partial class ComparadorSalidaService {
             cumpleTexto &&
             etiquetasValoresPresentes &&
             etiquetasTextoPresentes &&
-            secuenciasCorrectas;
+            secuenciasCorrectas &&
+            reglasEstructuradas.Coincide;
         List<string> contradicciones = valoresComparados
             .Where(valor => valor.TieneContradiccion)
             .Select(valor => valor.Nombre)
@@ -112,6 +118,7 @@ public sealed partial class ComparadorSalidaService {
             .Concat(textosComparados
                 .Where(valor => valor.TieneContradiccion)
                 .Select(valor => valor.Nombre))
+            .Concat(reglasEstructuradas.Contradicciones)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
         List<string> etiquetasAlternativas = valoresComparados
@@ -136,10 +143,12 @@ public sealed partial class ComparadorSalidaService {
             textosComparados,
             secuenciasComparadas,
             secuenciasCompuestasComparadas);
+        reglasCumplidas.AddRange(reglasEstructuradas.ReglasCumplidas);
         List<string> reglasIncumplidas = CrearReglasIncumplidas(
             caso,
             compararTexto,
             compararValores,
+            reglasEstructuradas.TieneReglas,
             tokensFaltantes,
             gruposFaltantes,
             valoresComparados,
@@ -147,19 +156,29 @@ public sealed partial class ComparadorSalidaService {
             textosComparados,
             secuenciasComparadas,
             secuenciasCompuestasComparadas);
-        bool salidaLegible = EsLegible(
-            salida,
-            compararTexto
-                ? caso.TokensObligatorios.Count - tokensFaltantes.Count
-                : 0,
-            compararTexto ? caso.TokensObligatorios.Count : 0,
-            secuenciasComparadas.Any(secuencia => secuencia.CantidadEncontrada > 0) ||
-            secuenciasCompuestasComparadas.Any(secuencia =>
-                secuencia.CantidadEncontrada > 0));
+        reglasIncumplidas.AddRange(reglasEstructuradas.ReglasIncumplidas);
+        bool cadenaVaciaValida = reglasEstructuradas.Cadenas.Any(cadena =>
+            cadena.Coincide &&
+            string.IsNullOrEmpty(cadena.ValorEsperado) &&
+            cadena.ValoresEncontrados.Any(string.IsNullOrEmpty));
+        bool salidaLegible =
+            cadenaVaciaValida ||
+            EsLegible(
+                salida,
+                compararTexto
+                    ? caso.TokensObligatorios.Count - tokensFaltantes.Count
+                    : 0,
+                compararTexto ? caso.TokensObligatorios.Count : 0,
+                secuenciasComparadas.Any(secuencia =>
+                    secuencia.CantidadEncontrada > 0) ||
+                secuenciasCompuestasComparadas.Any(secuencia =>
+                    secuencia.CantidadEncontrada > 0) ||
+                reglasEstructuradas.TieneEstructuraReconocible);
         bool esCorrecta =
             cumpleTexto &&
             valoresCorrectos &&
             secuenciasCorrectas &&
+            reglasEstructuradas.Coincide &&
             contradicciones.Count == 0;
 
         return new ResultadoComparacionSalida {
@@ -173,20 +192,28 @@ public sealed partial class ComparadorSalidaService {
             ValoresTextuales = textosComparados.AsReadOnly(),
             Secuencias = secuenciasComparadas.AsReadOnly(),
             SecuenciasCompuestas = secuenciasCompuestasComparadas.AsReadOnly(),
+            Colecciones = reglasEstructuradas.Colecciones,
+            Cadenas = reglasEstructuradas.Cadenas,
+            Tablas = reglasEstructuradas.Tablas,
+            Matrices = reglasEstructuradas.Matrices,
+            BloquesRegistro = reglasEstructuradas.BloquesRegistro,
             ReglasCumplidas = reglasCumplidas.AsReadOnly(),
             ReglasIncumplidas = reglasIncumplidas.AsReadOnly(),
             ContradiccionesDetectadas = contradicciones.AsReadOnly(),
             EtiquetasAlternativasReconocidas = etiquetasAlternativas.AsReadOnly(),
-            Mensaje = CrearMensaje(
-                salida,
-                esCorrecta,
-                cumpleEstructura,
-                valoresComparados,
-                booleanosComparados,
-                textosComparados,
-                secuenciasComparadas,
-                secuenciasCompuestasComparadas,
-                contradicciones)
+            Mensaje = reglasEstructuradas.TieneReglas &&
+                !reglasEstructuradas.Coincide
+                    ? reglasEstructuradas.Mensaje
+                    : CrearMensaje(
+                        salida,
+                        esCorrecta,
+                        cumpleEstructura,
+                        valoresComparados,
+                        booleanosComparados,
+                        textosComparados,
+                        secuenciasComparadas,
+                        secuenciasCompuestasComparadas,
+                        contradicciones)
         };
     }
 
@@ -2353,6 +2380,7 @@ public sealed partial class ComparadorSalidaService {
         CasoPrueba caso,
         bool compararTexto,
         bool compararValores,
+        bool tieneReglasEstructuradas,
         IReadOnlyList<string> tokensFaltantes,
         IReadOnlyList<string> gruposFaltantes,
         IReadOnlyList<ResultadoValorNumericoComparado> valores,
@@ -2390,7 +2418,8 @@ public sealed partial class ComparadorSalidaService {
 
             if (caso.ModoComparacion == ModoComparacionCaso.Valores &&
                 valores.Count == 0 &&
-                booleanos.Count == 0) {
+                booleanos.Count == 0 &&
+                !tieneReglasEstructuradas) {
                 reglas.Add("El caso no tiene valores configurados para comparar.");
             }
         }
@@ -2416,12 +2445,12 @@ public sealed partial class ComparadorSalidaService {
         IReadOnlyList<ResultadoSecuenciaComparada> secuencias,
         IReadOnlyList<ResultadoSecuenciaCompuestaComparada> secuenciasCompuestas,
         IReadOnlyList<string> contradicciones) {
-        if (string.IsNullOrWhiteSpace(salida)) {
-            return "El programa terminó sin mostrar una salida que pueda evaluarse.";
-        }
-
         if (esCorrecta) {
             return "La salida contiene los datos y cálculos esperados.";
+        }
+
+        if (string.IsNullOrWhiteSpace(salida)) {
+            return "El programa terminó sin mostrar una salida que pueda evaluarse.";
         }
 
         if (contradicciones.Count > 0) {

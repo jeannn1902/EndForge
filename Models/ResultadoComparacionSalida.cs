@@ -28,6 +28,22 @@ public sealed class ResultadoComparacionSalida {
         SecuenciasCompuestas { get; init; } =
             Array.Empty<ResultadoSecuenciaCompuestaComparada>();
 
+    public IReadOnlyList<ResultadoColeccionComparada> Colecciones { get; init; } =
+        Array.Empty<ResultadoColeccionComparada>();
+
+    public IReadOnlyList<ResultadoCadenaComparada> Cadenas { get; init; } =
+        Array.Empty<ResultadoCadenaComparada>();
+
+    public IReadOnlyList<ResultadoTablaComparada> Tablas { get; init; } =
+        Array.Empty<ResultadoTablaComparada>();
+
+    public IReadOnlyList<ResultadoMatrizComparada> Matrices { get; init; } =
+        Array.Empty<ResultadoMatrizComparada>();
+
+    public IReadOnlyList<ResultadoBloquesRegistroComparados>
+        BloquesRegistro { get; init; } =
+            Array.Empty<ResultadoBloquesRegistroComparados>();
+
     public IReadOnlyList<string> ReglasCumplidas { get; init; } = Array.Empty<string>();
 
     public IReadOnlyList<string> ReglasIncumplidas { get; init; } = Array.Empty<string>();

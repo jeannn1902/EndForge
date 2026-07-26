@@ -55,6 +55,22 @@ public sealed class CasoPrueba {
     public IReadOnlyList<SecuenciaCompuestaEsperada>
         SecuenciasCompuestasEsperadas { get; init; } =
             Array.Empty<SecuenciaCompuestaEsperada>();
+
+    public IReadOnlyList<ReglaColeccionEsperada> ColeccionesEsperadas { get; init; } =
+        Array.Empty<ReglaColeccionEsperada>();
+
+    public IReadOnlyList<ReglaCadenaEsperada> CadenasEsperadas { get; init; } =
+        Array.Empty<ReglaCadenaEsperada>();
+
+    public IReadOnlyList<ReglaTablaEsperada> TablasEsperadas { get; init; } =
+        Array.Empty<ReglaTablaEsperada>();
+
+    public IReadOnlyList<ReglaMatrizEsperada> MatricesEsperadas { get; init; } =
+        Array.Empty<ReglaMatrizEsperada>();
+
+    public IReadOnlyList<ReglaBloquesRegistroEsperados>
+        BloquesRegistroEsperados { get; init; } =
+            Array.Empty<ReglaBloquesRegistroEsperados>();
 }
 
 public sealed class GrupoTokensEsperados {
