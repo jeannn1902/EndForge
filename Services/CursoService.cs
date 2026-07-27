@@ -2,7 +2,7 @@ using EndForge.Models;
 
 namespace EndForge.Services;
 
-public sealed class CursoService {
+public sealed partial class CursoService {
     public const int TotalPracticasPlaneadasGradoFundamentos = 20;
     public const int TotalPracticasPlaneadasGradoJunior = 40;
     public const int PracticasPlaneadasPorTema = 5;
@@ -82,7 +82,7 @@ public sealed class CursoService {
                 practica.Id.Equals(practicaId, StringComparison.OrdinalIgnoreCase));
     }
 
-    internal static CursoService CrearCatalogoGradoJuniorVacio() {
+    internal static CursoService CrearCatalogoGradoJunior() {
         return new CursoService(
             GradosService.GradoJuniorId,
             2,
@@ -91,7 +91,7 @@ public sealed class CursoService {
             "Grado_02",
             TotalPracticasPlaneadasGradoJunior,
             "Las prácticas de Grado 2 están en desarrollo.",
-            Array.Empty<TemaCurso>());
+            CrearTemasGradoJunior());
     }
 
     private static IReadOnlyList<TemaCurso> CrearTemasGradoFundamentos() {

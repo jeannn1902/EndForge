@@ -23,7 +23,7 @@ public sealed class GradosService {
                 nameof(cursoGradoFundamentos));
         }
 
-        CursoService cursoGradoJunior = CursoService.CrearCatalogoGradoJuniorVacio();
+        CursoService cursoGradoJunior = CursoService.CrearCatalogoGradoJunior();
         Dictionary<string, CursoService> catalogosPorId = new(
             StringComparer.OrdinalIgnoreCase) {
                 [cursoGradoFundamentos.GradoId] = cursoGradoFundamentos,

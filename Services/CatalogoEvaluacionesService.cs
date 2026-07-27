@@ -3,7 +3,7 @@ using System.Globalization;
 
 namespace EndForge.Services;
 
-public sealed class CatalogoEvaluacionesService {
+public sealed partial class CatalogoEvaluacionesService {
     public const string DatosPersonalesId = "variables-datos-personales";
     public const string TicketCompraId = "variables-ticket-compra";
     public const string ConversorTemperaturaId = "variables-conversor-temperatura";
@@ -87,7 +87,17 @@ public sealed class CatalogoEvaluacionesService {
             CrearSumarDosNumeros(rubrica),
             CrearNumeroPar(rubrica),
             CrearCalcularPromedio(rubrica),
-            CrearCalculadoraModular(rubrica)
+            CrearCalculadoraModular(rubrica),
+            CrearArreglosCapturarMostrar(rubrica),
+            CrearArreglosSumaElementos(rubrica),
+            CrearArreglosPromedio(rubrica),
+            CrearArreglosMayorMenor(rubrica),
+            CrearArreglosContarParesImpares(rubrica),
+            CrearArreglosBuscarValor(rubrica),
+            CrearArreglosInvertir(rubrica),
+            CrearArreglosIntercalar(rubrica),
+            CrearArreglosSinDuplicados(rubrica),
+            CrearArreglosOrdenarSegundoMayor(rubrica)
         });
     }
 
@@ -2946,7 +2956,8 @@ public sealed class CatalogoEvaluacionesService {
                     !TieneReglasAplicables(caso) ||
                     caso.SecuenciasEsperadas.Any(SecuenciaInvalida) ||
                     caso.SecuenciasCompuestasEsperadas.Any(
-                        SecuenciaCompuestaInvalida)) ||
+                        SecuenciaCompuestaInvalida) ||
+                    caso.ColeccionesEsperadas.Any(ColeccionInvalida)) ||
                 definicion.CasosPrueba.Sum(caso => caso.Puntos) != PuntosCasosPrueba;
 
             if (casosInvalidos ||
@@ -2967,18 +2978,55 @@ public sealed class CatalogoEvaluacionesService {
         bool tieneSecuencias = caso.SecuenciasEsperadas.Count > 0;
         bool tieneSecuenciasCompuestas =
             caso.SecuenciasCompuestasEsperadas.Count > 0;
+        bool tieneReglasEstructuradas =
+            caso.ColeccionesEsperadas.Count > 0 ||
+            caso.CadenasEsperadas.Count > 0 ||
+            caso.TablasEsperadas.Count > 0 ||
+            caso.MatricesEsperadas.Count > 0 ||
+            caso.BloquesRegistroEsperados.Count > 0;
 
         return caso.ModoComparacion switch {
             ModoComparacionCaso.Texto => tieneTexto,
-            ModoComparacionCaso.Valores => tieneValores,
+            ModoComparacionCaso.Valores =>
+                tieneValores || tieneReglasEstructuradas,
             ModoComparacionCaso.Secuencia =>
-                tieneSecuencias || tieneSecuenciasCompuestas,
+                tieneSecuencias ||
+                tieneSecuenciasCompuestas ||
+                tieneReglasEstructuradas,
             _ =>
                 tieneTexto ||
                 tieneValores ||
                 tieneSecuencias ||
-                tieneSecuenciasCompuestas
+                tieneSecuenciasCompuestas ||
+                tieneReglasEstructuradas
         };
+    }
+
+    private static bool ColeccionInvalida(ReglaColeccionEsperada coleccion) {
+        if (string.IsNullOrWhiteSpace(coleccion.Nombre) ||
+            coleccion.CantidadExacta is < 0 ||
+            coleccion.RequerirEtiqueta &&
+            (coleccion.EtiquetasInicio.Count == 0 ||
+             coleccion.EtiquetasInicio.Any(string.IsNullOrWhiteSpace)) ||
+            coleccion.Region == ModoRegionColeccion.BloqueHastaEtiquetaFin &&
+            (coleccion.EtiquetasFin.Count == 0 ||
+             coleccion.EtiquetasFin.Any(string.IsNullOrWhiteSpace)) ||
+            coleccion.Separadores.Count == 0 ||
+            coleccion.Separadores.Any(string.IsNullOrEmpty) ||
+            !double.IsFinite(coleccion.ToleranciaNumerica) ||
+            coleccion.ToleranciaNumerica < 0D) {
+            return true;
+        }
+
+        int cantidadEsperada = coleccion.CantidadExacta ??
+            coleccion.ElementosEsperados.Count;
+        return cantidadEsperada != coleccion.ElementosEsperados.Count ||
+            coleccion.ElementosEsperados.Any(elemento =>
+                elemento.Tipo != coleccion.TipoElementos ||
+                elemento.Tipo == TipoValorEstructurado.Numerico &&
+                (!double.IsFinite(elemento.ValorNumerico) ||
+                 !double.IsFinite(elemento.ToleranciaNumerica) ||
+                 elemento.ToleranciaNumerica < 0D));
     }
 
     private static bool SecuenciaInvalida(SecuenciaEsperada secuencia) {
