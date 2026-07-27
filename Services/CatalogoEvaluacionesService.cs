@@ -113,7 +113,21 @@ public sealed partial class CatalogoEvaluacionesService {
             CrearMatricesTranspuesta(rubrica),
             CrearMatricesSumarDos(rubrica),
             CrearMatricesMultiplicar(rubrica),
-            CrearMatricesMayorMenorPosicion(rubrica)
+            CrearMatricesMayorMenorPosicion(rubrica),
+            CrearEstructurasDatosEstudiante(rubrica),
+            CrearEstructurasPromedioEstudiante(rubrica),
+            CrearEstructurasArregloEstudiantes(rubrica),
+            CrearEstructurasBuscarEstudiante(rubrica),
+            CrearEstructurasMejorPromedio(rubrica),
+            CrearEstructurasOrdenarEstudiantes(rubrica),
+            CrearEstructurasInventarioProductos(rubrica),
+            CrearEstructurasRegistroEmpleados(rubrica),
+            CrearArchivosEscribirTexto(rubrica),
+            CrearArchivosLeerTexto(rubrica),
+            CrearArchivosContarLineasPalabras(rubrica),
+            CrearArchivosGuardarEstudiantes(rubrica),
+            CrearArchivosBuscarRegistro(rubrica),
+            CrearArchivosResumenNumerico(rubrica)
         });
     }
 
@@ -2961,6 +2975,13 @@ public sealed partial class CatalogoEvaluacionesService {
         }
 
         foreach (DefinicionEvaluacionPractica definicion in definiciones) {
+            bool politicaGradoDosInvalida =
+                definicion.PracticaId.StartsWith(
+                    "grado2-",
+                    StringComparison.OrdinalIgnoreCase) &&
+                (definicion.CasosPrueba.Count != 5 ||
+                 definicion.CasosPrueba.Any(caso => caso.Puntos != 12) ||
+                 !definicion.CasosPrueba.Any(caso => !caso.EsVisible));
             bool casosInvalidos = definicion.CasosPrueba.Count == 0 ||
                 definicion.CasosPrueba
                     .Select(caso => caso.Id)
@@ -2977,6 +2998,7 @@ public sealed partial class CatalogoEvaluacionesService {
                 definicion.CasosPrueba.Sum(caso => caso.Puntos) != PuntosCasosPrueba;
 
             if (casosInvalidos ||
+                politicaGradoDosInvalida ||
                 definicion.PuntosCasosPrueba != PuntosCasosPrueba ||
                 definicion.PuntosMaximos != PuntosTotales) {
                 throw new InvalidOperationException(
@@ -3000,21 +3022,29 @@ public sealed partial class CatalogoEvaluacionesService {
             caso.TablasEsperadas.Count > 0 ||
             caso.MatricesEsperadas.Count > 0 ||
             caso.BloquesRegistroEsperados.Count > 0;
+        bool tieneReglasArchivos =
+            caso.SalidaExactaEsperada is not null ||
+            caso.ArchivosEsperados.Count > 0;
 
         return caso.ModoComparacion switch {
-            ModoComparacionCaso.Texto => tieneTexto,
+            ModoComparacionCaso.Texto =>
+                tieneTexto || tieneReglasArchivos,
             ModoComparacionCaso.Valores =>
-                tieneValores || tieneReglasEstructuradas,
+                tieneValores ||
+                tieneReglasEstructuradas ||
+                tieneReglasArchivos,
             ModoComparacionCaso.Secuencia =>
                 tieneSecuencias ||
                 tieneSecuenciasCompuestas ||
-                tieneReglasEstructuradas,
+                tieneReglasEstructuradas ||
+                tieneReglasArchivos,
             _ =>
                 tieneTexto ||
                 tieneValores ||
                 tieneSecuencias ||
                 tieneSecuenciasCompuestas ||
-                tieneReglasEstructuradas
+                tieneReglasEstructuradas ||
+                tieneReglasArchivos
         };
     }
 

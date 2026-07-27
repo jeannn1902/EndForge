@@ -71,6 +71,14 @@ public sealed class CasoPrueba {
     public IReadOnlyList<ReglaBloquesRegistroEsperados>
         BloquesRegistroEsperados { get; init; } =
             Array.Empty<ReglaBloquesRegistroEsperados>();
+
+    public IReadOnlyList<ArchivoEntradaPrueba> ArchivosEntrada { get; init; } =
+        Array.Empty<ArchivoEntradaPrueba>();
+
+    public IReadOnlyList<ArchivoEsperadoPrueba> ArchivosEsperados { get; init; } =
+        Array.Empty<ArchivoEsperadoPrueba>();
+
+    public ReglaSalidaExactaPrueba? SalidaExactaEsperada { get; init; }
 }
 
 public sealed class GrupoTokensEsperados {

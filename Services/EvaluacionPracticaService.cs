@@ -131,12 +131,14 @@ public sealed class EvaluacionPracticaService {
                     indice,
                     definicion.CasosPrueba.Count);
 
-                ResultadoEjecucionPruebaCpp ejecucion =
+                ResultadoEjecucionCasoPruebaCpp ejecucionCaso =
                     await ejecucionPruebasService.EjecutarCasoAsync(
                         sesion,
-                        caso.Entrada,
+                        caso,
                         cancellationToken
                     ).ConfigureAwait(false);
+                ResultadoEjecucionPruebaCpp ejecucion =
+                    ejecucionCaso.Ejecucion;
 
                 if (ejecucion.Estado == EstadoEjecucionPruebaCpp.Cancelada ||
                     cancellationToken.IsCancellationRequested) {
@@ -149,7 +151,7 @@ public sealed class EvaluacionPracticaService {
                         ejecucion.Error);
                 }
 
-                casosEvaluados.Add(EvaluarCaso(caso, ejecucion));
+                casosEvaluados.Add(EvaluarCaso(caso, ejecucionCaso));
             }
         } catch (OperationCanceledException) {
             return CrearCancelacion();
@@ -184,11 +186,28 @@ public sealed class EvaluacionPracticaService {
 
     private CasoEvaluado EvaluarCaso(
         CasoPrueba caso,
-        ResultadoEjecucionPruebaCpp ejecucion) {
+        ResultadoEjecucionCasoPruebaCpp ejecucionCaso) {
+        ResultadoEjecucionPruebaCpp ejecucion = ejecucionCaso.Ejecucion;
+
         if (ejecucion.Estado == EstadoEjecucionPruebaCpp.Exitosa) {
-            ResultadoComparacionSalida comparacion = comparadorSalidaService.Comparar(
+            ResultadoComparacionSalida comparacion =
+                caso.SalidaExactaEsperada is null
+                    ? TieneReglasDeSalida(caso)
+                        ? comparadorSalidaService.Comparar(
+                            caso,
+                            ejecucion.SalidaEstandar)
+                        : CrearComparacionDeSalidaNoRequerida()
+                    : CompararSalidaExacta(
+                        caso,
+                        ejecucion.SalidaEstandar);
+            ResultadoComparacionArchivos archivos = CompararArchivos(
                 caso,
-                ejecucion.SalidaEstandar);
+                ejecucionCaso.Archivos);
+            ResultadoComparacionSalida comparacionCompleta =
+                CombinarComparacionConArchivos(
+                    caso,
+                    comparacion,
+                    archivos);
 
             return new CasoEvaluado(
                 new ResultadoCasoPrueba {
@@ -196,14 +215,16 @@ public sealed class EvaluacionPracticaService {
                     Entrada = caso.Entrada,
                     SalidaEsperada = caso.SalidaEsperada,
                     SalidaObtenida = ejecucion.SalidaEstandar,
-                    Aprobado = comparacion.EsCorrecta,
-                    PuntosObtenidos = comparacion.EsCorrecta ? caso.Puntos : 0,
+                    Aprobado = comparacionCompleta.EsCorrecta,
+                    PuntosObtenidos = comparacionCompleta.EsCorrecta
+                        ? caso.Puntos
+                        : 0,
                     PuntosMaximos = caso.Puntos,
-                    Mensaje = comparacion.Mensaje,
+                    Mensaje = comparacionCompleta.Mensaje,
                     EsVisible = caso.EsVisible,
                     EjecucionFinalizada = true
                 },
-                comparacion);
+                comparacionCompleta);
         }
 
         string mensaje = ejecucion.Estado switch {
@@ -230,6 +251,244 @@ public sealed class EvaluacionPracticaService {
                 EjecucionFinalizada = ejecucion.EjecucionFinalizada
             },
             null);
+    }
+
+    private static bool TieneReglasDeSalida(CasoPrueba caso) {
+        return caso.TokensObligatorios.Count > 0 ||
+            caso.GruposTokensAlternativos.Count > 0 ||
+            caso.ValoresNumericosEsperados.Count > 0 ||
+            caso.ValoresBooleanosEsperados.Count > 0 ||
+            caso.ValoresTextualesEsperados.Count > 0 ||
+            caso.SecuenciasEsperadas.Count > 0 ||
+            caso.SecuenciasCompuestasEsperadas.Count > 0 ||
+            caso.ColeccionesEsperadas.Count > 0 ||
+            caso.CadenasEsperadas.Count > 0 ||
+            caso.TablasEsperadas.Count > 0 ||
+            caso.MatricesEsperadas.Count > 0 ||
+            caso.BloquesRegistroEsperados.Count > 0;
+    }
+
+    private static ResultadoComparacionSalida
+        CrearComparacionDeSalidaNoRequerida() {
+        return new ResultadoComparacionSalida {
+            EsCorrecta = true,
+            CumpleEstructura = true,
+            EsSalidaLegible = true,
+            ReglasCumplidas = Array.AsReadOnly(new[] {
+                "La práctica no requiere una salida de consola específica."
+            })
+        };
+    }
+
+    private ResultadoComparacionArchivos CompararArchivos(
+        CasoPrueba caso,
+        IReadOnlyList<ResultadoArchivoPrueba> archivosObtenidos) {
+        if (caso.ArchivosEsperados.Count == 0) {
+            return ResultadoComparacionArchivos.Correcta;
+        }
+
+        foreach (ArchivoEsperadoPrueba esperado in caso.ArchivosEsperados) {
+            ResultadoArchivoPrueba? obtenido = archivosObtenidos
+                .FirstOrDefault(archivo => archivo.RutaRelativa.Equals(
+                    esperado.RutaRelativa,
+                    StringComparison.OrdinalIgnoreCase));
+
+            if (obtenido is null || !obtenido.Disponible) {
+                return new ResultadoComparacionArchivos(
+                    false,
+                    CrearMensajeArchivoNoDisponible(esperado, obtenido));
+            }
+
+            bool coincide;
+            string mensaje;
+
+            if (esperado.ModoComparacion ==
+                ModoComparacionArchivoPrueba.TextoExacto) {
+                coincide = CoincidenTextosExactos(
+                    esperado.ContenidoEsperado,
+                    obtenido.ContenidoObtenido,
+                    esperado.PermitirUnSaltoLineaFinal);
+                mensaje = coincide
+                    ? string.Empty
+                    : $"El contenido de {esperado.RutaRelativa} no coincide exactamente.";
+            } else {
+                CasoPrueba comparacionContenido = new() {
+                    Id = $"{caso.Id}-contenido-archivo",
+                    Nombre = esperado.RutaRelativa,
+                    Puntos = 1,
+                    ComparacionFlexible = true,
+                    ModoComparacion = ModoComparacionCaso.Valores,
+                    CadenasEsperadas = esperado.CadenasEsperadas,
+                    TablasEsperadas = esperado.TablasEsperadas,
+                    BloquesRegistroEsperados =
+                        esperado.BloquesRegistroEsperados
+                };
+                ResultadoComparacionSalida resultadoContenido =
+                    comparadorSalidaService.Comparar(
+                        comparacionContenido,
+                        obtenido.ContenidoObtenido);
+                coincide = resultadoContenido.EsCorrecta;
+                mensaje = coincide
+                    ? string.Empty
+                    : resultadoContenido.Mensaje;
+            }
+
+            if (!coincide) {
+                return new ResultadoComparacionArchivos(false, mensaje);
+            }
+        }
+
+        return ResultadoComparacionArchivos.Correcta;
+    }
+
+    private static ResultadoComparacionSalida CompararSalidaExacta(
+        CasoPrueba caso,
+        string salida) {
+        ReglaSalidaExactaPrueba regla = caso.SalidaExactaEsperada!;
+        bool coincide = CoincidenTextosExactos(
+            regla.ValorEsperado,
+            salida,
+            regla.PermitirUnSaltoLineaFinal);
+        string nombreRegla = "Contenido completo de la salida";
+
+        return new ResultadoComparacionSalida {
+            EsCorrecta = coincide,
+            CumpleEstructura = coincide,
+            EsSalidaLegible = coincide ||
+                !string.IsNullOrWhiteSpace(salida),
+            ReglasCumplidas = coincide
+                ? Array.AsReadOnly(new[] { nombreRegla })
+                : Array.Empty<string>(),
+            ReglasIncumplidas = coincide
+                ? Array.Empty<string>()
+                : Array.AsReadOnly(new[] { nombreRegla }),
+            Mensaje = coincide
+                ? "La salida coincide con el contenido completo del archivo."
+                : caso.EsVisible
+                    ? "La salida debe conservar exactamente todas las líneas y espacios del archivo."
+                    : "La salida del caso oculto no coincide."
+        };
+    }
+
+    private static bool CoincidenTextosExactos(
+        string esperado,
+        string obtenido,
+        bool permitirUnSaltoFinal) {
+        string esperadoNormalizado = NormalizarSaltosLinea(esperado);
+        string obtenidoNormalizado = NormalizarSaltosLinea(obtenido);
+
+        if (permitirUnSaltoFinal) {
+            esperadoNormalizado = QuitarUnSaltoFinal(
+                esperadoNormalizado);
+            obtenidoNormalizado = QuitarUnSaltoFinal(
+                obtenidoNormalizado);
+        }
+
+        return esperadoNormalizado.Equals(
+            obtenidoNormalizado,
+            StringComparison.Ordinal);
+    }
+
+    private static string NormalizarSaltosLinea(string texto) {
+        return texto
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n');
+    }
+
+    private static string QuitarUnSaltoFinal(string texto) {
+        return texto.EndsWith('\n')
+            ? texto[..^1]
+            : texto;
+    }
+
+    private static string CrearMensajeArchivoNoDisponible(
+        ArchivoEsperadoPrueba esperado,
+        ResultadoArchivoPrueba? obtenido) {
+        return obtenido?.Estado switch {
+            EstadoArchivoPrueba.TipoInvalido =>
+                $"{esperado.RutaRelativa} debe ser un archivo regular.",
+            EstadoArchivoPrueba.PuntoDeReanalisis =>
+                $"{esperado.RutaRelativa} no puede ser un enlace o punto de reanálisis.",
+            EstadoArchivoPrueba.ContenidoExcesivo =>
+                $"{esperado.RutaRelativa} supera el tamaño permitido.",
+            EstadoArchivoPrueba.ErrorLectura =>
+                $"No fue posible leer {esperado.RutaRelativa}.",
+            _ => $"No se creó el archivo esperado {esperado.RutaRelativa}."
+        };
+    }
+
+    private static ResultadoComparacionSalida CombinarComparacionConArchivos(
+        CasoPrueba caso,
+        ResultadoComparacionSalida salida,
+        ResultadoComparacionArchivos archivos) {
+        if (archivos.Coincide) {
+            if (caso.ArchivosEsperados.Count == 0) {
+                return salida;
+            }
+
+            return new ResultadoComparacionSalida {
+                EsCorrecta = salida.EsCorrecta,
+                CumpleEstructura = salida.CumpleEstructura,
+                EsSalidaLegible = salida.EsSalidaLegible ||
+                    !TieneReglasDeSalida(caso),
+                TokensFaltantes = salida.TokensFaltantes,
+                GruposAlternativosFaltantes =
+                    salida.GruposAlternativosFaltantes,
+                ValoresNumericos = salida.ValoresNumericos,
+                ValoresBooleanos = salida.ValoresBooleanos,
+                ValoresTextuales = salida.ValoresTextuales,
+                Secuencias = salida.Secuencias,
+                SecuenciasCompuestas = salida.SecuenciasCompuestas,
+                Colecciones = salida.Colecciones,
+                Cadenas = salida.Cadenas,
+                Tablas = salida.Tablas,
+                Matrices = salida.Matrices,
+                BloquesRegistro = salida.BloquesRegistro,
+                ReglasCumplidas = salida.ReglasCumplidas
+                    .Concat(caso.ArchivosEsperados.Select(archivo =>
+                        $"Archivo correcto: {archivo.RutaRelativa}"))
+                    .ToArray(),
+                ReglasIncumplidas = salida.ReglasIncumplidas,
+                ContradiccionesDetectadas =
+                    salida.ContradiccionesDetectadas,
+                EtiquetasAlternativasReconocidas =
+                    salida.EtiquetasAlternativasReconocidas,
+                Mensaje = salida.Mensaje
+            };
+        }
+
+        string reglaArchivo = caso.EsVisible
+            ? archivos.Mensaje
+            : "Un archivo del caso oculto no coincide.";
+
+        return new ResultadoComparacionSalida {
+            EsCorrecta = false,
+            CumpleEstructura = false,
+            EsSalidaLegible = TieneReglasDeSalida(caso) &&
+                salida.EsSalidaLegible,
+            TokensFaltantes = salida.TokensFaltantes,
+            GruposAlternativosFaltantes =
+                salida.GruposAlternativosFaltantes,
+            ValoresNumericos = salida.ValoresNumericos,
+            ValoresBooleanos = salida.ValoresBooleanos,
+            ValoresTextuales = salida.ValoresTextuales,
+            Secuencias = salida.Secuencias,
+            SecuenciasCompuestas = salida.SecuenciasCompuestas,
+            Colecciones = salida.Colecciones,
+            Cadenas = salida.Cadenas,
+            Tablas = salida.Tablas,
+            Matrices = salida.Matrices,
+            BloquesRegistro = salida.BloquesRegistro,
+            ReglasCumplidas = salida.ReglasCumplidas,
+            ReglasIncumplidas = salida.ReglasIncumplidas
+                .Concat(new[] { reglaArchivo })
+                .ToArray(),
+            ContradiccionesDetectadas =
+                salida.ContradiccionesDetectadas,
+            EtiquetasAlternativasReconocidas =
+                salida.EtiquetasAlternativasReconocidas,
+            Mensaje = reglaArchivo
+        };
     }
 
     private static ResultadoEvaluacion CrearResultadoFinal(
@@ -496,4 +755,11 @@ public sealed class EvaluacionPracticaService {
     private sealed record CasoEvaluado(
         ResultadoCasoPrueba Resultado,
         ResultadoComparacionSalida? Comparacion);
+
+    private sealed record ResultadoComparacionArchivos(
+        bool Coincide,
+        string Mensaje) {
+        public static ResultadoComparacionArchivos Correcta { get; } =
+            new(true, string.Empty);
+    }
 }

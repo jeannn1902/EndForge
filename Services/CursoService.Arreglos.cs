@@ -14,6 +14,10 @@ public sealed partial class CursoService {
             CrearPracticasCadenasGradoJunior();
         IReadOnlyList<PracticaCurso> practicasMatrices =
             CrearPracticasMatricesGradoJunior();
+        IReadOnlyList<PracticaCurso> practicasEstructuras =
+            CrearPracticasEstructurasGradoJunior();
+        IReadOnlyList<PracticaCurso> practicasArchivos =
+            CrearPracticasArchivosGradoJunior();
 
         return Array.AsReadOnly(new[] {
             new TemaCurso {
@@ -47,6 +51,28 @@ public sealed partial class CursoService {
                     "Aprende a organizar datos en filas y columnas y a realizar operaciones matriciales.",
                 TotalPracticasPlaneadas = practicasMatrices.Count,
                 Practicas = practicasMatrices,
+                EsProximamente = false
+            },
+            new TemaCurso {
+                Id = TemaEstructurasGradoJuniorId,
+                Numero = 4,
+                Nombre = "Estructuras",
+                NombreCarpeta = "04_Estructuras",
+                Descripcion =
+                    "Aprende a agrupar datos relacionados y a trabajar con colecciones de registros.",
+                TotalPracticasPlaneadas = practicasEstructuras.Count,
+                Practicas = practicasEstructuras,
+                EsProximamente = false
+            },
+            new TemaCurso {
+                Id = TemaArchivosGradoJuniorId,
+                Numero = 5,
+                Nombre = "Archivos",
+                NombreCarpeta = "05_Archivos",
+                Descripcion =
+                    "Aprende a guardar, recuperar y procesar información mediante archivos de texto.",
+                TotalPracticasPlaneadas = practicasArchivos.Count,
+                Practicas = practicasArchivos,
                 EsProximamente = false
             }
         });
