@@ -21,7 +21,7 @@ public partial class frmPrincipal {
         public required ResultadoCargaProgreso Progreso { get; init; }
         public required CursoService Curso { get; init; }
         public required ProgresoCursoService ServicioProgreso { get; init; }
-        public required IReadOnlyList<string> Temas { get; init; }
+        public required ResultadoCargaTemas Temas { get; init; }
     }
 
     private Panel panelPantallaBienvenida = null!;
@@ -454,7 +454,8 @@ public partial class frmPrincipal {
         string rutaBasePrecargada = configuracion.ConfiguracionDisponible
             ? configuracion.RutaBase
             : string.Empty;
-        IReadOnlyList<string> temas = temasService.CargarTemas(rutaBasePrecargada);
+        ResultadoCargaTemas temas =
+            temasService.CargarTemasDetallado(rutaBasePrecargada);
 
         DatosPrecargaInicio datos = new() {
             Configuracion = configuracion,

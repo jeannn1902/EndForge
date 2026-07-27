@@ -3754,19 +3754,27 @@ public partial class frmPrincipal {
             herramienta.AclaracionOpcional;
     }
 
-    private void BtnAccionPracticaCurso_Click(object? sender, EventArgs e) {
+    private async void BtnAccionPracticaCurso_Click(object? sender, EventArgs e) {
         if (practicaCursoSeleccionada is null || temaCursoSeleccionado is null) {
             return;
         }
 
-        ProgresoPractica? progreso = ObtenerProgresoPractica(practicaCursoSeleccionada.Id);
+        PracticaCurso practica = practicaCursoSeleccionada;
+        TemaCurso tema = temaCursoSeleccionado;
+        ProgresoPractica? progreso = ObtenerProgresoPractica(practica.Id);
         string rutaProyecto = ObtenerRutaProyectoExistente(
-            practicaCursoSeleccionada,
-            temaCursoSeleccionado);
+            practica,
+            tema);
         bool proyectoExiste = !string.IsNullOrWhiteSpace(rutaProyecto);
 
         if (proyectoExiste) {
-            bool aperturaExitosa = IntentarAbrirPractica(rutaProyecto, promoverReciente: true);
+            bool aperturaExitosa = await IntentarAbrirPracticaAsync(
+                rutaProyecto,
+                promoverReciente: true);
+
+            if (IsDisposed || Disposing) {
+                return;
+            }
 
             if (aperturaExitosa &&
                 (progreso?.Estado != EstadoPracticaCurso.Realizada ||
@@ -3775,39 +3783,50 @@ public partial class frmPrincipal {
                      rutaProyecto,
                      StringComparison.OrdinalIgnoreCase))) {
                 PersistirEstadoPractica(
-                    practicaCursoSeleccionada.Id,
+                    practica.Id,
                     progreso?.Estado == EstadoPracticaCurso.Realizada
                         ? EstadoPracticaCurso.Realizada
                         : EstadoPracticaCurso.EnProgreso,
                     rutaProyecto);
             }
 
-            if (aperturaExitosa) {
-                ReconstruirDetallePractica(practicaCursoSeleccionada);
+            if (aperturaExitosa &&
+                practicaCursoSeleccionada?.Id == practica.Id) {
+                ReconstruirDetallePractica(practica);
             }
             return;
         }
 
-        ResultadoCreacionPractica? resultado = EjecutarCreacionPractica(
-            ObtenerRutaRelativaTemaCurso(temaCursoSeleccionado),
-            practicaCursoSeleccionada.NombreProyecto,
-            practicaCursoSeleccionada.Objetivo,
-            () => { },
-            out rutaProyecto,
-            crearCarpetaTemaSiNoExiste: true,
-            nombreTemaParaDocumentacion: temaCursoSeleccionado.NombreCarpeta);
+        (
+            ResultadoCreacionPractica Resultado,
+            string RutaProyecto)? ejecucion =
+            await EjecutarCreacionPracticaAsync(
+                ObtenerRutaRelativaTemaCurso(tema),
+                practica.NombreProyecto,
+                practica.Objetivo,
+                () => { },
+                crearCarpetaTemaSiNoExiste: true,
+                nombreTemaParaDocumentacion: tema.NombreCarpeta);
 
-        if (resultado is null) {
+        if (ejecucion is null ||
+            IsDisposed ||
+            Disposing ||
+            esperandoCierreOperaciones) {
             return;
         }
+
+        ResultadoCreacionPractica resultado = ejecucion.Value.Resultado;
+        rutaProyecto = ejecucion.Value.RutaProyecto;
 
         if (resultado.Estado == EstadoCreacionPractica.ErrorApertura) {
             MostrarResultadoCreacionPractica(resultado, enfocarNombreProyecto: false);
             PersistirEstadoPractica(
-                practicaCursoSeleccionada.Id,
+                practica.Id,
                 EstadoPracticaCurso.Pendiente,
                 rutaProyecto);
-            ReconstruirDetallePractica(practicaCursoSeleccionada);
+            if (practicaCursoSeleccionada?.Id == practica.Id) {
+                ReconstruirDetallePractica(practica);
+            }
             return;
         }
 
@@ -3816,10 +3835,12 @@ public partial class frmPrincipal {
         }
 
         PersistirEstadoPractica(
-            practicaCursoSeleccionada.Id,
+            practica.Id,
             EstadoPracticaCurso.EnProgreso,
             rutaProyecto);
-        ReconstruirDetallePractica(practicaCursoSeleccionada);
+        if (practicaCursoSeleccionada?.Id == practica.Id) {
+            ReconstruirDetallePractica(practica);
+        }
     }
 
     private void CambiarEstadoPracticaCurso(EstadoPracticaCurso estado) {

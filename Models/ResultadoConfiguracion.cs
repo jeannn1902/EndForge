@@ -18,6 +18,7 @@ public sealed class ResultadoCargaConfiguracion {
 public enum EstadoValidacionConfiguracion {
     Valida,
     RutasNoExistentes,
+    RutaBaseNoSegura,
     PlantillaSinSolucion,
     PlantillaSolucionSinMarcador,
     PlantillaSolucionSinReferenciaMarcador,

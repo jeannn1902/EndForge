@@ -4,6 +4,8 @@ public enum EstadoAperturaPractica {
     Exitosa,
     CarpetaInexistente,
     SolucionInexistente,
+    SolucionIncompatible,
+    SolucionAmbigua,
     ErrorApertura
 }
 

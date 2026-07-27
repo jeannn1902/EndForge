@@ -4,11 +4,56 @@ using System.Xml.Linq;
 
 namespace EndForge.Services;
 
+internal enum EstadoSeleccionSolucionCompatible {
+    Exitosa,
+    CarpetaInexistente,
+    SinSoluciones,
+    SinSolucionMarcada,
+    MarcadorIlegible,
+    MarcadorInvalido,
+    SolucionInexistente,
+    SolucionFueraDeRaiz,
+    NingunaCompatible,
+    Ambigua,
+    ErrorLectura
+}
+
+internal enum MotivoIncompatibilidadSolucion {
+    Ninguno,
+    SolucionSinProyectoCpp,
+    ProyectoInexistente,
+    ProyectoFueraDeRaiz,
+    ProyectoXmlInvalido,
+    ProyectoSinMarcador,
+    ProyectoSinClCompile,
+    ClCompileSinMarcador,
+    ClCompileInexistente,
+    ClCompileFueraDeRaiz,
+    FiltersXmlInvalido,
+    FiltersIncoherente
+}
+
+internal sealed class ResultadoSeleccionSolucionCompatible {
+    public EstadoSeleccionSolucionCompatible Estado { get; init; }
+
+    public MotivoIncompatibilidadSolucion MotivoIncompatibilidad { get; init; }
+
+    public string RutaSolucion { get; init; } = "";
+
+    public string RutaRelativaSolucion { get; init; } = "";
+
+    public bool UsaSeleccionGuardada { get; init; }
+
+    public Exception? Error { get; init; }
+}
+
 public sealed class SeleccionSolucionesService {
     public const string MarcadorPlantilla = "00_Plantilla";
     private const string NombreArchivoSeleccion = ".endforge-solution";
     private const int CaracteresMaximosSeleccion = 4096;
     private const long BytesMaximosSolucion = 2 * 1024 * 1024;
+    private const long BytesMaximosXmlProyecto = 8 * 1024 * 1024;
+    private const long CaracteresMaximosXmlProyecto = 8 * 1024 * 1024;
 
     public string[] ObtenerSolucionesOrdenadas(string rutaCarpeta) {
         return Directory
@@ -48,13 +93,296 @@ public sealed class SeleccionSolucionesService {
         string rutaSeleccion = Path.Combine(rutaCarpeta, NombreArchivoSeleccion);
 
         try {
-            return File.ReadAllText(rutaSeleccion);
+            return LeerTextoAcotado(
+                rutaSeleccion,
+                CaracteresMaximosSeleccion
+            ).Trim();
         } catch (FileNotFoundException) {
             return null;
         } catch (DirectoryNotFoundException) {
             return null;
         }
-    }   
+    }
+
+    internal ResultadoSeleccionSolucionCompatible SeleccionarSolucionParaPlantilla(
+        string rutaPlantilla) {
+        if (!Directory.Exists(rutaPlantilla)) {
+            return CrearResultadoSeleccion(
+                EstadoSeleccionSolucionCompatible.CarpetaInexistente
+            );
+        }
+
+        try {
+            string raiz = Path.GetFullPath(rutaPlantilla);
+            string[] soluciones = ObtenerSolucionesOrdenadas(raiz);
+
+            if (soluciones.Length == 0) {
+                return CrearResultadoSeleccion(
+                    EstadoSeleccionSolucionCompatible.SinSoluciones
+                );
+            }
+
+            string[] solucionesMarcadas = soluciones
+                .Where(RutaContieneMarcador)
+                .ToArray();
+
+            if (solucionesMarcadas.Length == 0) {
+                return CrearResultadoSeleccion(
+                    EstadoSeleccionSolucionCompatible.SinSolucionMarcada
+                );
+            }
+
+            List<(string Ruta, ResultadoAnalisisSolucion Analisis)> analisis = solucionesMarcadas
+                .Select(solucion => (
+                    solucion,
+                    AnalizarSolucion(raiz, solucion, exigirMarcadoresPlantilla: true)))
+                .ToList();
+            List<(string Ruta, ResultadoAnalisisSolucion Analisis)> compatibles =
+                analisis
+                    .Where(resultado => resultado.Analisis.EsCompatible)
+                    .ToList();
+
+            if (compatibles.Count > 0) {
+                ResultadoAnalisisSolucion analisisXmlTransformable =
+                    AnalizarXmlTransformableDePlantilla(raiz);
+
+                if (!analisisXmlTransformable.EsCompatible) {
+                    return CrearResultadoSeleccion(
+                        EstadoSeleccionSolucionCompatible.NingunaCompatible,
+                        analisisXmlTransformable.Motivo,
+                        error: analisisXmlTransformable.Error
+                    );
+                }
+
+                return CrearResultadoSeleccionExitosa(
+                    raiz,
+                    compatibles[0].Ruta
+                );
+            }
+
+            ResultadoAnalisisSolucion primerError = analisis[0].Analisis;
+            return CrearResultadoSeleccion(
+                EstadoSeleccionSolucionCompatible.NingunaCompatible,
+                primerError.Motivo,
+                error: primerError.Error
+            );
+        } catch (UnauthorizedAccessException ex) {
+            return CrearResultadoSeleccion(
+                EstadoSeleccionSolucionCompatible.ErrorLectura,
+                error: ex
+            );
+        } catch (IOException ex) {
+            return CrearResultadoSeleccion(
+                EstadoSeleccionSolucionCompatible.ErrorLectura,
+                error: ex
+            );
+        } catch (Exception ex) {
+            return CrearResultadoSeleccion(
+                EstadoSeleccionSolucionCompatible.ErrorLectura,
+                error: ex
+            );
+        }
+    }
+
+    private static ResultadoAnalisisSolucion
+        AnalizarXmlTransformableDePlantilla(string rutaRaiz) {
+        foreach (string rutaXml in
+            DirectorioTemporalEvaluacionCpp
+                .EnumerarArchivosSinPuntosDeReanalisis(rutaRaiz)
+                .Where(ruta => {
+                    string extension = Path.GetExtension(ruta);
+                    return extension.Equals(
+                            ".vcxproj",
+                            StringComparison.OrdinalIgnoreCase) ||
+                        extension.Equals(
+                            ".filters",
+                            StringComparison.OrdinalIgnoreCase);
+                })) {
+            try {
+                CargarXmlSeguro(rutaXml);
+            } catch (Exception ex) when (
+                ex is XmlException or IOException or
+                    UnauthorizedAccessException) {
+                MotivoIncompatibilidadSolucion motivo =
+                    Path.GetExtension(rutaXml).Equals(
+                        ".filters",
+                        StringComparison.OrdinalIgnoreCase)
+                    ? MotivoIncompatibilidadSolucion.FiltersXmlInvalido
+                    : MotivoIncompatibilidadSolucion.ProyectoXmlInvalido;
+
+                return ResultadoAnalisisSolucion.Incompatible(
+                    motivo,
+                    ex);
+            }
+        }
+
+        return ResultadoAnalisisSolucion.Compatible();
+    }
+
+    internal ResultadoSeleccionSolucionCompatible SeleccionarSolucionParaPractica(
+        string rutaPractica,
+        string? rutaRelativaEsperada,
+        bool usarSeleccionGuardada) {
+        if (!Directory.Exists(rutaPractica)) {
+            return CrearResultadoSeleccion(
+                EstadoSeleccionSolucionCompatible.CarpetaInexistente
+            );
+        }
+
+        string raiz;
+
+        try {
+            raiz = Path.GetFullPath(rutaPractica);
+        } catch (Exception ex) when (
+            ex is ArgumentException or NotSupportedException or PathTooLongException) {
+            return CrearResultadoSeleccion(
+                EstadoSeleccionSolucionCompatible.CarpetaInexistente,
+                error: ex
+            );
+        }
+
+        bool usaSeleccionGuardada = false;
+
+        if (usarSeleccionGuardada) {
+            string rutaMarcador = Path.Combine(raiz, NombreArchivoSeleccion);
+
+            try {
+                File.GetAttributes(rutaMarcador);
+                usaSeleccionGuardada = true;
+                rutaRelativaEsperada = LeerTextoAcotado(
+                    rutaMarcador,
+                    CaracteresMaximosSeleccion
+                ).Trim();
+            } catch (FileNotFoundException) {
+                rutaRelativaEsperada = null;
+            } catch (DirectoryNotFoundException) {
+                rutaRelativaEsperada = null;
+            } catch (Exception ex) when (
+                ex is IOException or UnauthorizedAccessException or DecoderFallbackException) {
+                return CrearResultadoSeleccion(
+                    EstadoSeleccionSolucionCompatible.MarcadorIlegible,
+                    usaSeleccionGuardada: true,
+                    error: ex
+                );
+            }
+        }
+
+        try {
+            if (rutaRelativaEsperada is not null) {
+                if (string.IsNullOrWhiteSpace(rutaRelativaEsperada) ||
+                    rutaRelativaEsperada.Contains('\r', StringComparison.Ordinal) ||
+                    rutaRelativaEsperada.Contains('\n', StringComparison.Ordinal) ||
+                    Path.IsPathRooted(rutaRelativaEsperada) ||
+                    !Path.GetExtension(rutaRelativaEsperada).Equals(
+                        ".sln",
+                        StringComparison.OrdinalIgnoreCase)) {
+                    return CrearResultadoSeleccion(
+                        EstadoSeleccionSolucionCompatible.MarcadorInvalido,
+                        usaSeleccionGuardada: usaSeleccionGuardada
+                    );
+                }
+
+                if (!IntentarResolverRutaRelativa(
+                    raiz,
+                    rutaRelativaEsperada,
+                    out string rutaEsperada)) {
+                    return CrearResultadoSeleccion(
+                        EstadoSeleccionSolucionCompatible.SolucionFueraDeRaiz,
+                        usaSeleccionGuardada: usaSeleccionGuardada
+                    );
+                }
+
+                if (!File.Exists(rutaEsperada)) {
+                    return CrearResultadoSeleccion(
+                        EstadoSeleccionSolucionCompatible.SolucionInexistente,
+                        usaSeleccionGuardada: usaSeleccionGuardada
+                    );
+                }
+
+                ResultadoAnalisisSolucion analisisEsperado = AnalizarSolucion(
+                    raiz,
+                    rutaEsperada,
+                    exigirMarcadoresPlantilla: false
+                );
+
+                if (!analisisEsperado.EsCompatible) {
+                    return CrearResultadoSeleccion(
+                        EstadoSeleccionSolucionCompatible.NingunaCompatible,
+                        analisisEsperado.Motivo,
+                        usaSeleccionGuardada,
+                        analisisEsperado.Error
+                    );
+                }
+
+                return CrearResultadoSeleccionExitosa(
+                    raiz,
+                    rutaEsperada,
+                    usaSeleccionGuardada
+                );
+            }
+
+            string[] soluciones = ObtenerSolucionesOrdenadas(raiz);
+
+            if (soluciones.Length == 0) {
+                return CrearResultadoSeleccion(
+                    EstadoSeleccionSolucionCompatible.SinSoluciones
+                );
+            }
+
+            List<(string Ruta, ResultadoAnalisisSolucion Analisis)> compatibles =
+                soluciones
+                    .Select(solucion => (
+                        solucion,
+                        AnalizarSolucion(
+                            raiz,
+                            solucion,
+                            exigirMarcadoresPlantilla: false)))
+                    .Where(resultado => resultado.Item2.EsCompatible)
+                    .ToList();
+
+            if (compatibles.Count == 0) {
+                ResultadoAnalisisSolucion primerError = AnalizarSolucion(
+                    raiz,
+                    soluciones[0],
+                    exigirMarcadoresPlantilla: false
+                );
+                return CrearResultadoSeleccion(
+                    EstadoSeleccionSolucionCompatible.NingunaCompatible,
+                    primerError.Motivo,
+                    error: primerError.Error
+                );
+            }
+
+            if (compatibles.Count > 1) {
+                return CrearResultadoSeleccion(
+                    EstadoSeleccionSolucionCompatible.Ambigua
+                );
+            }
+
+            return CrearResultadoSeleccionExitosa(
+                raiz,
+                compatibles[0].Ruta
+            );
+        } catch (UnauthorizedAccessException ex) {
+            return CrearResultadoSeleccion(
+                EstadoSeleccionSolucionCompatible.ErrorLectura,
+                usaSeleccionGuardada: usaSeleccionGuardada,
+                error: ex
+            );
+        } catch (IOException ex) {
+            return CrearResultadoSeleccion(
+                EstadoSeleccionSolucionCompatible.ErrorLectura,
+                usaSeleccionGuardada: usaSeleccionGuardada,
+                error: ex
+            );
+        } catch (Exception ex) {
+            return CrearResultadoSeleccion(
+                EstadoSeleccionSolucionCompatible.ErrorLectura,
+                usaSeleccionGuardada: usaSeleccionGuardada,
+                error: ex
+            );
+        }
+    }
 
     public ResultadoResolucionProyectoEvaluacionCpp ResolverProyectoParaEvaluacion(
         string rutaPractica) {
@@ -140,6 +468,12 @@ public sealed class SeleccionSolucionesService {
                 return false;
             }
 
+            if (!DirectorioTemporalEvaluacionCpp.EsRutaSinPuntosDeReanalisis(
+                raizNormalizada,
+                rutaNormalizada)) {
+                return false;
+            }
+
             rutaCompleta = rutaNormalizada;
             return true;
         } catch (ArgumentException) {
@@ -153,95 +487,373 @@ public sealed class SeleccionSolucionesService {
 
     private ResultadoSeleccionEvaluacionCpp ResolverSolucionParaEvaluacion(
         string rutaPractica) {
-        string rutaMarcador = Path.Combine(rutaPractica, NombreArchivoSeleccion);
-        bool existeMarcador;
+        ResultadoSeleccionSolucionCompatible seleccion =
+            SeleccionarSolucionParaPractica(
+                rutaPractica,
+                rutaRelativaEsperada: null,
+                usarSeleccionGuardada: true
+            );
 
-        try {
-            File.GetAttributes(rutaMarcador);
-            existeMarcador = true;
-        } catch (FileNotFoundException) {
-            existeMarcador = false;
-        } catch (DirectoryNotFoundException) {
-            existeMarcador = false;
-        } catch (UnauthorizedAccessException ex) {
-            return new ResultadoSeleccionEvaluacionCpp {
-                Estado = EstadoResolucionProyectoEvaluacionCpp.MarcadorIlegible,
-                UsaSeleccionGuardada = true,
-                Error = ex
-            };
-        } catch (IOException ex) {
-            return new ResultadoSeleccionEvaluacionCpp {
-                Estado = EstadoResolucionProyectoEvaluacionCpp.MarcadorIlegible,
-                UsaSeleccionGuardada = true,
-                Error = ex
-            };
-        }
-
-        if (!existeMarcador) {
-            string[] soluciones = ObtenerSolucionesOrdenadas(rutaPractica);
-
-            return soluciones.Length switch {
-                0 => new ResultadoSeleccionEvaluacionCpp {
-                    Estado = EstadoResolucionProyectoEvaluacionCpp.SolucionInexistente
-                },
-                1 => new ResultadoSeleccionEvaluacionCpp {
-                    Estado = EstadoResolucionProyectoEvaluacionCpp.Exitosa,
-                    RutaSolucion = Path.GetFullPath(soluciones[0])
-                },
-                _ => new ResultadoSeleccionEvaluacionCpp {
-                    Estado = EstadoResolucionProyectoEvaluacionCpp.SolucionAmbigua
-                }
-            };
-        }
-
-        string rutaRelativa;
-
-        try {
-            rutaRelativa = LeerTextoAcotado(
-                rutaMarcador,
-                CaracteresMaximosSeleccion
-            ).Trim();
-        } catch (Exception ex) when (
-            ex is IOException or UnauthorizedAccessException or DecoderFallbackException) {
-            return new ResultadoSeleccionEvaluacionCpp {
-                Estado = EstadoResolucionProyectoEvaluacionCpp.MarcadorIlegible,
-                UsaSeleccionGuardada = true,
-                Error = ex
-            };
-        }
-
-        if (string.IsNullOrWhiteSpace(rutaRelativa) ||
-            rutaRelativa.Contains('\r', StringComparison.Ordinal) ||
-            rutaRelativa.Contains('\n', StringComparison.Ordinal) ||
-            Path.IsPathRooted(rutaRelativa) ||
-            !Path.GetExtension(rutaRelativa).Equals(".sln", StringComparison.OrdinalIgnoreCase)) {
-            return new ResultadoSeleccionEvaluacionCpp {
-                Estado = EstadoResolucionProyectoEvaluacionCpp.MarcadorInvalido,
-                UsaSeleccionGuardada = true
-            };
-        }
-
-        if (!IntentarResolverRutaRelativa(
-            rutaPractica,
-            rutaRelativa,
-            out string rutaSolucion)) {
-            return new ResultadoSeleccionEvaluacionCpp {
-                Estado = EstadoResolucionProyectoEvaluacionCpp.SolucionFueraDePractica,
-                UsaSeleccionGuardada = true
-            };
-        }
-
-        if (!File.Exists(rutaSolucion)) {
-            return new ResultadoSeleccionEvaluacionCpp {
-                Estado = EstadoResolucionProyectoEvaluacionCpp.SolucionInexistente,
-                UsaSeleccionGuardada = true
-            };
-        }
+        EstadoResolucionProyectoEvaluacionCpp estado = seleccion.Estado switch {
+            EstadoSeleccionSolucionCompatible.Exitosa =>
+                EstadoResolucionProyectoEvaluacionCpp.Exitosa,
+            EstadoSeleccionSolucionCompatible.CarpetaInexistente =>
+                EstadoResolucionProyectoEvaluacionCpp.CarpetaInexistente,
+            EstadoSeleccionSolucionCompatible.MarcadorIlegible =>
+                EstadoResolucionProyectoEvaluacionCpp.MarcadorIlegible,
+            EstadoSeleccionSolucionCompatible.MarcadorInvalido =>
+                EstadoResolucionProyectoEvaluacionCpp.MarcadorInvalido,
+            EstadoSeleccionSolucionCompatible.SinSoluciones or
+            EstadoSeleccionSolucionCompatible.SolucionInexistente =>
+                EstadoResolucionProyectoEvaluacionCpp.SolucionInexistente,
+            EstadoSeleccionSolucionCompatible.SolucionFueraDeRaiz =>
+                EstadoResolucionProyectoEvaluacionCpp.SolucionFueraDePractica,
+            EstadoSeleccionSolucionCompatible.Ambigua =>
+                EstadoResolucionProyectoEvaluacionCpp.SolucionAmbigua,
+            EstadoSeleccionSolucionCompatible.NingunaCompatible =>
+                MapearIncompatibilidadEvaluacion(seleccion.MotivoIncompatibilidad),
+            _ => EstadoResolucionProyectoEvaluacionCpp.ErrorLectura
+        };
 
         return new ResultadoSeleccionEvaluacionCpp {
-            Estado = EstadoResolucionProyectoEvaluacionCpp.Exitosa,
-            RutaSolucion = rutaSolucion,
-            UsaSeleccionGuardada = true
+            Estado = estado,
+            RutaSolucion = seleccion.RutaSolucion,
+            UsaSeleccionGuardada = seleccion.UsaSeleccionGuardada,
+            Error = seleccion.Error
+        };
+    }
+
+    private ResultadoAnalisisSolucion AnalizarSolucion(
+        string rutaRaiz,
+        string rutaSolucion,
+        bool exigirMarcadoresPlantilla) {
+        try {
+            if (!DirectorioTemporalEvaluacionCpp.EsRutaSinPuntosDeReanalisis(
+                rutaRaiz,
+                rutaSolucion)) {
+                return ResultadoAnalisisSolucion.Incompatible(
+                    MotivoIncompatibilidadSolucion.ProyectoFueraDeRaiz
+                );
+            }
+
+            if (new FileInfo(rutaSolucion).Length > BytesMaximosSolucion) {
+                return ResultadoAnalisisSolucion.Incompatible(
+                    MotivoIncompatibilidadSolucion.ProyectoXmlInvalido,
+                    new InvalidDataException(
+                        "El archivo de solución excede el tamaño admitido.")
+                );
+            }
+
+            string[] referenciasProyecto =
+                ExtraerReferenciasProyectoCpp(rutaSolucion);
+
+            if (referenciasProyecto.Length == 0) {
+                return ResultadoAnalisisSolucion.Incompatible(
+                    MotivoIncompatibilidadSolucion.SolucionSinProyectoCpp
+                );
+            }
+
+            string directorioSolucion = Path.GetDirectoryName(rutaSolucion)!;
+            bool existeProyectoMarcado = false;
+            bool existeClCompileMarcadoEnProyectoMarcado = false;
+            bool existeCppReferenciado = false;
+
+            foreach (string referenciaProyecto in referenciasProyecto) {
+                if (!IntentarResolverRutaDesdeDirectorio(
+                    rutaRaiz,
+                    directorioSolucion,
+                    referenciaProyecto,
+                    out string rutaProyecto)) {
+                    return ResultadoAnalisisSolucion.Incompatible(
+                        MotivoIncompatibilidadSolucion.ProyectoFueraDeRaiz
+                    );
+                }
+
+                if (!File.Exists(rutaProyecto)) {
+                    return ResultadoAnalisisSolucion.Incompatible(
+                        MotivoIncompatibilidadSolucion.ProyectoInexistente
+                    );
+                }
+
+                bool proyectoMarcado = RutaContieneMarcador(rutaProyecto);
+                ResultadoAnalisisProyecto analisisProyecto = AnalizarProyecto(
+                    rutaRaiz,
+                    rutaProyecto
+                );
+
+                if (!analisisProyecto.EsCompatible) {
+                    return ResultadoAnalisisSolucion.Incompatible(
+                        analisisProyecto.Motivo,
+                        analisisProyecto.Error
+                    );
+                }
+
+                existeCppReferenciado |= analisisProyecto.TieneCppReferenciado;
+
+                if (proyectoMarcado) {
+                    existeProyectoMarcado = true;
+                    existeClCompileMarcadoEnProyectoMarcado |=
+                        analisisProyecto.TieneClCompileMarcado;
+                }
+            }
+
+            if (!existeCppReferenciado) {
+                return ResultadoAnalisisSolucion.Incompatible(
+                    MotivoIncompatibilidadSolucion.ProyectoSinClCompile
+                );
+            }
+
+            if (exigirMarcadoresPlantilla && !existeProyectoMarcado) {
+                return ResultadoAnalisisSolucion.Incompatible(
+                    MotivoIncompatibilidadSolucion.ProyectoSinMarcador
+                );
+            }
+
+            if (exigirMarcadoresPlantilla &&
+                !existeClCompileMarcadoEnProyectoMarcado) {
+                return ResultadoAnalisisSolucion.Incompatible(
+                    MotivoIncompatibilidadSolucion.ClCompileSinMarcador
+                );
+            }
+
+            return ResultadoAnalisisSolucion.Compatible();
+        } catch (UnauthorizedAccessException ex) {
+            return ResultadoAnalisisSolucion.Incompatible(
+                MotivoIncompatibilidadSolucion.ProyectoXmlInvalido,
+                ex
+            );
+        } catch (IOException ex) {
+            return ResultadoAnalisisSolucion.Incompatible(
+                MotivoIncompatibilidadSolucion.ProyectoXmlInvalido,
+                ex
+            );
+        } catch (Exception ex) {
+            return ResultadoAnalisisSolucion.Incompatible(
+                MotivoIncompatibilidadSolucion.ProyectoXmlInvalido,
+                ex
+            );
+        }
+    }
+
+    private ResultadoAnalisisProyecto AnalizarProyecto(
+        string rutaRaiz,
+        string rutaProyecto) {
+        XDocument proyecto;
+
+        try {
+            proyecto = CargarXmlSeguro(rutaProyecto);
+        } catch (Exception ex) when (
+            ex is XmlException or IOException or UnauthorizedAccessException) {
+            return ResultadoAnalisisProyecto.Incompatible(
+                MotivoIncompatibilidadSolucion.ProyectoXmlInvalido,
+                ex
+            );
+        }
+
+        string directorioProyecto = Path.GetDirectoryName(rutaProyecto)!;
+        string[] referenciasClCompile = ExtraerReferenciasClCompile(proyecto);
+        HashSet<string> rutasClCompile = new(StringComparer.OrdinalIgnoreCase);
+        bool tieneCpp = false;
+        bool tieneMarcador = false;
+
+        foreach (string referencia in referenciasClCompile) {
+            if (!IntentarResolverRutaDesdeDirectorio(
+                rutaRaiz,
+                directorioProyecto,
+                referencia,
+                out string rutaClCompile)) {
+                return ResultadoAnalisisProyecto.Incompatible(
+                    MotivoIncompatibilidadSolucion.ClCompileFueraDeRaiz
+                );
+            }
+
+            if (!File.Exists(rutaClCompile)) {
+                return ResultadoAnalisisProyecto.Incompatible(
+                    MotivoIncompatibilidadSolucion.ClCompileInexistente
+                );
+            }
+
+            rutasClCompile.Add(Path.GetFullPath(rutaClCompile));
+            tieneCpp |= Path.GetExtension(rutaClCompile).Equals(
+                ".cpp",
+                StringComparison.OrdinalIgnoreCase);
+            tieneMarcador |= referencia.Contains(
+                MarcadorPlantilla,
+                StringComparison.Ordinal);
+        }
+
+        string? rutaFilters = BuscarArchivoFilters(rutaProyecto);
+
+        if (rutaFilters is not null) {
+            if (!DirectorioTemporalEvaluacionCpp.EsRutaSinPuntosDeReanalisis(
+                rutaRaiz,
+                rutaFilters)) {
+                return ResultadoAnalisisProyecto.Incompatible(
+                    MotivoIncompatibilidadSolucion.FiltersIncoherente
+                );
+            }
+
+            XDocument filters;
+
+            try {
+                filters = CargarXmlSeguro(rutaFilters);
+            } catch (Exception ex) when (
+                ex is XmlException or IOException or UnauthorizedAccessException) {
+                return ResultadoAnalisisProyecto.Incompatible(
+                    MotivoIncompatibilidadSolucion.FiltersXmlInvalido,
+                    ex
+                );
+            }
+
+            foreach (string referenciaFilter in ExtraerReferenciasClCompile(filters)) {
+                if (!IntentarResolverRutaDesdeDirectorio(
+                    rutaRaiz,
+                    directorioProyecto,
+                    referenciaFilter,
+                    out string rutaFilter) ||
+                    !rutasClCompile.Contains(Path.GetFullPath(rutaFilter))) {
+                    return ResultadoAnalisisProyecto.Incompatible(
+                        MotivoIncompatibilidadSolucion.FiltersIncoherente
+                    );
+                }
+            }
+        }
+
+        return ResultadoAnalisisProyecto.Compatible(
+            tieneCpp,
+            tieneMarcador
+        );
+    }
+
+    private static string[] ExtraerReferenciasClCompile(XDocument documento) {
+        return documento
+            .Descendants()
+            .Where(elemento => elemento.Name.LocalName.Equals(
+                "ClCompile",
+                StringComparison.Ordinal))
+            .Select(elemento => elemento
+                .Attributes()
+                .FirstOrDefault(atributo => atributo.Name.LocalName.Equals(
+                    "Include",
+                    StringComparison.Ordinal))
+                ?.Value)
+            .Where(referencia => !string.IsNullOrWhiteSpace(referencia))
+            .Select(referencia => referencia!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(referencia => referencia, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(referencia => referencia, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static string? BuscarArchivoFilters(string rutaProyecto) {
+        string directorio = Path.GetDirectoryName(rutaProyecto)!;
+        string nombreEsperado = Path.GetFileName(rutaProyecto) + ".filters";
+
+        return Directory
+            .EnumerateFiles(directorio, "*", SearchOption.TopDirectoryOnly)
+            .Where(ruta => Path
+                .GetFileName(ruta)
+                .Equals(nombreEsperado, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(ruta => ruta, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(ruta => ruta, StringComparer.Ordinal)
+            .FirstOrDefault();
+    }
+
+    private static XDocument CargarXmlSeguro(string rutaXml) {
+        if (new FileInfo(rutaXml).Length > BytesMaximosXmlProyecto) {
+            throw new InvalidDataException(
+                "El archivo XML excede el tamaÃ±o admitido.");
+        }
+
+        XmlReaderSettings configuracionXml = new() {
+            DtdProcessing = DtdProcessing.Prohibit,
+            XmlResolver = null,
+            MaxCharactersInDocument =
+                CaracteresMaximosXmlProyecto
+        };
+
+        using XmlReader lector = XmlReader.Create(rutaXml, configuracionXml);
+        return XDocument.Load(lector, LoadOptions.PreserveWhitespace);
+    }
+
+    private static bool IntentarResolverRutaDesdeDirectorio(
+        string rutaRaiz,
+        string directorioBase,
+        string rutaRelativa,
+        out string rutaCompleta) {
+        rutaCompleta = "";
+
+        if (string.IsNullOrWhiteSpace(rutaRelativa) ||
+            Path.IsPathRooted(rutaRelativa)) {
+            return false;
+        }
+
+        try {
+            string raiz = Path.GetFullPath(rutaRaiz);
+            string candidata = Path.GetFullPath(rutaRelativa, directorioBase);
+
+            if (!DirectorioTemporalEvaluacionCpp.EstaDentroDe(raiz, candidata) ||
+                !DirectorioTemporalEvaluacionCpp.EsRutaSinPuntosDeReanalisis(
+                    raiz,
+                    candidata)) {
+                return false;
+            }
+
+            rutaCompleta = candidata;
+            return true;
+        } catch (Exception ex) when (
+            ex is ArgumentException or NotSupportedException or PathTooLongException) {
+            return false;
+        }
+    }
+
+    private static bool RutaContieneMarcador(string ruta) {
+        return Path
+            .GetFileNameWithoutExtension(ruta)
+            .Contains(MarcadorPlantilla, StringComparison.Ordinal);
+    }
+
+    private static EstadoResolucionProyectoEvaluacionCpp
+        MapearIncompatibilidadEvaluacion(
+            MotivoIncompatibilidadSolucion motivo) {
+        return motivo switch {
+            MotivoIncompatibilidadSolucion.SolucionSinProyectoCpp =>
+                EstadoResolucionProyectoEvaluacionCpp.SolucionSinProyectoCpp,
+            MotivoIncompatibilidadSolucion.ProyectoInexistente =>
+                EstadoResolucionProyectoEvaluacionCpp.ProyectoInexistente,
+            MotivoIncompatibilidadSolucion.ProyectoFueraDeRaiz or
+            MotivoIncompatibilidadSolucion.ClCompileFueraDeRaiz =>
+                EstadoResolucionProyectoEvaluacionCpp.ProyectoFueraDePractica,
+            _ => EstadoResolucionProyectoEvaluacionCpp.ProyectoInvalido
+        };
+    }
+
+    private static ResultadoSeleccionSolucionCompatible
+        CrearResultadoSeleccionExitosa(
+            string rutaRaiz,
+            string rutaSolucion,
+            bool usaSeleccionGuardada = false) {
+        return new ResultadoSeleccionSolucionCompatible {
+            Estado = EstadoSeleccionSolucionCompatible.Exitosa,
+            RutaSolucion = Path.GetFullPath(rutaSolucion),
+            RutaRelativaSolucion = Path.GetRelativePath(
+                Path.GetFullPath(rutaRaiz),
+                Path.GetFullPath(rutaSolucion)),
+            UsaSeleccionGuardada = usaSeleccionGuardada
+        };
+    }
+
+    private static ResultadoSeleccionSolucionCompatible CrearResultadoSeleccion(
+        EstadoSeleccionSolucionCompatible estado,
+        MotivoIncompatibilidadSolucion motivo =
+            MotivoIncompatibilidadSolucion.Ninguno,
+        bool usaSeleccionGuardada = false,
+        Exception? error = null) {
+        return new ResultadoSeleccionSolucionCompatible {
+            Estado = estado,
+            MotivoIncompatibilidad = motivo,
+            UsaSeleccionGuardada = usaSeleccionGuardada,
+            Error = error
         };
     }
 
@@ -452,6 +1064,60 @@ public sealed class SeleccionSolucionesService {
             UsaSeleccionGuardada = usaSeleccionGuardada,
             Error = error
         };
+    }
+
+    private sealed class ResultadoAnalisisSolucion {
+        public bool EsCompatible { get; init; }
+
+        public MotivoIncompatibilidadSolucion Motivo { get; init; }
+
+        public Exception? Error { get; init; }
+
+        public static ResultadoAnalisisSolucion Compatible() {
+            return new ResultadoAnalisisSolucion {
+                EsCompatible = true
+            };
+        }
+
+        public static ResultadoAnalisisSolucion Incompatible(
+            MotivoIncompatibilidadSolucion motivo,
+            Exception? error = null) {
+            return new ResultadoAnalisisSolucion {
+                Motivo = motivo,
+                Error = error
+            };
+        }
+    }
+
+    private sealed class ResultadoAnalisisProyecto {
+        public bool EsCompatible { get; init; }
+
+        public bool TieneCppReferenciado { get; init; }
+
+        public bool TieneClCompileMarcado { get; init; }
+
+        public MotivoIncompatibilidadSolucion Motivo { get; init; }
+
+        public Exception? Error { get; init; }
+
+        public static ResultadoAnalisisProyecto Compatible(
+            bool tieneCppReferenciado,
+            bool tieneClCompileMarcado) {
+            return new ResultadoAnalisisProyecto {
+                EsCompatible = true,
+                TieneCppReferenciado = tieneCppReferenciado,
+                TieneClCompileMarcado = tieneClCompileMarcado
+            };
+        }
+
+        public static ResultadoAnalisisProyecto Incompatible(
+            MotivoIncompatibilidadSolucion motivo,
+            Exception? error = null) {
+            return new ResultadoAnalisisProyecto {
+                Motivo = motivo,
+                Error = error
+            };
+        }
     }
 
     private sealed class ResultadoSeleccionEvaluacionCpp {

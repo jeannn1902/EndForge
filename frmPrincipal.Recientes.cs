@@ -4,33 +4,74 @@ namespace EndForge;
 
 public partial class frmPrincipal {
     private EstadoLecturaRecientes? ultimoEstadoLecturaRecientesNotificado;
+    private ResultadoLecturaRecientes? ultimoResultadoLecturaRecientes;
+    private bool aperturaPracticaEnCurso;
 
     private ResultadoEscrituraRecientes GuardarProyectoReciente(string rutaProyecto) {
         return recientesService.GuardarProyectoReciente(rutaProyecto);
     }
 
-    private bool IntentarAbrirPractica(string rutaProyecto, bool promoverReciente = false) {
-        ResultadoAperturaPractica resultado = aperturaPracticasService.AbrirPractica(rutaProyecto);
-
-        if (resultado.Estado == EstadoAperturaPractica.CarpetaInexistente) {
-            MessageBox.Show("La carpeta de esta práctica ya no existe.", "EndForge", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+    private async Task<bool> IntentarAbrirPracticaAsync(
+        string rutaProyecto,
+        bool promoverReciente = false) {
+        if (aperturaPracticaEnCurso) {
             return false;
         }
 
-        if (resultado.Estado != EstadoAperturaPractica.Exitosa) {
-            MessageBox.Show("No se pudo abrir la práctica.\n\n" + resultado.Error!.Message, "EndForge", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            return false;
-        }
+        aperturaPracticaEnCurso = true;
 
-        if (promoverReciente) {
-            ResultadoEscrituraRecientes guardado = GuardarProyectoReciente(rutaProyecto);
+        try {
+            ResultadoAperturaPractica resultado = await Task.Run(() =>
+                aperturaPracticasService.AbrirPractica(rutaProyecto));
 
-            if (guardado.EsExitosa) {
-                CargarRecientes();
+            if (IsDisposed || Disposing) {
+                return false;
             }
-            MostrarResultadoEscrituraRecientes(guardado, "La práctica se abrió correctamente");
+
+            if (resultado.Estado ==
+                EstadoAperturaPractica.CarpetaInexistente) {
+                MessageBox.Show(
+                    "La carpeta de esta práctica ya no existe.",
+                    "EndForge",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                CargarRecientes();
+                return false;
+            }
+
+            if (resultado.Estado != EstadoAperturaPractica.Exitosa) {
+                MessageBox.Show(
+                    "No se pudo abrir la práctica.\n\n" +
+                        (resultado.Error?.Message ??
+                            "La solución no está disponible."),
+                    "EndForge",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                CargarRecientes();
+                return false;
+            }
+
+            if (promoverReciente) {
+                ResultadoEscrituraRecientes guardado = await Task.Run(() =>
+                    GuardarProyectoReciente(rutaProyecto));
+
+                if (IsDisposed || Disposing) {
+                    return true;
+                }
+
+                if (guardado.EsExitosa) {
+                    CargarRecientes();
+                }
+
+                MostrarResultadoEscrituraRecientes(
+                    guardado,
+                    "La práctica se abrió correctamente");
+            }
+
+            return true;
+        } finally {
+            aperturaPracticaEnCurso = false;
         }
-        return true;
     }
 
     private List<Label> ObtenerLabelsRecientes() {
@@ -71,13 +112,15 @@ public partial class frmPrincipal {
         lblCardContinuarDesc.Text = "No hay prácticas recientes.";
     }
 
-    private void LabelReciente_DoubleClick(object? sender, EventArgs e) {
+    private async void LabelReciente_DoubleClick(object? sender, EventArgs e) {
         Label? label = sender as Label;
 
         if (label?.Tag is not ProyectoReciente proyecto)
             return;
 
-        IntentarAbrirPractica(proyecto.Ruta, promoverReciente: true);
+        await IntentarAbrirPracticaAsync(
+            proyecto.Ruta,
+            promoverReciente: true);
     }
 
     private void CargarRecientes(ResultadoLecturaRecientes? resultadoPrecargado = null) {
@@ -90,7 +133,11 @@ public partial class frmPrincipal {
         LimpiarVistaRecientes();
 
         ResultadoLecturaRecientes resultado =
-            resultadoPrecargado ?? recientesService.LeerProyectosRecientes();
+            resultadoPrecargado ??
+            (filtro is not null && ultimoResultadoLecturaRecientes is not null
+                ? ultimoResultadoLecturaRecientes
+                : recientesService.LeerProyectosRecientes());
+        ultimoResultadoLecturaRecientes = resultado;
         NotificarResultadoLecturaRecientes(resultado);
 
         if (!resultado.DatosDisponibles || resultado.Proyectos.Count == 0) {
@@ -145,7 +192,7 @@ public partial class frmPrincipal {
             EstadoLecturaRecientes.ErrorIo =>
                 "No se pudieron cargar los proyectos recientes. Verifica que recientes.txt no esté bloqueado o en uso por otra aplicación.",
             EstadoLecturaRecientes.ContenidoInvalido =>
-                $"Se ignoraron {resultado.RegistrosInvalidos} registros dañados de recientes.txt. Los demás proyectos se cargaron correctamente.",
+                CrearMensajeRegistrosRecientesIgnorados(resultado),
             _ => "No se pudieron cargar los proyectos recientes."
         };
 
@@ -156,9 +203,13 @@ public partial class frmPrincipal {
         ResultadoEscrituraRecientes resultado,
         string operacionExitosa) {
         if (resultado.EsExitosa) {
-            if (resultado.RegistrosInvalidosIgnorados > 0) {
+            int totalIgnorados =
+                resultado.RegistrosInvalidosIgnorados +
+                resultado.RegistrosNoDisponiblesIgnorados;
+
+            if (totalIgnorados > 0) {
                 MessageBox.Show(
-                    $"{operacionExitosa}, pero se ignoraron {resultado.RegistrosInvalidosIgnorados} registros dañados al actualizar Recientes.",
+                    $"{operacionExitosa}, pero se ignoraron {totalIgnorados} registros dañados o no disponibles al actualizar Recientes.",
                     "EndForge",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning
@@ -168,19 +219,40 @@ public partial class frmPrincipal {
             return;
         }
 
-        string mensaje = resultado.Estado == EstadoEscrituraRecientes.PermisosInsuficientes
-            ? $"{operacionExitosa}, pero no pudo guardarse en Recientes porque no hay permisos para acceder a recientes.txt."
-            : $"{operacionExitosa}, pero no pudo guardarse en Recientes. Verifica que recientes.txt no esté bloqueado y que su carpeta permita crear y reemplazar archivos.";
+        string mensaje = resultado.Estado switch {
+            EstadoEscrituraRecientes.PermisosInsuficientes =>
+                $"{operacionExitosa}, pero no pudo guardarse en Recientes porque no hay permisos para acceder a recientes.txt.",
+            EstadoEscrituraRecientes.RutaProyectoInvalida or
+                EstadoEscrituraRecientes.ProyectoNoDisponible =>
+                $"{operacionExitosa}, pero no pudo guardarse en Recientes porque la carpeta o su solución ya no están disponibles.",
+            EstadoEscrituraRecientes.ArchivoBloqueado =>
+                $"{operacionExitosa}, pero no pudo guardarse en Recientes porque recientes.txt está siendo actualizado por otra instancia.",
+            _ =>
+                $"{operacionExitosa}, pero no pudo guardarse en Recientes. Verifica que recientes.txt no esté bloqueado y que su carpeta permita crear y reemplazar archivos."
+        };
 
         MessageBox.Show(mensaje, "EndForge", MessageBoxButtons.OK, MessageBoxIcon.Warning);
     }
 
-    private void ListRecientes_DoubleClick(object sender, EventArgs e) {
+    private static string CrearMensajeRegistrosRecientesIgnorados(
+        ResultadoLecturaRecientes resultado) {
+        int total =
+            resultado.RegistrosInvalidos +
+            resultado.RegistrosNoDisponibles;
+
+        return total == 1
+            ? "Se ignoró un registro dañado o no disponible de recientes.txt. Los demás proyectos se cargaron correctamente."
+            : $"Se ignoraron {total} registros dañados o no disponibles de recientes.txt. Los demás proyectos se cargaron correctamente.";
+    }
+
+    private async void ListRecientes_DoubleClick(object sender, EventArgs e) {
         if (listRecientes.SelectedItem == null)
             return;
 
         ProyectoReciente proyecto = (ProyectoReciente)listRecientes.SelectedItem;
-        IntentarAbrirPractica(proyecto.Ruta, promoverReciente: true);
+        await IntentarAbrirPracticaAsync(
+            proyecto.Ruta,
+            promoverReciente: true);
     }
 
     private void ListRecientes_SelectedIndexChanged(object sender, EventArgs e) {
@@ -215,11 +287,11 @@ public partial class frmPrincipal {
         }
     }
 
-    private void LblCardRecientesDesc_Click(object sender, EventArgs e) {
+    private async void LblCardRecientesDesc_Click(object sender, EventArgs e) {
         string? rutaProyecto = lblCardRecientesDesc.Tag as string;
 
         if (!string.IsNullOrWhiteSpace(rutaProyecto)) {
-            IntentarAbrirPractica(rutaProyecto, true);
+            await IntentarAbrirPracticaAsync(rutaProyecto, true);
         }
     }   
 
@@ -231,14 +303,15 @@ public partial class frmPrincipal {
         LblCardRecientesDesc_Click(sender, e);
     }
 
-private void PanelCardContinuar_Click(object sender, EventArgs e) {
-    string? rutaProyecto = lblCardContinuarDesc.Tag?.ToString();
+    private async void PanelCardContinuar_Click(object sender, EventArgs e) {
+        string? rutaProyecto = lblCardContinuarDesc.Tag?.ToString();
 
-    if (string.IsNullOrWhiteSpace(rutaProyecto))
-        return;
+        if (string.IsNullOrWhiteSpace(rutaProyecto)) {
+            return;
+        }
 
-    IntentarAbrirPractica(rutaProyecto, true);
-}
+        await IntentarAbrirPracticaAsync(rutaProyecto, true);
+    }
 
     private void panelCardContinuar_Click(object sender, EventArgs e) {
     }

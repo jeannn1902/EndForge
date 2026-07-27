@@ -286,7 +286,7 @@ public partial class frmPrincipal {
         }
     }
 
-    private void PanelAbrirPractica_Click(object? sender, EventArgs e) {
+    private async void PanelAbrirPractica_Click(object? sender, EventArgs e) {
         if (navegacionCursoEnCurso || transicionVisualCursoActiva) {
             return;
         }
@@ -305,10 +305,14 @@ public partial class frmPrincipal {
             return;
         }
 
-        bool aperturaExitosa = IntentarAbrirPractica(
+        bool aperturaExitosa = await IntentarAbrirPracticaAsync(
             carpeta.SelectedPath,
             promoverReciente: true
         );
+
+        if (IsDisposed || Disposing) {
+            return;
+        }
 
         if (!aperturaExitosa) {
             RestaurarColorPanel(panelAbrirPractica);

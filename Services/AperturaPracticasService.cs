@@ -5,13 +5,26 @@ namespace EndForge.Services;
 
 public sealed class AperturaPracticasService {
     private readonly SeleccionSolucionesService seleccionSolucionesService;
+    private readonly Action<ProcessStartInfo> lanzarProceso;
 
     public AperturaPracticasService()
-        : this(new SeleccionSolucionesService()) {
+        : this(
+            new SeleccionSolucionesService(),
+            LanzarProcesoDelSistema) {
     }
 
-    public AperturaPracticasService(SeleccionSolucionesService seleccionSolucionesService) {
+    public AperturaPracticasService(
+        SeleccionSolucionesService seleccionSolucionesService)
+        : this(
+            seleccionSolucionesService,
+            LanzarProcesoDelSistema) {
+    }
+
+    internal AperturaPracticasService(
+        SeleccionSolucionesService seleccionSolucionesService,
+        Action<ProcessStartInfo> lanzarProceso) {
         this.seleccionSolucionesService = seleccionSolucionesService;
+        this.lanzarProceso = lanzarProceso;
     }
 
     public ResultadoAperturaPractica AbrirPractica(
@@ -49,57 +62,55 @@ public sealed class AperturaPracticasService {
             };
         }
 
-        string? rutaSolucion;
+        ResultadoSeleccionSolucionCompatible seleccion =
+            seleccionSolucionesService.SeleccionarSolucionParaPractica(
+                rutaProyecto,
+                rutaRelativaSolucionEsperada,
+                usarSeleccionGuardada
+            );
 
-        try {
-            if (usarSeleccionGuardada) {
-                rutaRelativaSolucionEsperada =
-                    seleccionSolucionesService.LeerSolucionSeleccionada(rutaProyecto);
-            }
+        if (seleccion.Estado != EstadoSeleccionSolucionCompatible.Exitosa) {
+            EstadoAperturaPractica estado = seleccion.Estado switch {
+                EstadoSeleccionSolucionCompatible.CarpetaInexistente =>
+                    EstadoAperturaPractica.CarpetaInexistente,
+                EstadoSeleccionSolucionCompatible.SinSoluciones or
+                EstadoSeleccionSolucionCompatible.SolucionInexistente =>
+                    EstadoAperturaPractica.SolucionInexistente,
+                EstadoSeleccionSolucionCompatible.Ambigua =>
+                    EstadoAperturaPractica.SolucionAmbigua,
+                EstadoSeleccionSolucionCompatible.NingunaCompatible or
+                EstadoSeleccionSolucionCompatible.MarcadorInvalido or
+                EstadoSeleccionSolucionCompatible.SolucionFueraDeRaiz =>
+                    EstadoAperturaPractica.SolucionIncompatible,
+                _ => EstadoAperturaPractica.ErrorApertura
+            };
+            string mensaje = estado switch {
+                EstadoAperturaPractica.SolucionInexistente =>
+                    "No se encontró la solución esperada de la práctica.",
+                EstadoAperturaPractica.SolucionAmbigua =>
+                    "La práctica contiene varias soluciones compatibles y no tiene una selección guardada.",
+                EstadoAperturaPractica.SolucionIncompatible =>
+                    "La solución seleccionada no es compatible o referencia archivos no disponibles.",
+                _ => "No se pudo determinar la solución que debe abrirse."
+            };
 
-            // Regla determinista: nombre ordinal sin distinguir mayúsculas,
-            // con orden ordinal como desempate.
-            if (rutaRelativaSolucionEsperada == null) {
-                rutaSolucion = seleccionSolucionesService
-                    .ObtenerSolucionesOrdenadas(rutaProyecto)
-                    .FirstOrDefault();
-            } else if (
-                Path.GetExtension(rutaRelativaSolucionEsperada).Equals(".sln", StringComparison.OrdinalIgnoreCase) &&
-                seleccionSolucionesService.IntentarResolverRutaRelativa(
-                    rutaProyecto,
-                    rutaRelativaSolucionEsperada,
-                    out string rutaEsperada) &&
-                File.Exists(rutaEsperada)) {
-                rutaSolucion = rutaEsperada;
-            } else {
-                rutaSolucion = null;
-            }
-        } catch (Exception ex) {
             return new ResultadoAperturaPractica {
-                Estado = EstadoAperturaPractica.ErrorApertura,
-                Error = ex
+                Estado = estado,
+                Error = seleccion.Error ?? new InvalidDataException(mensaje)
             };
         }
 
-        if (rutaSolucion == null) {
-            string mensaje = rutaRelativaSolucionEsperada == null
-                ? "No se encontró ningún archivo .sln en la práctica."
-                : "No se encontró la solución esperada de la práctica.";
-
-            return new ResultadoAperturaPractica {
-                Estado = EstadoAperturaPractica.SolucionInexistente,
-                Error = new FileNotFoundException(mensaje)
-            };
-        }
+        string rutaSolucion = seleccion.RutaSolucion;
 
         try {
             antesDeAbrir?.Invoke();
 
-            string? rutaCpp = Directory
-                .EnumerateFiles(
-                    Path.GetDirectoryName(rutaSolucion) ?? rutaProyecto,
-                    "*.cpp",
-                    SearchOption.AllDirectories)
+            string? rutaCpp = DirectorioTemporalEvaluacionCpp
+                .EnumerarArchivosSinPuntosDeReanalisis(
+                    Path.GetDirectoryName(rutaSolucion) ?? rutaProyecto)
+                .Where(ruta => Path
+                    .GetExtension(ruta)
+                    .Equals(".cpp", StringComparison.OrdinalIgnoreCase))
                 .OrderBy(ruta => ruta, StringComparer.OrdinalIgnoreCase)
                 .FirstOrDefault();
 
@@ -115,9 +126,9 @@ public sealed class AperturaPracticasService {
                 inicioVisualStudio.ArgumentList.Add(rutaSolucion);
                 inicioVisualStudio.ArgumentList.Add(rutaCpp);
 
-                Process.Start(inicioVisualStudio);
+                lanzarProceso(inicioVisualStudio);
             } else {
-                Process.Start(new ProcessStartInfo {
+                lanzarProceso(new ProcessStartInfo {
                     FileName = rutaSolucion,
                     UseShellExecute = true
                 });
@@ -134,5 +145,9 @@ public sealed class AperturaPracticasService {
                 Error = ex
             };
         }
+    }
+
+    private static void LanzarProcesoDelSistema(ProcessStartInfo inicio) {
+        Process.Start(inicio);
     }
 }

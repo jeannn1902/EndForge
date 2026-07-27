@@ -5,6 +5,7 @@ namespace EndForge;
 
 public partial class frmPrincipal {
     private bool actualizandoCamposConfiguracion;
+    private bool guardandoConfiguracion;
 
     private ResultadoCargaConfiguracion CargarConfiguracion(
         ResultadoCargaConfiguracion? resultadoPrecargado = null) {
@@ -103,73 +104,131 @@ public partial class frmPrincipal {
         }
     }
 
-    private void BtnGuardarConfiguracion_Click(object sender, EventArgs e) {
-        if (!HayCambiosConfiguracion()) {
+    private async void BtnGuardarConfiguracion_Click(object sender, EventArgs e) {
+        if (guardandoConfiguracion || !HayCambiosConfiguracion()) {
             ActualizarEstadoCambiosConfiguracion();
             return;
         }
 
-        lblEstadoConfiguracion.Visible = false;
-        string nuevaRutaBase = txtRutaBaseConfig.Text.Trim();
-        string nuevaRutaPlantilla = txtRutaPlantillaConfig.Text.Trim();
-        bool hayCambiosRutas = HayCambiosRutasConfiguracion();
-        bool hayCambiosPreferencias = HayCambiosPreferenciasAprendizaje();
-        EstadoValidacionConfiguracion validacion = configuracionService.ValidarConfiguracion(
-            nuevaRutaBase,
-            nuevaRutaPlantilla
-        );
+        guardandoConfiguracion = true;
+        txtRutaBaseConfig.ReadOnly = true;
+        txtRutaPlantillaConfig.ReadOnly = true;
+        btnCambiarRutaBase.Enabled = false;
+        btnCambiarRutaPlantilla.Enabled = false;
+        chkMostrarTiemposOrientativos.Enabled = false;
+        ActualizarEstadoCambiosConfiguracion();
 
-        if (validacion != EstadoValidacionConfiguracion.Valida) {
-            lblEstadoConfiguracion.Text = ObtenerMensajeValidacionConfiguracion(validacion);
-            lblEstadoConfiguracion.ForeColor = validacion == EstadoValidacionConfiguracion.RutasNoExistentes
-                ? Color.IndianRed
-                : Color.LightCoral;
-            lblEstadoConfiguracion.Visible = true;
-            return;
-        }
+        try {
+            lblEstadoConfiguracion.Visible = false;
+            string nuevaRutaBase = txtRutaBaseConfig.Text.Trim();
+            string nuevaRutaPlantilla = txtRutaPlantillaConfig.Text.Trim();
+            bool hayCambiosRutas = HayCambiosRutasConfiguracion();
+            bool hayCambiosPreferencias = HayCambiosPreferenciasAprendizaje();
+            bool mostrarTiemposCapturado =
+                chkMostrarTiemposOrientativos.Checked;
+            EstadoValidacionConfiguracion validacion = await Task.Run(() =>
+                configuracionService.ValidarConfiguracion(
+                    nuevaRutaBase,
+                    nuevaRutaPlantilla));
 
-        if (hayCambiosRutas) {
-            try {
-                configuracionService.GuardarConfiguracion(nuevaRutaBase, nuevaRutaPlantilla);
-            } catch (UnauthorizedAccessException) {
-                MostrarErrorGuardadoConfiguracion(
-                    "❌ No se pudieron guardar los cambios porque no hay permisos para acceder a config.txt. La configuración anterior se conservó."
-                );
-                return;
-            } catch (SecurityException) {
-                MostrarErrorGuardadoConfiguracion(
-                    "❌ No se pudieron guardar los cambios porque no hay permisos para acceder a config.txt. La configuración anterior se conservó."
-                );
-                return;
-            } catch (IOException) {
-                MostrarErrorGuardadoConfiguracion(
-                    "❌ No se pudieron guardar los cambios. Verifica que config.txt no esté bloqueado o en uso por otra aplicación. La configuración anterior se conservó."
-                );
-                return;
-            } catch (Exception ex) {
-                MostrarErrorGuardadoConfiguracion(
-                    "❌ No se pudieron guardar los cambios. La configuración anterior se conservó.\n" + ex.Message
-                );
+            if (IsDisposed || Disposing) {
                 return;
             }
 
-            rutaBase = nuevaRutaBase;
-            rutaPlantilla = nuevaRutaPlantilla;
-            EstablecerRutasConfiguracionEnVista(rutaBase, rutaPlantilla);
-            CargarTemas();
-            ValidarFormulario();
+            bool camposCambiaronDuranteValidacion =
+                !RutasEquivalentes(
+                    txtRutaBaseConfig.Text,
+                    nuevaRutaBase) ||
+                !RutasEquivalentes(
+                    txtRutaPlantillaConfig.Text,
+                    nuevaRutaPlantilla) ||
+                chkMostrarTiemposOrientativos.Checked !=
+                    mostrarTiemposCapturado;
+
+            if (camposCambiaronDuranteValidacion) {
+                return;
+            }
+
+            if (validacion != EstadoValidacionConfiguracion.Valida) {
+                lblEstadoConfiguracion.Text =
+                    ObtenerMensajeValidacionConfiguracion(validacion);
+                lblEstadoConfiguracion.ForeColor =
+                    validacion ==
+                        EstadoValidacionConfiguracion.RutasNoExistentes
+                    ? Color.IndianRed
+                    : Color.LightCoral;
+                lblEstadoConfiguracion.Visible = true;
+                return;
+            }
+
+            if (hayCambiosRutas) {
+                try {
+                    await Task.Run(() =>
+                        configuracionService.GuardarConfiguracion(
+                            nuevaRutaBase,
+                            nuevaRutaPlantilla));
+                } catch (UnauthorizedAccessException) {
+                    MostrarErrorGuardadoConfiguracion(
+                        "❌ No se pudieron guardar los cambios porque no hay permisos para acceder a config.txt. La configuración anterior se conservó."
+                    );
+                    return;
+                } catch (SecurityException) {
+                    MostrarErrorGuardadoConfiguracion(
+                        "❌ No se pudieron guardar los cambios porque no hay permisos para acceder a config.txt. La configuración anterior se conservó."
+                    );
+                    return;
+                } catch (IOException) {
+                    MostrarErrorGuardadoConfiguracion(
+                        "❌ No se pudieron guardar los cambios. Verifica que config.txt no esté bloqueado o en uso por otra aplicación. La configuración anterior se conservó."
+                    );
+                    return;
+                } catch (Exception ex) {
+                    MostrarErrorGuardadoConfiguracion(
+                        "❌ No se pudieron guardar los cambios. La configuración anterior se conservó.\n" + ex.Message
+                    );
+                    return;
+                }
+
+                if (IsDisposed || Disposing) {
+                    return;
+                }
+
+                ResultadoCargaTemas cargaTemas = await Task.Run(() =>
+                    temasService.CargarTemasDetallado(nuevaRutaBase));
+
+                if (IsDisposed || Disposing) {
+                    return;
+                }
+
+                rutaBase = nuevaRutaBase;
+                rutaPlantilla = nuevaRutaPlantilla;
+                EstablecerRutasConfiguracionEnVista(
+                    rutaBase,
+                    rutaPlantilla);
+                CargarTemas(cargaTemas);
+                ValidarFormulario();
+            }
+
+            if (hayCambiosPreferencias &&
+                !GuardarPreferenciasAprendizajePendientes()) {
+                return;
+            }
+
+            lblEstadoConfiguracion.Text = "✅ Cambios guardados.";
+            lblEstadoConfiguracion.ForeColor = Color.LightGreen;
+            lblEstadoConfiguracion.Visible = true;
+        } finally {
+            guardandoConfiguracion = false;
+
+            if (!IsDisposed && !Disposing) {
+                txtRutaBaseConfig.ReadOnly = false;
+                txtRutaPlantillaConfig.ReadOnly = false;
+                btnCambiarRutaBase.Enabled = true;
+                btnCambiarRutaPlantilla.Enabled = true;
+                chkMostrarTiemposOrientativos.Enabled = true;
+                ActualizarEstadoCambiosConfiguracion();
+            }
         }
-
-        if (hayCambiosPreferencias && !GuardarPreferenciasAprendizajePendientes()) {
-            ActualizarEstadoCambiosConfiguracion();
-            return;
-        }
-
-        ActualizarEstadoCambiosConfiguracion();
-
-        lblEstadoConfiguracion.Text = "✅ Cambios guardados.";
-        lblEstadoConfiguracion.ForeColor = Color.LightGreen;
-        lblEstadoConfiguracion.Visible = true;
     }
 
     private void BtnRestaurarConfiguracion_Click(object sender, EventArgs e) {
@@ -201,10 +260,11 @@ public partial class frmPrincipal {
     private bool ActualizarEstadoCambiosConfiguracion() {
         bool hayCambios = HayCambiosConfiguracion();
 
-        btnGuardarConfiguracion.Enabled = hayCambios;
-        btnRestaurarConfiguracion.Enabled = hayCambios;
+        bool controlesHabilitados = hayCambios && !guardandoConfiguracion;
+        btnGuardarConfiguracion.Enabled = controlesHabilitados;
+        btnRestaurarConfiguracion.Enabled = controlesHabilitados;
 
-        if (hayCambios) {
+        if (controlesHabilitados) {
             btnGuardarConfiguracion.BackColor = Color.FromArgb(111, 45, 189);
             btnGuardarConfiguracion.ForeColor = Color.White;
             btnGuardarConfiguracion.Cursor = Cursors.Hand;
@@ -278,6 +338,10 @@ public partial class frmPrincipal {
     }
 
     private void MostrarErrorGuardadoConfiguracion(string mensaje) {
+        if (IsDisposed || Disposing) {
+            return;
+        }
+
         lblEstadoConfiguracion.Text = mensaje;
         lblEstadoConfiguracion.ForeColor = Color.LightCoral;
         lblEstadoConfiguracion.Visible = true;
@@ -286,6 +350,7 @@ public partial class frmPrincipal {
     private static string ObtenerMensajeValidacionConfiguracion(EstadoValidacionConfiguracion validacion) {
         return validacion switch {
             EstadoValidacionConfiguracion.RutasNoExistentes => "❌ Una de las rutas seleccionadas no existe.",
+            EstadoValidacionConfiguracion.RutaBaseNoSegura => "❌ La ruta base no puede ser un enlace simbólico, junction ni otro punto de reanálisis.",
             EstadoValidacionConfiguracion.PlantillaSinSolucion => "❌ La plantilla no contiene una solución .sln en su carpeta raíz.",
             EstadoValidacionConfiguracion.PlantillaSolucionSinMarcador => "❌ El nombre de la solución debe contener 00_Plantilla.",
             EstadoValidacionConfiguracion.PlantillaSolucionSinReferenciaMarcador => "❌ La solución .sln no contiene una referencia con 00_Plantilla.",

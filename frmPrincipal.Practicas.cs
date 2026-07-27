@@ -6,7 +6,16 @@ namespace EndForge;
 
 public partial class frmPrincipal {
     private bool disenoNuevaPracticaConfigurado;
+    private bool creacionPracticaEnCurso;
+    private Task? tareaCreacionPracticaActiva;
     private TextBoxMultilineaEndForge campoObjetivoEndForge = null!;
+    private Font fuenteNombreFinalVacia = null!;
+    private Font fuenteNombreFinalCompleta = null!;
+    private ResultadoVistaPreviaPractica ultimoResultadoVistaPrevia = new();
+    private ResultadoCargaTemas? ultimoResultadoCargaTemas;
+    private EstadoCargaTemas? ultimoEstadoCargaTemasNotificado;
+    private int versionSolicitudVistaPrevia;
+    private bool calculoVistaPreviaEnCurso;
 
     private void ConfigurarDisenoNuevaPracticaAdaptable() {
         if (disenoNuevaPracticaConfigurado) {
@@ -16,6 +25,18 @@ public partial class frmPrincipal {
         panelVistaNuevaPractica.Dock = DockStyle.Fill;
         panelNuevaPracticaTarjeta.Anchor = AnchorStyles.None;
         ConfigurarCampoObjetivoEndForge();
+        fuenteNombreFinalVacia = new Font(
+            "Segoe UI",
+            10F,
+            FontStyle.Italic);
+        fuenteNombreFinalCompleta = new Font(
+            "Segoe UI Semibold",
+            11F,
+            FontStyle.Bold);
+        lblNombreFinal.Disposed += (_, _) => {
+            fuenteNombreFinalVacia.Dispose();
+            fuenteNombreFinalCompleta.Dispose();
+        };
 
         lblTitulo.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         lblNuevaPracticaSubtitulo.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
@@ -30,6 +51,7 @@ public partial class frmPrincipal {
         lblVistaPrevia.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         lblNombreFinal.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
 
+        FormClosing += FrmPrincipal_OperacionesFormClosing;
         disenoNuevaPracticaConfigurado = true;
     }
 
@@ -229,7 +251,22 @@ public partial class frmPrincipal {
     private void MostrarVistaPreviaVacia() {
         lblNombreFinal.Text = "Esperando datos...";
         lblNombreFinal.ForeColor = Color.FromArgb(156, 115, 194);
-        lblNombreFinal.Font = new Font("Segoe UI", 10F, FontStyle.Italic);
+        lblNombreFinal.Font = fuenteNombreFinalVacia;
+    }
+
+    private void MostrarVistaPreviaNoDisponible(
+        ResultadoVistaPreviaPractica resultado) {
+        lblNombreFinal.Text = resultado.EstadoNumeracion switch {
+            EstadoNumeracionPractica.TemaInexistente =>
+                "El tema ya no está disponible.",
+            EstadoNumeracionPractica.PermisosInsuficientes =>
+                "No hay permisos para calcular el siguiente número.",
+            EstadoNumeracionPractica.LimiteAlcanzado =>
+                "No hay un número de práctica disponible.",
+            _ => "No se pudo calcular el siguiente número."
+        };
+        lblNombreFinal.ForeColor = Color.LightCoral;
+        lblNombreFinal.Font = fuenteNombreFinalVacia;
     }
 
     private void BtnCrearProyecto_MouseEnter(object? sender, EventArgs e) {
@@ -391,13 +428,16 @@ public partial class frmPrincipal {
         MostrarPantallaBienvenida();
     }
 
-    private void CargarTemas(IReadOnlyList<string>? temasPrecargados = null) {
+    private void CargarTemas(
+        ResultadoCargaTemas? resultadoPrecargado = null) {
         txtTemas.Items.Clear();
 
-        IReadOnlyList<string> temas =
-            temasPrecargados ?? temasService.CargarTemas(rutaBase);
+        ResultadoCargaTemas resultado =
+            resultadoPrecargado ??
+            temasService.CargarTemasDetallado(rutaBase);
+        ultimoResultadoCargaTemas = resultado;
 
-        foreach (string tema in temas) {
+        foreach (string tema in resultado.Temas) {
             txtTemas.Items.Add(tema);
         }
 
@@ -406,23 +446,120 @@ public partial class frmPrincipal {
         }
 
         ActualizarVistaPrevia();
+        NotificarResultadoCargaTemas(resultado);
+        ValidarFormulario();
     }
 
-    private void ActualizarVistaPrevia() {
-        ResultadoVistaPreviaPractica resultado = vistaPreviaPracticaService.Calcular(
-            rutaBase,
-            txtTemas.SelectedItem?.ToString(),
-            txtNombreProyecto.Text
-        );
-
-        if (resultado.Estado == EstadoVistaPreviaPractica.Vacia) {
-            MostrarVistaPreviaVacia();
+    private void NotificarResultadoCargaTemas(
+        ResultadoCargaTemas resultado) {
+        if (resultado.EsExitosa ||
+            string.IsNullOrWhiteSpace(rutaBase)) {
+            ultimoEstadoCargaTemasNotificado = null;
             return;
         }
 
-        lblNombreFinal.Text = resultado.NombreFinal;
-        lblNombreFinal.ForeColor = Color.FromArgb(196, 128, 255);
-        lblNombreFinal.Font = new Font("Segoe UI Semibold", 11F, FontStyle.Bold);
+        ultimoResultadoVistaPrevia = new ResultadoVistaPreviaPractica {
+            Estado = EstadoVistaPreviaPractica.NumeracionNoDisponible,
+            EstadoNumeracion = resultado.Estado switch {
+                EstadoCargaTemas.PermisosInsuficientes =>
+                    EstadoNumeracionPractica.PermisosInsuficientes,
+                EstadoCargaTemas.ErrorIo =>
+                    EstadoNumeracionPractica.ErrorIo,
+                _ => EstadoNumeracionPractica.TemaInexistente
+            },
+            Error = resultado.Error
+        };
+        MostrarVistaPreviaNoDisponible(ultimoResultadoVistaPrevia);
+
+        if (ultimoEstadoCargaTemasNotificado == resultado.Estado) {
+            return;
+        }
+
+        ultimoEstadoCargaTemasNotificado = resultado.Estado;
+        string mensaje = resultado.Estado switch {
+            EstadoCargaTemas.RutaInexistente =>
+                "La ruta base configurada ya no está disponible. Abre Configuración para repararla.",
+            EstadoCargaTemas.PermisosInsuficientes =>
+                "No hay permisos para cargar los temas de la ruta base. Revisa Configuración o los permisos de la carpeta.",
+            _ =>
+                "No se pudieron cargar los temas. La unidad o carpeta puede estar desconectada o en uso."
+        };
+
+        MessageBox.Show(
+            mensaje,
+            "EndForge",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Warning);
+    }
+
+    private async void ActualizarVistaPrevia() {
+        versionSolicitudVistaPrevia++;
+        string? temaInicial = txtTemas.SelectedItem?.ToString();
+        string nombreInicial = txtNombreProyecto.Text;
+
+        if (string.IsNullOrEmpty(temaInicial) ||
+            string.IsNullOrWhiteSpace(nombreInicial)) {
+            ultimoResultadoVistaPrevia = new ResultadoVistaPreviaPractica {
+                Estado = EstadoVistaPreviaPractica.Vacia
+            };
+            MostrarVistaPreviaVacia();
+            ValidarFormulario();
+            return;
+        }
+
+        ultimoResultadoVistaPrevia = new ResultadoVistaPreviaPractica {
+            Estado = EstadoVistaPreviaPractica.Vacia
+        };
+        ValidarFormulario();
+
+        if (calculoVistaPreviaEnCurso) {
+            return;
+        }
+
+        calculoVistaPreviaEnCurso = true;
+
+        try {
+            while (!IsDisposed && !Disposing) {
+                int versionCalculada = versionSolicitudVistaPrevia;
+                string rutaBaseCalculada = rutaBase;
+                string? temaCalculado =
+                    txtTemas.SelectedItem?.ToString();
+                string nombreCalculado = txtNombreProyecto.Text;
+                ResultadoVistaPreviaPractica resultado =
+                    await Task.Run(() => vistaPreviaPracticaService.Calcular(
+                        rutaBaseCalculada,
+                        temaCalculado,
+                        nombreCalculado));
+
+                if (IsDisposed || Disposing) {
+                    return;
+                }
+
+                if (versionCalculada != versionSolicitudVistaPrevia) {
+                    continue;
+                }
+
+                ultimoResultadoVistaPrevia = resultado;
+
+                if (resultado.Estado ==
+                    EstadoVistaPreviaPractica.Vacia) {
+                    MostrarVistaPreviaVacia();
+                } else if (resultado.Estado ==
+                    EstadoVistaPreviaPractica.NumeracionNoDisponible) {
+                    MostrarVistaPreviaNoDisponible(resultado);
+                } else {
+                    lblNombreFinal.Text = resultado.NombreFinal;
+                    lblNombreFinal.ForeColor =
+                        Color.FromArgb(196, 128, 255);
+                    lblNombreFinal.Font = fuenteNombreFinalCompleta;
+                }
+
+                ValidarFormulario();
+                return;
+            }
+        } finally {
+            calculoVistaPreviaEnCurso = false;
+        }
     }
 
     private void ValidarFormulario() {
@@ -432,119 +569,183 @@ public partial class frmPrincipal {
             !string.IsNullOrWhiteSpace(txtObjetivo.Text) &&
             !string.IsNullOrWhiteSpace(rutaBase) &&
             !string.IsNullOrWhiteSpace(rutaPlantilla) &&
-            temasService.ExisteTema(rutaBase, txtTemas.Text);
+            ultimoResultadoCargaTemas?.EsExitosa == true &&
+            ultimoResultadoVistaPrevia.Estado ==
+                EstadoVistaPreviaPractica.Completa &&
+            !creacionPracticaEnCurso;
     }
 
     private void CmbTemas_SelectedIndexChanged(object sender, EventArgs e) {
         ActualizarVistaPrevia();
     }
 
-    private ResultadoCreacionPractica? EjecutarCreacionPractica(
+    private async Task<(
+        ResultadoCreacionPractica Resultado,
+        string RutaProyecto)?> EjecutarCreacionPracticaAsync(
         string temaSeleccionado,
         string nombreIntroducido,
         string objetivo,
         Action accionAlPrepararApertura,
-        out string rutaProyecto,
         bool crearCarpetaTemaSiNoExiste = false,
         string? nombreTemaParaDocumentacion = null
     ) {
-        rutaProyecto = string.Empty;
+        if (creacionPracticaEnCurso) {
+            return null;
+        }
+
+        creacionPracticaEnCurso = true;
+        btnCrearProyecto.Enabled = false;
+        TaskCompletionSource<bool> finalizacionCreacion = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        tareaCreacionPracticaActiva = finalizacionCreacion.Task;
+
         temaSeleccionado = temaSeleccionado.Trim();
 
-        ResultadoValidacionNombrePractica validacionNombre = nombrePracticaService.Validar(nombreIntroducido);
+        try {
+            ResultadoValidacionNombrePractica validacionNombre =
+                nombrePracticaService.Validar(nombreIntroducido);
 
-        if (!validacionNombre.EsValido) {
-            MessageBox.Show(validacionNombre.MensajeError);
-            txtNombreProyecto.Focus();
-            return null;
-        }
+            if (!validacionNombre.EsValido) {
+                MessageBox.Show(validacionNombre.MensajeError);
+                txtNombreProyecto.Focus();
+                return null;
+            }
 
-        ResultadoValidacionConfiguracion validacionConfiguracion =
-            configuracionService.ValidarConfiguracionDetallada(rutaBase, rutaPlantilla);
+            string rutaBaseActual = rutaBase;
+            string rutaPlantillaActual = rutaPlantilla;
+            ResultadoValidacionConfiguracion validacionConfiguracion =
+                await Task.Run(() =>
+                    configuracionService.ValidarConfiguracionDetallada(
+                        rutaBaseActual,
+                        rutaPlantillaActual));
 
-        if (validacionConfiguracion.Estado != EstadoValidacionConfiguracion.Valida) {
-            MessageBox.Show(
-                ObtenerMensajeValidacionConfiguracion(validacionConfiguracion.Estado),
-                "EndForge",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Warning
-            );
-            return null;
-        }
+            if (IsDisposed || Disposing) {
+                return null;
+            }
 
-        if (!temasService.ExisteTema(rutaBase, temaSeleccionado) &&
-            crearCarpetaTemaSiNoExiste &&
-            !IntentarCrearCarpetaTemaCurso(temaSeleccionado)) {
-            return null;
-        }
-
-        if (!temasService.ExisteTema(rutaBase, temaSeleccionado)) {
-            MessageBox.Show(
-                "El tema seleccionado ya no está disponible en la ruta base configurada.",
-                "EndForge",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Warning);
-            return null;
-        }
-
-        ResultadoVistaPreviaPractica vistaPrevia = vistaPreviaPracticaService.Calcular(
-            rutaBase,
-            temaSeleccionado,
-            validacionNombre.NombreNormalizado
-        );
-
-        string nombreProyecto = vistaPrevia.NombreFinal.Trim();
-        rutaProyecto = Path.Combine(rutaBase, temaSeleccionado, nombreProyecto);
-
-        SolicitudCreacionPractica solicitud = new SolicitudCreacionPractica {
-            RutaPlantilla = rutaPlantilla,
-            RutaProyecto = rutaProyecto,
-            NombreProyecto = nombreProyecto,
-            Tema = string.IsNullOrWhiteSpace(nombreTemaParaDocumentacion)
-                ? temaSeleccionado
-                : nombreTemaParaDocumentacion.Trim(),
-            Objetivo = objetivo.Trim(),
-            RutaRelativaSolucionEsperada = seleccionSolucionesService.TransformarRutaRelativa(
-                validacionConfiguracion.RutaRelativaSolucion,
-                nombreProyecto
-            )
-        };
-
-        return creacionPracticasOrquestador.CrearPractica(
-            solicitud,
-            resultadoRecientes => {
-                if (resultadoRecientes.EsExitosa) {
-                    CargarRecientes();
-                }
-
-                MostrarResultadoEscrituraRecientes(
-                    resultadoRecientes,
-                    "La práctica se creó y abrió correctamente"
+            if (validacionConfiguracion.Estado !=
+                EstadoValidacionConfiguracion.Valida) {
+                MessageBox.Show(
+                    ObtenerMensajeValidacionConfiguracion(
+                        validacionConfiguracion.Estado),
+                    "EndForge",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning
                 );
-            },
-            accionAlPrepararApertura
-        );
+                return null;
+            }
+
+            bool temaExiste = await Task.Run(() =>
+                temasService.ExisteTema(rutaBaseActual, temaSeleccionado));
+
+            if (!temaExiste &&
+                crearCarpetaTemaSiNoExiste &&
+                !IntentarCrearCarpetaTemaCurso(
+                    temaSeleccionado,
+                    rutaBaseActual)) {
+                return null;
+            }
+
+            temaExiste = await Task.Run(() =>
+                temasService.ExisteTema(rutaBaseActual, temaSeleccionado));
+
+            if (!temaExiste) {
+                MessageBox.Show(
+                    "El tema seleccionado ya no está disponible en la ruta base configurada.",
+                    "EndForge",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return null;
+            }
+
+            ResultadoVistaPreviaPractica vistaPrevia = await Task.Run(() =>
+                vistaPreviaPracticaService.Calcular(
+                    rutaBaseActual,
+                    temaSeleccionado,
+                    validacionNombre.NombreNormalizado));
+
+            if (IsDisposed || Disposing) {
+                return null;
+            }
+
+            if (vistaPrevia.Estado != EstadoVistaPreviaPractica.Completa) {
+                ultimoResultadoVistaPrevia = vistaPrevia;
+                MostrarVistaPreviaNoDisponible(vistaPrevia);
+                MessageBox.Show(
+                    "No se pudo determinar de forma segura el siguiente número de práctica. Verifica la ruta base y sus permisos.",
+                    "EndForge",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return null;
+            }
+
+            string nombreProyecto = vistaPrevia.NombreFinal.Trim();
+            string rutaProyecto = Path.Combine(
+                rutaBaseActual,
+                temaSeleccionado,
+                nombreProyecto);
+
+            SolicitudCreacionPractica solicitud = new() {
+                RutaPlantilla = rutaPlantillaActual,
+                RutaProyecto = rutaProyecto,
+                RutaBaseConfiable = rutaBaseActual,
+                NombreProyecto = nombreProyecto,
+                Tema = string.IsNullOrWhiteSpace(nombreTemaParaDocumentacion)
+                    ? temaSeleccionado
+                    : nombreTemaParaDocumentacion.Trim(),
+                Objetivo = objetivo.Trim(),
+                RutaRelativaSolucionEsperada =
+                    seleccionSolucionesService.TransformarRutaRelativa(
+                        validacionConfiguracion.RutaRelativaSolucion,
+                        nombreProyecto)
+            };
+
+            ResultadoCreacionPractica resultado =
+                await creacionPracticasOrquestador.CrearPracticaAsync(
+                    solicitud,
+                    resultadoRecientes => {
+                        if (IsDisposed ||
+                            Disposing ||
+                            esperandoCierreOperaciones) {
+                            return;
+                        }
+
+                        if (resultadoRecientes.EsExitosa) {
+                            CargarRecientes();
+                        }
+                    },
+                    () => {
+                        if (!IsDisposed &&
+                            !Disposing &&
+                            !esperandoCierreOperaciones) {
+                            accionAlPrepararApertura();
+                        }
+                    });
+
+            return (resultado, rutaProyecto);
+        } finally {
+            creacionPracticaEnCurso = false;
+            tareaCreacionPracticaActiva = null;
+
+            if (!IsDisposed &&
+                !Disposing &&
+                !esperandoCierreOperaciones) {
+                ValidarFormulario();
+            }
+
+            finalizacionCreacion.TrySetResult(true);
+        }
     }
 
-    private bool IntentarCrearCarpetaTemaCurso(string rutaRelativaTema) {
+    private bool IntentarCrearCarpetaTemaCurso(
+        string rutaRelativaTema,
+        string? rutaBaseOperacion = null) {
         try {
-            string rutaBaseCompleta = Path.GetFullPath(rutaBase);
-            string rutaTemaCompleta = Path.GetFullPath(
-                Path.Combine(rutaBaseCompleta, rutaRelativaTema));
-            string rutaRelativaNormalizada = Path.GetRelativePath(
-                rutaBaseCompleta,
-                rutaTemaCompleta);
-            bool estaFueraDeRutaBase =
-                Path.IsPathRooted(rutaRelativaNormalizada) ||
-                rutaRelativaNormalizada.Equals("..", StringComparison.Ordinal) ||
-                rutaRelativaNormalizada.StartsWith(
-                    $"..{Path.DirectorySeparatorChar}",
-                    StringComparison.Ordinal) ||
-                rutaRelativaNormalizada.StartsWith(
-                    $"..{Path.AltDirectorySeparatorChar}",
-                    StringComparison.Ordinal);
-
-            if (estaFueraDeRutaBase || File.Exists(rutaTemaCompleta)) {
+            if (!temasService.IntentarObtenerRutaTemaSeguraParaCreacion(
+                    rutaBaseOperacion ?? rutaBase,
+                    rutaRelativaTema,
+                    out string rutaTemaCompleta) ||
+                File.Exists(rutaTemaCompleta)) {
                 MessageBox.Show(
                     "No se pudo preparar la carpeta del tema dentro de la ruta base.",
                     "EndForge",
@@ -554,7 +755,9 @@ public partial class frmPrincipal {
             }
 
             Directory.CreateDirectory(rutaTemaCompleta);
-            return true;
+            return temasService.ExisteTema(
+                rutaBaseOperacion ?? rutaBase,
+                rutaRelativaTema);
         } catch (UnauthorizedAccessException) {
             MessageBox.Show(
                 "No hay permisos para crear la carpeta del grado y el tema.",
@@ -579,8 +782,11 @@ public partial class frmPrincipal {
         }
     }
 
-    private void BtnCrearProyecto_Click(object sender, EventArgs e) {
-        ResultadoCreacionPractica? resultado = EjecutarCreacionPractica(
+    private async void BtnCrearProyecto_Click(object sender, EventArgs e) {
+        (
+            ResultadoCreacionPractica Resultado,
+            string RutaProyecto)? ejecucion =
+            await EjecutarCreacionPracticaAsync(
             txtTemas.Text,
             txtNombreProyecto.Text,
             txtObjetivo.Text,
@@ -591,21 +797,29 @@ public partial class frmPrincipal {
 
                 ActualizarVistaPrevia();
                 ValidarFormulario();
-            },
-            out _
+            }
         );
 
-        if (resultado is null) {
+        if (ejecucion is null ||
+            IsDisposed ||
+            Disposing ||
+            esperandoCierreOperaciones) {
             return;
         }
 
-        MostrarResultadoCreacionPractica(resultado, enfocarNombreProyecto: true);
+        MostrarResultadoCreacionPractica(
+            ejecucion.Value.Resultado,
+            enfocarNombreProyecto: true);
     }
 
     private bool MostrarResultadoCreacionPractica(
         ResultadoCreacionPractica resultado,
         bool enfocarNombreProyecto
     ) {
+        if (resultado.ErrorSecundario is not null) {
+            Program.RegistrarErrorRecuperable(resultado.ErrorSecundario);
+        }
+
         if (resultado.Estado == EstadoCreacionPractica.DestinoExistente) {
             MessageBox.Show("La práctica ya existe.");
 
@@ -632,6 +846,45 @@ public partial class frmPrincipal {
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
             return false;
+        }
+
+        if (resultado.Estado ==
+            EstadoCreacionPractica.CreadaAbiertaSinRegistroReciente) {
+            if (resultado.RegistroReciente is not null) {
+                MostrarResultadoEscrituraRecientes(
+                    resultado.RegistroReciente,
+                    "La práctica se creó y abrió correctamente");
+            } else {
+                MessageBox.Show(
+                    "La práctica se creó y abrió correctamente, pero no pudo guardarse en Recientes.",
+                    "EndForge",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+            }
+
+            return true;
+        }
+
+        if (resultado.RegistroReciente is not null) {
+            int registrosIgnorados =
+                resultado.RegistroReciente.RegistrosInvalidosIgnorados +
+                resultado.RegistroReciente.RegistrosNoDisponiblesIgnorados;
+
+            if (registrosIgnorados > 0) {
+                MostrarResultadoEscrituraRecientes(
+                    resultado.RegistroReciente,
+                    "La práctica se creó y abrió correctamente");
+                return true;
+            }
+        }
+
+        if (resultado.ErrorSecundario is not null) {
+            MessageBox.Show(
+                "La práctica se creó y abrió correctamente, pero EndForge no pudo actualizar por completo la interfaz.",
+                "EndForge",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            return true;
         }
 
         MessageBox.Show(

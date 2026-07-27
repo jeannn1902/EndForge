@@ -21,14 +21,27 @@ public sealed class VistaPreviaPracticaService {
             };
         }
 
-        int siguienteNumero = temasService.ObtenerSiguienteNumero(
+        ResultadoNumeracionPractica numeracion =
+            temasService.ObtenerSiguienteNumero(
             rutaBase,
             temaSeleccionado
         );
 
+        if (!numeracion.EsExitosa) {
+            return new ResultadoVistaPreviaPractica {
+                Estado = EstadoVistaPreviaPractica.NumeracionNoDisponible,
+                EstadoNumeracion = numeracion.Estado,
+                Error = numeracion.Error
+            };
+        }
+
         return new ResultadoVistaPreviaPractica {
             Estado = EstadoVistaPreviaPractica.Completa,
-            NombreFinal = siguienteNumero.ToString("00") + "_" + nombreNormalizado
+            NombreFinal =
+                numeracion.Numero!.Value.ToString("00") +
+                "_" +
+                nombreNormalizado,
+            EstadoNumeracion = numeracion.Estado
         };
     }
 }

@@ -21,8 +21,8 @@ public partial class frmPrincipal {
     private Button btnVolverPracticaEvaluacion = null!;
     private bool vistasEvaluacionInicializadas;
     private bool evaluacionEnCurso;
-    private bool esperandoCierreEvaluacion;
-    private bool cierreTrasEvaluacionAutorizado;
+    private bool esperandoCierreOperaciones;
+    private bool cierreTrasOperacionesAutorizado;
     private bool evaluacionInmersivaAmpliaActiva;
     private string textoEstadoEvaluacion = "Lista para iniciar.";
     private int etapaVisualEvaluacion;
@@ -49,7 +49,6 @@ public partial class frmPrincipal {
         ActivarDobleBuffer(desplazamientoEvaluacion);
         ActivarDobleBuffer(desplazamientoResultadoEvaluacion);
         ActivarDobleBuffer(desplazamientoHistorialEvaluaciones);
-        FormClosing += FrmPrincipal_EvaluacionFormClosing;
         vistasEvaluacionInicializadas = true;
         SincronizarLimitesVistasAdaptables();
     }
@@ -836,31 +835,52 @@ public partial class frmPrincipal {
         RecalcularDistribucionResultados();
     }
 
-    private async void FrmPrincipal_EvaluacionFormClosing(
+    private async void FrmPrincipal_OperacionesFormClosing(
         object? sender,
         FormClosingEventArgs e) {
-        if (cierreTrasEvaluacionAutorizado ||
-            (!evaluacionEnCurso && !actualizandoHistorial) ||
-            tareaEvaluacionActiva is null) {
+        Task? evaluacionPendiente =
+            (evaluacionEnCurso || actualizandoHistorial) &&
+            tareaEvaluacionActiva is { IsCompleted: false }
+                ? tareaEvaluacionActiva
+                : null;
+        Task? creacionPendiente =
+            creacionPracticaEnCurso &&
+            tareaCreacionPracticaActiva is { IsCompleted: false }
+                ? tareaCreacionPracticaActiva
+                : null;
+
+        if (cierreTrasOperacionesAutorizado ||
+            (evaluacionPendiente is null &&
+             creacionPendiente is null)) {
             return;
         }
 
         e.Cancel = true;
 
-        if (esperandoCierreEvaluacion) {
+        if (esperandoCierreOperaciones) {
             return;
         }
 
-        esperandoCierreEvaluacion = true;
-        CancelarEvaluacionActiva();
+        esperandoCierreOperaciones = true;
+
+        if (evaluacionPendiente is not null) {
+            CancelarEvaluacionActiva();
+        }
 
         try {
-            await tareaEvaluacionActiva;
+            if (evaluacionPendiente is not null &&
+                creacionPendiente is not null) {
+                await Task.WhenAll(
+                    evaluacionPendiente,
+                    creacionPendiente);
+            } else {
+                await (evaluacionPendiente ?? creacionPendiente!);
+            }
         } catch (Exception) {
             // El cierre solo espera la limpieza de los procesos iniciados por EndForge.
         } finally {
-            esperandoCierreEvaluacion = false;
-            cierreTrasEvaluacionAutorizado = true;
+            esperandoCierreOperaciones = false;
+            cierreTrasOperacionesAutorizado = true;
 
             if (!IsDisposed && !Disposing) {
                 BeginInvoke(Close);
