@@ -1,0 +1,41 @@
+name: Build and test
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore EndForge.sln
+
+      - name: Build Debug
+        run: dotnet build EndForge.sln --configuration Debug --no-restore
+
+      - name: Test Debug
+        run: >-
+          dotnet test EndForge.sln --configuration Debug --no-build --no-restore
+
+      - name: Build Release
+        run: dotnet build EndForge.sln --configuration Release --no-restore
+
+      - name: Test Release
+        run: >-
+          dotnet test EndForge.sln --configuration Release --no-build --no-restore

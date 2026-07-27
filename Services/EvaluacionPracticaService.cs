@@ -184,30 +184,17 @@ public sealed class EvaluacionPracticaService {
         };
     }
 
-    private CasoEvaluado EvaluarCaso(
+    internal CasoEvaluado EvaluarCaso(
         CasoPrueba caso,
         ResultadoEjecucionCasoPruebaCpp ejecucionCaso) {
         ResultadoEjecucionPruebaCpp ejecucion = ejecucionCaso.Ejecucion;
 
         if (ejecucion.Estado == EstadoEjecucionPruebaCpp.Exitosa) {
             ResultadoComparacionSalida comparacion =
-                caso.SalidaExactaEsperada is null
-                    ? TieneReglasDeSalida(caso)
-                        ? comparadorSalidaService.Comparar(
-                            caso,
-                            ejecucion.SalidaEstandar)
-                        : CrearComparacionDeSalidaNoRequerida()
-                    : CompararSalidaExacta(
-                        caso,
-                        ejecucion.SalidaEstandar);
-            ResultadoComparacionArchivos archivos = CompararArchivos(
-                caso,
-                ejecucionCaso.Archivos);
-            ResultadoComparacionSalida comparacionCompleta =
-                CombinarComparacionConArchivos(
+                CompararResultadoCaso(
                     caso,
-                    comparacion,
-                    archivos);
+                    ejecucion.SalidaEstandar,
+                    ejecucionCaso.Archivos);
 
             return new CasoEvaluado(
                 new ResultadoCasoPrueba {
@@ -215,16 +202,16 @@ public sealed class EvaluacionPracticaService {
                     Entrada = caso.Entrada,
                     SalidaEsperada = caso.SalidaEsperada,
                     SalidaObtenida = ejecucion.SalidaEstandar,
-                    Aprobado = comparacionCompleta.EsCorrecta,
-                    PuntosObtenidos = comparacionCompleta.EsCorrecta
+                    Aprobado = comparacion.EsCorrecta,
+                    PuntosObtenidos = comparacion.EsCorrecta
                         ? caso.Puntos
                         : 0,
                     PuntosMaximos = caso.Puntos,
-                    Mensaje = comparacionCompleta.Mensaje,
+                    Mensaje = comparacion.Mensaje,
                     EsVisible = caso.EsVisible,
                     EjecucionFinalizada = true
                 },
-                comparacionCompleta);
+                comparacion);
         }
 
         string mensaje = ejecucion.Estado switch {
@@ -251,6 +238,29 @@ public sealed class EvaluacionPracticaService {
                 EjecucionFinalizada = ejecucion.EjecucionFinalizada
             },
             null);
+    }
+
+    internal ResultadoComparacionSalida CompararResultadoCaso(
+        CasoPrueba caso,
+        string salida,
+        IReadOnlyList<ResultadoArchivoPrueba> archivosObtenidos) {
+        ArgumentNullException.ThrowIfNull(caso);
+        ArgumentNullException.ThrowIfNull(archivosObtenidos);
+
+        ResultadoComparacionSalida comparacion =
+            caso.SalidaExactaEsperada is null
+                ? TieneReglasDeSalida(caso)
+                    ? comparadorSalidaService.Comparar(caso, salida)
+                    : CrearComparacionDeSalidaNoRequerida()
+                : CompararSalidaExacta(caso, salida);
+        ResultadoComparacionArchivos archivos = CompararArchivos(
+            caso,
+            archivosObtenidos);
+
+        return CombinarComparacionConArchivos(
+            caso,
+            comparacion,
+            archivos);
     }
 
     private static bool TieneReglasDeSalida(CasoPrueba caso) {
@@ -752,7 +762,7 @@ public sealed class EvaluacionPracticaService {
         });
     }
 
-    private sealed record CasoEvaluado(
+    internal sealed record CasoEvaluado(
         ResultadoCasoPrueba Resultado,
         ResultadoComparacionSalida? Comparacion);
 
