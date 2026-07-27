@@ -10,6 +10,10 @@ public sealed partial class CursoService {
     private static IReadOnlyList<TemaCurso> CrearTemasGradoJunior() {
         IReadOnlyList<PracticaCurso> practicasArreglos =
             CrearPracticasArreglosGradoJunior();
+        IReadOnlyList<PracticaCurso> practicasCadenas =
+            CrearPracticasCadenasGradoJunior();
+        IReadOnlyList<PracticaCurso> practicasMatrices =
+            CrearPracticasMatricesGradoJunior();
 
         return Array.AsReadOnly(new[] {
             new TemaCurso {
@@ -21,6 +25,28 @@ public sealed partial class CursoService {
                     "Aprende a almacenar, recorrer, transformar y analizar varios valores del mismo tipo.",
                 TotalPracticasPlaneadas = TotalPracticasArreglosGradoJunior,
                 Practicas = practicasArreglos,
+                EsProximamente = false
+            },
+            new TemaCurso {
+                Id = TemaCadenasGradoJuniorId,
+                Numero = 2,
+                Nombre = "Cadenas",
+                NombreCarpeta = "02_Cadenas",
+                Descripcion =
+                    "Aprende a capturar, transformar y analizar texto conservando su contenido.",
+                TotalPracticasPlaneadas = practicasCadenas.Count,
+                Practicas = practicasCadenas,
+                EsProximamente = false
+            },
+            new TemaCurso {
+                Id = TemaMatricesGradoJuniorId,
+                Numero = 3,
+                Nombre = "Matrices",
+                NombreCarpeta = "03_Matrices",
+                Descripcion =
+                    "Aprende a organizar datos en filas y columnas y a realizar operaciones matriciales.",
+                TotalPracticasPlaneadas = practicasMatrices.Count,
+                Practicas = practicasMatrices,
                 EsProximamente = false
             }
         });

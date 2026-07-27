@@ -97,7 +97,23 @@ public sealed partial class CatalogoEvaluacionesService {
             CrearArreglosInvertir(rubrica),
             CrearArreglosIntercalar(rubrica),
             CrearArreglosSinDuplicados(rubrica),
-            CrearArreglosOrdenarSegundoMayor(rubrica)
+            CrearArreglosOrdenarSegundoMayor(rubrica),
+            CrearCadenasCapturarMostrar(rubrica),
+            CrearCadenasLongitud(rubrica),
+            CrearCadenasMayusculasMinusculas(rubrica),
+            CrearCadenasInvertir(rubrica),
+            CrearCadenasPalindromo(rubrica),
+            CrearCadenasContarCaracteres(rubrica),
+            CrearCadenasReemplazarCaracter(rubrica),
+            CrearCadenasContarPalabras(rubrica),
+            CrearMatricesCapturarMostrar(rubrica),
+            CrearMatricesSumaElementos(rubrica),
+            CrearMatricesSumasFilasColumnas(rubrica),
+            CrearMatricesDiagonales(rubrica),
+            CrearMatricesTranspuesta(rubrica),
+            CrearMatricesSumarDos(rubrica),
+            CrearMatricesMultiplicar(rubrica),
+            CrearMatricesMayorMenorPosicion(rubrica)
         });
     }
 
