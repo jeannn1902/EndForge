@@ -19,6 +19,8 @@ public partial class frmPrincipal {
     private Button btnIniciarEvaluacion = null!;
     private Button btnCancelarEvaluacion = null!;
     private Button btnVolverPracticaEvaluacion = null!;
+    private readonly CoordinadorCierreOperacionesAsync
+        coordinadorCierreOperaciones = new();
     private bool vistasEvaluacionInicializadas;
     private bool evaluacionEnCurso;
     private bool esperandoCierreOperaciones;
@@ -566,98 +568,165 @@ public partial class frmPrincipal {
             return;
         }
 
+        PracticaCurso practica = practicaCursoSeleccionada;
+        DefinicionEvaluacionPractica definicion = definicionEvaluacionActual;
+        Task flujoEvaluacion = EjecutarFlujoEvaluacionAsync(
+            practica,
+            definicion,
+            rutaProyecto);
+        tareaEvaluacionActiva = flujoEvaluacion;
+
+        try {
+            await flujoEvaluacion;
+        } catch (Exception ex)
+            when (!RegistroErroresService.EsExcepcionCritica(ex)) {
+            Program.RegistrarErrorRecuperable(ex);
+
+            if (PuedeActualizarInterfazEvaluacion()) {
+                etapaVisualEvaluacion = 0;
+                textoEstadoEvaluacion =
+                    "No se pudo completar la evaluación local.";
+                ReconstruirVistaEvaluacion(volverAlInicio: false);
+            }
+        } finally {
+            if (ReferenceEquals(
+                    tareaEvaluacionActiva,
+                    flujoEvaluacion)) {
+                tareaEvaluacionActiva = null;
+            }
+        }
+    }
+
+    private async Task EjecutarFlujoEvaluacionAsync(
+        PracticaCurso practica,
+        DefinicionEvaluacionPractica definicion,
+        string rutaProyecto) {
         evaluacionEnCurso = true;
         etapaVisualEvaluacion = 1;
         textoEstadoEvaluacion = "Preparando evaluación…";
         cancelacionEvaluacion?.Dispose();
         cancelacionEvaluacion = new CancellationTokenSource();
         ActualizarEstadoEvaluacionVisual();
-        ReconstruirDetallePractica(practicaCursoSeleccionada, volverAlInicio: false);
+        ReconstruirDetallePractica(practica, volverAlInicio: false);
         Progress<ProgresoEvaluacionPractica> progreso = new(ActualizarProgresoEvaluacion);
-        ResultadoProcesoEvaluacionPractica resultado;
 
         try {
-            Task<ResultadoProcesoEvaluacionPractica> tarea =
-                evaluacionPracticaService.EvaluarAsync(
+            ResultadoProcesoEvaluacionPractica resultado;
+
+            try {
+                resultado = await evaluacionPracticaService.EvaluarAsync(
                     new SolicitudEvaluacionPractica {
-                        PracticaId = practicaCursoSeleccionada.Id,
+                        PracticaId = practica.Id,
                         RutaProyecto = rutaProyecto
                     },
                     progreso,
                     cancelacionEvaluacion.Token);
-            tareaEvaluacionActiva = tarea;
-            resultado = await tarea;
-        } catch (OperationCanceledException) {
-            resultado = new ResultadoProcesoEvaluacionPractica {
-                Estado = EstadoProcesoEvaluacionPractica.Cancelada,
-                Mensaje = "Evaluación cancelada."
-            };
-        } catch (Exception ex) {
-            resultado = new ResultadoProcesoEvaluacionPractica {
-                Estado = EstadoProcesoEvaluacionPractica.ErrorInfraestructura,
-                Mensaje = "No se pudo completar la evaluación local.",
-                Error = ex
-            };
+            } catch (OperationCanceledException) {
+                resultado = new ResultadoProcesoEvaluacionPractica {
+                    Estado = EstadoProcesoEvaluacionPractica.Cancelada,
+                    Mensaje = "Evaluación cancelada."
+                };
+            } catch (Exception ex) {
+                resultado = new ResultadoProcesoEvaluacionPractica {
+                    Estado = EstadoProcesoEvaluacionPractica.ErrorInfraestructura,
+                    Mensaje = "No se pudo completar la evaluación local.",
+                    Error = ex
+                };
+            } finally {
+                cancelacionEvaluacion?.Dispose();
+                cancelacionEvaluacion = null;
+            }
+
+            if (PuedeActualizarInterfazEvaluacion()) {
+                ReconstruirDetallePractica(
+                    practica,
+                    volverAlInicio: false);
+            }
+
+            if (!resultado.EsIntentoCalificable ||
+                resultado.Resultado is null) {
+                etapaVisualEvaluacion = 0;
+                textoEstadoEvaluacion =
+                    resultado.Estado ==
+                        EstadoProcesoEvaluacionPractica.Cancelada
+                    ? "Evaluación cancelada. No se registró ningún intento."
+                    : resultado.Mensaje;
+
+                if (PuedeActualizarInterfazEvaluacion()) {
+                    ReconstruirVistaEvaluacion(
+                        volverAlInicio: false);
+                }
+
+                return;
+            }
+
+            etapaVisualEvaluacion = 4;
+            textoEstadoEvaluacion = "Guardando intento…";
+
+            if (PuedeActualizarInterfazEvaluacion()) {
+                ActualizarEstadoEvaluacionVisual();
+            }
+
+            IntentoPractica intento =
+                CrearIntento(resultado.Resultado);
+            ResultadoEscrituraHistorialEvaluaciones guardado;
+
+            try {
+                guardado = await Task.Run(() =>
+                    historialEvaluacionesService.GuardarIntento(
+                        intento));
+            } catch (Exception ex) {
+                guardado = new ResultadoEscrituraHistorialEvaluaciones {
+                    Estado =
+                        EstadoEscrituraHistorialEvaluaciones.ErrorIo,
+                    Error = ex
+                };
+            }
+
+            textoEstadoEvaluacion = "Resultado generado.";
+
+            if (!PuedeActualizarInterfazEvaluacion()) {
+                return;
+            }
+
+            HistorialPractica? historial =
+                guardado.HistorialActualizado;
+
+            if (!guardado.EsExitosa) {
+                MessageBox.Show(
+                    ObtenerMensajeGuardadoHistorial(guardado.Estado),
+                    "EndForge",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+            }
+
+            MostrarResultadoEvaluacion(
+                intento,
+                historial,
+                desdeHistorial: false);
         } finally {
-            tareaEvaluacionActiva = null;
             evaluacionEnCurso = false;
             cancelacionEvaluacion?.Dispose();
             cancelacionEvaluacion = null;
+
+            if (PuedeActualizarInterfazEvaluacion()) {
+                ActualizarEstadoEvaluacionVisual();
+            }
         }
+    }
 
-        if (IsDisposed || Disposing) {
-            return;
-        }
-
-        ReconstruirDetallePractica(practicaCursoSeleccionada, volverAlInicio: false);
-
-        if (!resultado.EsIntentoCalificable || resultado.Resultado is null) {
-            etapaVisualEvaluacion = 0;
-            textoEstadoEvaluacion = resultado.Estado == EstadoProcesoEvaluacionPractica.Cancelada
-                ? "Evaluación cancelada. No se registró ningún intento."
-                : resultado.Mensaje;
-            ReconstruirVistaEvaluacion(volverAlInicio: false);
-            return;
-        }
-
-        etapaVisualEvaluacion = 4;
-        textoEstadoEvaluacion = "Guardando intento…";
-        evaluacionEnCurso = true;
-        ActualizarEstadoEvaluacionVisual();
-        IntentoPractica intento = CrearIntento(resultado.Resultado);
-        ResultadoEscrituraHistorialEvaluaciones guardado;
-
-        try {
-            Task<ResultadoEscrituraHistorialEvaluaciones> tareaGuardado =
-                Task.Run(() => historialEvaluacionesService.GuardarIntento(intento));
-            tareaEvaluacionActiva = tareaGuardado;
-            guardado = await tareaGuardado;
-        } catch (Exception ex) {
-            guardado = new ResultadoEscrituraHistorialEvaluaciones {
-                Estado = EstadoEscrituraHistorialEvaluaciones.ErrorIo,
-                Error = ex
-            };
-        } finally {
-            tareaEvaluacionActiva = null;
-            evaluacionEnCurso = false;
-        }
-
-        textoEstadoEvaluacion = "Resultado generado.";
-        HistorialPractica? historial = guardado.HistorialActualizado;
-
-        if (!guardado.EsExitosa) {
-            MessageBox.Show(
-                ObtenerMensajeGuardadoHistorial(guardado.Estado),
-                "EndForge",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Warning);
-        }
-
-        MostrarResultadoEvaluacion(intento, historial, desdeHistorial: false);
+    private bool PuedeActualizarInterfazEvaluacion() {
+        return coordinadorCierreOperaciones
+                .PuedeActualizarInterfaz &&
+            !esperandoCierreOperaciones &&
+            !IsDisposed &&
+            !Disposing &&
+            IsHandleCreated;
     }
 
     private void ActualizarProgresoEvaluacion(ProgresoEvaluacionPractica progreso) {
-        if (!evaluacionEnCurso || IsDisposed || Disposing) {
+        if (!evaluacionEnCurso ||
+            !PuedeActualizarInterfazEvaluacion()) {
             return;
         }
 
@@ -711,7 +780,11 @@ public partial class frmPrincipal {
         }
 
         textoEstadoEvaluacion = "Cancelando evaluación…";
-        ActualizarEstadoEvaluacionVisual();
+
+        if (PuedeActualizarInterfazEvaluacion()) {
+            ActualizarEstadoEvaluacionVisual();
+        }
+
         cancelacionEvaluacion.Cancel();
     }
 
@@ -839,7 +912,6 @@ public partial class frmPrincipal {
         object? sender,
         FormClosingEventArgs e) {
         Task? evaluacionPendiente =
-            (evaluacionEnCurso || actualizandoHistorial) &&
             tareaEvaluacionActiva is { IsCompleted: false }
                 ? tareaEvaluacionActiva
                 : null;
@@ -848,16 +920,20 @@ public partial class frmPrincipal {
             tareaCreacionPracticaActiva is { IsCompleted: false }
                 ? tareaCreacionPracticaActiva
                 : null;
+        DecisionCierreOperacionesAsync decision =
+            coordinadorCierreOperaciones.SolicitarCierre(
+                evaluacionPendiente,
+                creacionPendiente);
 
         if (cierreTrasOperacionesAutorizado ||
-            (evaluacionPendiente is null &&
-             creacionPendiente is null)) {
+            decision.PermitirCierre) {
             return;
         }
 
         e.Cancel = true;
 
-        if (esperandoCierreOperaciones) {
+        if (!decision.DebeEsperar ||
+            decision.FinalizacionPendiente is null) {
             return;
         }
 
@@ -868,22 +944,21 @@ public partial class frmPrincipal {
         }
 
         try {
-            if (evaluacionPendiente is not null &&
-                creacionPendiente is not null) {
-                await Task.WhenAll(
-                    evaluacionPendiente,
-                    creacionPendiente);
-            } else {
-                await (evaluacionPendiente ?? creacionPendiente!);
-            }
+            await decision.FinalizacionPendiente;
         } catch (Exception) {
             // El cierre solo espera la limpieza de los procesos iniciados por EndForge.
         } finally {
             esperandoCierreOperaciones = false;
-            cierreTrasOperacionesAutorizado = true;
 
-            if (!IsDisposed && !Disposing) {
-                BeginInvoke(Close);
+            if (coordinadorCierreOperaciones
+                    .IntentarAutorizarReintento()) {
+                cierreTrasOperacionesAutorizado = true;
+
+                if (!IsDisposed &&
+                    !Disposing &&
+                    IsHandleCreated) {
+                    BeginInvoke(Close);
+                }
             }
         }
     }
