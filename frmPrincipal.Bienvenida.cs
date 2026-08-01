@@ -40,7 +40,6 @@ public partial class frmPrincipal {
     private volatile bool precargaDatosCompletada;
     private CancellationTokenSource? cancelacionPrecargaDatos;
     private Task<DatosPrecargaInicio>? tareaPrecargaDatos;
-    private Task? tareaConstruccionCursoDuranteBienvenida;
     private TaskCompletionSource<bool>? finalizacionTransicionBienvenida;
     private DatosPrecargaInicio? datosPrecargadosInicio;
     private int intensidadContinuar = 120;
@@ -384,43 +383,6 @@ public partial class frmPrincipal {
         CancellationToken token = cancelacionPrecargaDatos.Token;
         RegistrarTiempoInicio("Precarga de datos iniciada");
         tareaPrecargaDatos = Task.Run(() => PrecargarDatosInicio(token), token);
-        tareaConstruccionCursoDuranteBienvenida =
-            PrepararCursoTrasPrecargaAsync(tareaPrecargaDatos, token);
-    }
-
-    private async Task PrepararCursoTrasPrecargaAsync(
-        Task<DatosPrecargaInicio> tareaPrecarga,
-        CancellationToken token) {
-        try {
-            DatosPrecargaInicio datos = await tareaPrecarga;
-
-            if (token.IsCancellationRequested ||
-                inicializacionSecundariaCancelada ||
-                IsDisposed ||
-                Disposing) {
-                return;
-            }
-
-            EstablecerDatosPrecargadosCurso(
-                datos.Curso,
-                datos.ServicioProgreso,
-                datos.Progreso);
-            AplicarPreferenciasAprendizaje(datos.Preferencias, mostrarAviso: false);
-            RegistrarTiempoInicio("Curso UI: construcción programada durante Bienvenida");
-            await PrepararCursoDiferidoAsync();
-
-            if (cursoPreparado &&
-                !inicializacionSecundariaCancelada &&
-                !IsDisposed &&
-                !Disposing) {
-                AsegurarVistaGradosVigente(volverAlInicio: false);
-                RegistrarTiempoInicio("Curso UI: Ruta de aprendizaje precargada");
-            }
-        } catch (OperationCanceledException) {
-            // El cierre de la aplicación cancela la preparación sin tocar controles destruidos.
-        } catch (Exception ex) {
-            RegistrarErrorPrecarga(ex);
-        }
     }
 
     private DatosPrecargaInicio PrecargarDatosInicio(CancellationToken token) {
@@ -620,59 +582,63 @@ public partial class frmPrincipal {
         }
 
         RegistrarTiempoInicio("Estado Preparando pintado");
-        ProgramarAccionInterfazSegura(PrepararRutaAprendizajeCubiertaPorBienvenida);
+        ProgramarAccionInterfazSegura(PrepararInicioCubiertoPorBienvenida);
     }
 
-    private async void PrepararRutaAprendizajeCubiertaPorBienvenida() {
+    private void PrepararInicioCubiertoPorBienvenida() {
         try {
-            IniciarPrecargaDatos();
-            await PrepararCursoParaInteraccionAsync();
-
-            if (inicializacionSecundariaCancelada ||
-                !transicionandoDesdeBienvenida ||
-                IsDisposed ||
-                Disposing) {
-                return;
-            }
-
-            if (!cursoPreparado) {
-                PrepararInicioCubiertoComoRespaldo();
-                return;
-            }
-
-            panelGradosVista.Paint -= PanelRutaAprendizajeVista_PrimerPaint;
-            panelGradosVista.Paint += PanelRutaAprendizajeVista_PrimerPaint;
-
-            fondoEndForge.SuspendLayout();
-            panelPrincipal.SuspendLayout();
-            panelMenu.SuspendLayout();
-
-            try {
-                recalculoPendienteDuranteTransicion = false;
-                MostrarRutaAprendizajeInmersiva(reconstruirContenido: true);
-#if DEBUG
-                recalculosGeometriaDuranteTransicion++;
-#endif
-                RegistrarTiempoInicio(
-                    "EntrarAAplicacion: Ruta de aprendizaje preparada en modo inmersivo");
-            } finally {
-                panelMenu.ResumeLayout(performLayout: false);
-                panelPrincipal.ResumeLayout(performLayout: false);
-                fondoEndForge.ResumeLayout(performLayout: false);
-            }
-
-            ActiveControl = null;
-            panelGradosVista.Invalidate();
-            ProgramarConfirmacionPaintRutaAprendizaje();
-            RegistrarTiempoInicio(
-                "EntrarAAplicacion: Ruta de aprendizaje lista detrás de Bienvenida");
-        } catch (Exception ex) {
+            PrepararInicioCubierto();
+        } catch (Exception ex)
+            when (!RegistroErroresService.EsExcepcionCritica(ex)) {
             RegistrarErrorPrecarga(ex);
-            PrepararInicioCubiertoComoRespaldo();
+            Program.RegistrarErrorRecuperable(ex);
+            RecuperarInicioTrasErrorDePreparacion();
         }
     }
 
-    private void PrepararInicioCubiertoComoRespaldo() {
+    private void RecuperarInicioTrasErrorDePreparacion() {
+        if (inicializacionSecundariaCancelada ||
+            !transicionandoDesdeBienvenida ||
+            IsDisposed ||
+            Disposing) {
+            return;
+        }
+
+        try {
+            modoCursoInmersivo = false;
+            distribucionPanelPrincipal = DistribucionPanelPrincipal.Inicio;
+            EstablecerVisibleDuranteTransicion(
+                panelMenu,
+                true,
+                nameof(panelMenu));
+            EstablecerVisibleDuranteTransicion(
+                panelPrincipal,
+                true,
+                nameof(panelPrincipal));
+            EstablecerVisibleDuranteTransicion(
+                panelInicioVista,
+                true,
+                nameof(panelInicioVista));
+            AplicarEstadoCargaInicio(
+                PresentadorInicioService.CrearEstadoErrorRecuperable());
+            panelInicioVista.BringToFront();
+            panelPantallaBienvenida.BringToFront();
+            panelBarraTitulo.BringToFront();
+            panelInicioVista.Paint -= PanelInicioVista_PrimerPaint;
+            panelInicioVista.Paint += PanelInicioVista_PrimerPaint;
+            panelInicioVista.Invalidate();
+            ProgramarConfirmacionPaintInicio();
+        } catch (Exception ex)
+            when (!RegistroErroresService.EsExcepcionCritica(ex)) {
+            RegistrarErrorPrecarga(ex);
+            Program.RegistrarErrorRecuperable(ex);
+            inicioPintadoParaTransicion = true;
+            MarcarInicioListoParaMetricas();
+            ProgramarAccionInterfazSegura(IniciarDesvanecimientoBienvenida);
+        }
+    }
+
+    private void PrepararInicioCubierto() {
         if (inicializacionSecundariaCancelada ||
             !transicionandoDesdeBienvenida ||
             IsDisposed ||
@@ -691,7 +657,7 @@ public partial class frmPrincipal {
         try {
             PrepararNavegacionPrincipalDesdeRuta();
             modoCursoInmersivo = false;
-            distribucionPanelPrincipal = DistribucionPanelPrincipal.Normal;
+            distribucionPanelPrincipal = DistribucionPanelPrincipal.Inicio;
             EstablecerVisibleDuranteTransicion(panelMenu, true, nameof(panelMenu));
             EstablecerVisibleDuranteTransicion(
                 panelPrincipal,
@@ -715,6 +681,7 @@ public partial class frmPrincipal {
                 false,
                 nameof(panelVistaNuevaPractica));
             OcultarVistasCurso();
+            PrepararInicioParaMostrar();
             RegistrarTiempoInicio("EntrarAAplicacion: Inicio seleccionado");
 
             panelInicioVista.BringToFront();
@@ -731,64 +698,15 @@ public partial class frmPrincipal {
             RegistrarTiempoInicio("EntrarAAplicacion: ResumeLayout completado");
         }
 
-        panelMenu.PerformLayout();
-        panelPrincipal.PerformLayout();
-        panelInicioVista.PerformLayout();
         panelPantallaBienvenida.BringToFront();
         panelBarraTitulo.BringToFront();
         ActiveControl = null;
-        panelInicioVista.Invalidate(true);
+        panelInicioVista.Invalidate();
         RegistrarTiempoInicio("EntrarAAplicacion: área de Inicio invalidada");
         RegistrarTiempoInicio("EntrarAAplicacion: fondo continuo conservado sin invalidación global");
         ProgramarConfirmacionPaintInicio();
         RegistrarTiempoInicio(
-            "EntrarAAplicacion: Inicio preparado como respaldo detrás de Bienvenida");
-    }
-
-    private void PanelRutaAprendizajeVista_PrimerPaint(
-        object? sender,
-        PaintEventArgs e) {
-        panelGradosVista.Paint -= PanelRutaAprendizajeVista_PrimerPaint;
-        inicioPintadoParaTransicion = true;
-        RegistrarTiempoInicio("Primer Paint de Ruta de aprendizaje completado");
-        MarcarInicioListoParaMetricas();
-
-        if (inicializacionSecundariaCancelada ||
-            IsDisposed ||
-            Disposing ||
-            !IsHandleCreated) {
-            return;
-        }
-
-        ProgramarAccionInterfazSegura(IniciarDesvanecimientoBienvenida);
-    }
-
-    private void ProgramarConfirmacionPaintRutaAprendizaje() {
-        if (inicializacionSecundariaCancelada ||
-            IsDisposed ||
-            Disposing ||
-            !IsHandleCreated) {
-            return;
-        }
-
-        ProgramarAccionInterfazSegura(() => {
-            if (inicializacionSecundariaCancelada ||
-                !transicionandoDesdeBienvenida ||
-                estadoVisualBienvenida != EstadoVisualBienvenida.Preparando ||
-                IsDisposed ||
-                Disposing ||
-                !panelGradosVista.IsHandleCreated) {
-                return;
-            }
-
-            if (!inicioPintadoParaTransicion) {
-                RegistrarTiempoInicio(
-                    "Ruta de aprendizaje confirmada por geometría estable; " +
-                    "Paint cubierto por Windows");
-                MarcarInicioListoParaMetricas();
-                IniciarDesvanecimientoBienvenida();
-            }
-        });
+            "EntrarAAplicacion: Inicio preparado detrás de Bienvenida");
     }
 
     private void PrepararGeometriaInicioTransicion() {
@@ -799,6 +717,7 @@ public partial class frmPrincipal {
             limites.Top,
             Math.Max(1, limites.Width),
             Math.Max(1, limites.Height));
+        ActualizarGeometriaInicio();
     }
 
     private void ProgramarConfirmacionPaintInicio() {
@@ -817,16 +736,6 @@ public partial class frmPrincipal {
                 Disposing ||
                 !panelInicioVista.IsHandleCreated) {
                 return;
-            }
-
-            panelPantallaBienvenida.SendToBack();
-
-            try {
-                panelInicioVista.Invalidate(true);
-                panelInicioVista.Update();
-            } finally {
-                panelPantallaBienvenida.BringToFront();
-                panelBarraTitulo.BringToFront();
             }
 
             if (!inicioPintadoParaTransicion) {
@@ -870,21 +779,19 @@ public partial class frmPrincipal {
                 cargaConfiguracion = CargarConfiguracion(datos.Configuracion);
                 CargarTemas(datos.Temas);
                 RegistrarTiempoInicio("Inicialización secundaria: configuración y temas aplicados");
-                CargarRecientes(datos.Recientes);
+                CargarRecientes(datos.Recientes, notificar: false);
                 RegistrarTiempoInicio("Inicialización secundaria: recientes aplicados");
             } else {
                 RegistrarTiempoInicio("Inicialización secundaria: precarga no disponible; ruta segura");
                 cargaConfiguracion = CargarConfiguracion();
                 CargarPreferenciasAprendizaje();
                 CargarTemas();
-                CargarRecientes();
+                CargarRecientes(notificar: false);
             }
 
             string estadoCurso = cursoPreparado
                 ? "Inicialización secundaria: Curso ya preparado"
-                : tareaConstruccionCursoDuranteBienvenida is { IsCompleted: false }
-                    ? "Inicialización secundaria: Curso continúa en segundo plano visual"
-                    : "Inicialización secundaria: Curso pendiente de interacción";
+                : "Inicialización secundaria: Curso pendiente de interacción";
             RegistrarTiempoInicio(estadoCurso);
 
             txtBuscarReciente.Text = "Buscar práctica...";
@@ -905,6 +812,10 @@ public partial class frmPrincipal {
             }
 
             inicializacionSecundariaCompletada = true;
+            if (!string.IsNullOrWhiteSpace(rutaBase) &&
+                !string.IsNullOrWhiteSpace(rutaPlantilla)) {
+                MarcarInicioPendienteDeRecarga();
+            }
             RegistrarTiempoInicio("CompletarInicioAplicacion: finalizado");
         } finally {
             inicializacionSecundariaEnCurso = false;
@@ -978,11 +889,7 @@ public partial class frmPrincipal {
 #if DEBUG
             recalculosGeometriaDuranteTransicion++;
 #endif
-            if (rutaAprendizajeInmersivaActiva) {
-                RecalcularDistribucionActual();
-            } else {
-                PrepararGeometriaInicioTransicion();
-            }
+            PrepararGeometriaInicioTransicion();
 
             RegistrarTiempoInicio("Transición: recálculo final de Resize");
         }
@@ -1005,11 +912,7 @@ public partial class frmPrincipal {
     }
 
     private Control ObtenerVistaDestinoTransicion() {
-        return rutaAprendizajeInmersivaActiva &&
-            cursoInicializado &&
-            panelGradosVista is not null
-                ? panelGradosVista
-                : panelInicioVista;
+        return panelInicioVista;
     }
 
     private void EstablecerVisibleDuranteTransicion(
@@ -1103,18 +1006,13 @@ public partial class frmPrincipal {
         finalizacionTransicionBienvenida?.TrySetResult(false);
         panelPantallaBienvenida.Paint -= PanelPantallaBienvenida_PrimerPaint;
         panelInicioVista.Paint -= PanelInicioVista_PrimerPaint;
-        if (cursoInicializado && panelGradosVista is not null) {
-            panelGradosVista.Paint -= PanelRutaAprendizajeVista_PrimerPaint;
-        }
         lblContinuarBienvenida.Paint -= LblContinuarBienvenida_PreparacionPaint;
 #if DEBUG
         panelPantallaBienvenida.Paint -= PanelPantallaBienvenida_ContarPaint;
         panelInicioVista.Paint -= PanelInicioVista_ContarPaint;
-        if (cursoInicializado && panelGradosVista is not null) {
-            panelGradosVista.Paint -= PanelRutaAprendizaje_ContarPaint;
-        }
 #endif
         cancelacionPrecargaDatos?.Cancel();
+        CancelarCargaInicioAlCerrar();
         CancelarEvaluacionAlCerrar();
         DetenerTemporizadorBienvenida();
         timerRecalcularVista.Stop();

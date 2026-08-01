@@ -13,9 +13,6 @@ public partial class frmPrincipal {
 
         panelGradosVista.VisibleChanged += PanelGradosVista_VisibleChanged;
         panelCursoVista.VisibleChanged += PanelDetalleGradoVista_VisibleChanged;
-#if DEBUG
-        panelGradosVista.Paint += PanelRutaAprendizaje_ContarPaint;
-#endif
         eventosVistasRutaAprendizajeConfigurados = true;
     }
 
@@ -113,14 +110,6 @@ public partial class frmPrincipal {
         OcultarVistaEstadisticas();
     }
 
-#if DEBUG
-    private void PanelRutaAprendizaje_ContarPaint(object? sender, PaintEventArgs e) {
-        if (transicionandoDesdeBienvenida) {
-            paintsInicioDuranteTransicion++;
-        }
-    }
-#endif
-
     private void PanelMenu_MouseEnter(object? sender, EventArgs e) {
         Panel? panel = sender as Panel ?? (sender as Control)?.Parent as Panel;
 
@@ -129,12 +118,6 @@ public partial class frmPrincipal {
                 panel.BackColor = Color.FromArgb(74, 35, 110);
             }
         }
-    }
-
-    private void Card_MouseEnter(object sender, EventArgs e) {
-    }
-
-    private void Card_MouseLeave(object sender, EventArgs e) {
     }
 
     private void PanelMenu_MouseLeave(object? sender, EventArgs e) {
@@ -267,23 +250,8 @@ public partial class frmPrincipal {
         NavegarVistaPrincipalConTransicion(
             panelInicioVista,
             panelInicio,
-            DistribucionPanelPrincipal.Normal);
-    }
-
-    private void CardInicio_MouseEnter(object? sender, EventArgs e) {
-        Panel? panel = sender as Panel ?? (sender as Control)?.Parent as Panel;
-
-        if (panel != null) {
-            panel.BackColor = Color.FromArgb(35, 28, 48);
-        }
-    }
-
-    private void CardInicio_MouseLeave(object? sender, EventArgs e) {
-        Panel? panel = sender as Panel ?? (sender as Control)?.Parent as Panel;
-
-        if (panel != null) {
-            panel.BackColor = Color.FromArgb(20, 16, 30);
-        }
+            DistribucionPanelPrincipal.Inicio,
+            PrepararInicioParaMostrar);
     }
 
     private async void PanelAbrirPractica_Click(object? sender, EventArgs e) {

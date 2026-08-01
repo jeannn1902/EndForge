@@ -135,6 +135,9 @@ internal sealed record PracticaCatalogoAprendizaje(
             Tema.Nombre,
             Practica.Id,
             Practica.Numero,
-            Practica.Nombre);
+            Practica.Nombre) {
+            Dificultad = Practica.Dificultad,
+            DuracionEstimada = Practica.DuracionEstimada
+        };
     }
 }

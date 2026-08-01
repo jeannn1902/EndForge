@@ -683,6 +683,10 @@ public partial class frmPrincipal {
                 };
             }
 
+            if (guardado.EsExitosa) {
+                MarcarInicioPendienteDeRecarga();
+            }
+
             textoEstadoEvaluacion = "Resultado generado.";
 
             if (!PuedeActualizarInterfazEvaluacion()) {
@@ -911,6 +915,7 @@ public partial class frmPrincipal {
     private async void FrmPrincipal_OperacionesFormClosing(
         object? sender,
         FormClosingEventArgs e) {
+        CancelarCargaInicioAlCerrar();
         Task? evaluacionPendiente =
             tareaEvaluacionActiva is { IsCompleted: false }
                 ? tareaEvaluacionActiva

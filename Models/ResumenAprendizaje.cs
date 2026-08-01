@@ -60,7 +60,11 @@ public sealed record ReferenciaPracticaAprendizaje(
     string NombreTema,
     string PracticaId,
     int NumeroPractica,
-    string NombrePractica);
+    string NombrePractica) {
+    public string Dificultad { get; init; } = "";
+
+    public string DuracionEstimada { get; init; } = "";
+}
 
 public sealed record ResumenProgresoTema(
     string GradoId,

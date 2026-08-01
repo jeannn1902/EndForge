@@ -308,6 +308,10 @@ public partial class frmPrincipal {
     }
 
     private void PanelEstadisticas_Click(object? sender, EventArgs e) {
+        MostrarEstadisticas();
+    }
+
+    private void MostrarEstadisticas() {
         if (!estructuraEstadisticasInicializada || !cursoPreparado) {
             return;
         }

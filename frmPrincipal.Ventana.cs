@@ -1,10 +1,12 @@
 using System.Runtime.InteropServices;
+using EndForge.Services;
 
 namespace EndForge;
 
 public partial class frmPrincipal {
     private enum DistribucionPanelPrincipal {
         Normal,
+        Inicio,
         Curso,
         NuevaPractica,
         Estadisticas
@@ -201,6 +203,24 @@ public partial class frmPrincipal {
             return;
         }
 
+        if (distribucionPanelPrincipal == DistribucionPanelPrincipal.Curso) {
+            Rectangle limitesCurso =
+                CalculadorGeometriaNavegacionCurso.CalcularPanelPrincipalConMenu(
+                    ClientRectangle,
+                    Math.Max(ClientRectangle.Top, panelBarraTitulo.Bottom),
+                    panelMenu.Visible
+                        ? Math.Max(ClientRectangle.Left, panelMenu.Right)
+                        : ClientRectangle.Left,
+                    EscalarDiseno(24));
+
+            panelPrincipal.SetBounds(
+                limitesCurso.X,
+                limitesCurso.Y,
+                limitesCurso.Width,
+                limitesCurso.Height);
+            return;
+        }
+
         if (distribucionPanelPrincipal != DistribucionPanelPrincipal.Normal) {
             Rectangle areaFondo = fondoEndForge.ClientRectangle;
             int limiteIzquierdo = panelMenu.Visible
@@ -216,6 +236,7 @@ public partial class frmPrincipal {
             int alto;
 
             if (distribucionPanelPrincipal is
+                DistribucionPanelPrincipal.Inicio or
                 DistribucionPanelPrincipal.Curso or
                 DistribucionPanelPrincipal.Estadisticas) {
                 ancho = anchoUtil;
@@ -261,10 +282,16 @@ public partial class frmPrincipal {
         RecalcularDistribucionCurso();
         AjustarGeometriaNuevaPractica();
         RecalcularGeometriaEstadisticas();
+        ActualizarGeometriaInicio();
     }
 
     private void SincronizarLimitesVistasAdaptables() {
         Rectangle limites = panelPrincipal.ClientRectangle;
+        panelInicioVista.SetBounds(
+            limites.Left,
+            limites.Top,
+            Math.Max(1, limites.Width),
+            Math.Max(1, limites.Height));
         panelVistaNuevaPractica.SetBounds(
             limites.Left,
             limites.Top,

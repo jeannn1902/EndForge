@@ -31,7 +31,7 @@ public partial class frmPrincipal : Form {
         InicializarEstructuraEstadisticas();
 
         ConfigurarBarraTitulo();
-        ConfigurarTarjetasInicio();
+        InicializarEstructuraInicio();
         ConfigurarVentana();
         ActivarBarraTituloOscura();
         ConfigurarNavegacion();
