@@ -4,6 +4,8 @@ namespace EndForge.Services;
 
 public sealed class CoordinadorCargaInicio {
     private readonly Func<CancellationToken, Task<ResumenInicio>> cargarResumen;
+    private readonly Func<CancellationToken, Task<ResumenMotivacion?>>
+        cargarMotivacion;
     private readonly PresentadorInicioService presentador;
     private readonly SemaphoreSlim cargaExclusiva = new(1, 1);
     private readonly object sincronizacion = new();
@@ -19,6 +21,7 @@ public sealed class CoordinadorCargaInicio {
             (resumenService ??
                 throw new ArgumentNullException(nameof(resumenService)))
                 .CrearResumenAsync,
+            CargarMotivacionNoDisponibleAsync,
             presentador) {
     }
 
@@ -27,6 +30,19 @@ public sealed class CoordinadorCargaInicio {
         PresentadorInicioService presentador) {
         this.cargarResumen = cargarResumen ??
             throw new ArgumentNullException(nameof(cargarResumen));
+        cargarMotivacion = CargarMotivacionNoDisponibleAsync;
+        this.presentador = presentador ??
+            throw new ArgumentNullException(nameof(presentador));
+    }
+
+    public CoordinadorCargaInicio(
+        Func<CancellationToken, Task<ResumenInicio>> cargarResumen,
+        Func<CancellationToken, Task<ResumenMotivacion?>> cargarMotivacion,
+        PresentadorInicioService presentador) {
+        this.cargarResumen = cargarResumen ??
+            throw new ArgumentNullException(nameof(cargarResumen));
+        this.cargarMotivacion = cargarMotivacion ??
+            throw new ArgumentNullException(nameof(cargarMotivacion));
         this.presentador = presentador ??
             throw new ArgumentNullException(nameof(presentador));
     }
@@ -112,7 +128,25 @@ public sealed class CoordinadorCargaInicio {
             ResumenInicio resumen = await cargarResumen(cancellationToken)
                 .ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
-            PresentacionInicio presentacion = presentador.Crear(resumen);
+            ResumenMotivacion? motivacion = null;
+            Exception? advertenciaMotivacion = null;
+
+            try {
+                motivacion = await cargarMotivacion(cancellationToken)
+                    .ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                advertenciaMotivacion = motivacion?.Error;
+            } catch (OperationCanceledException)
+                when (cancellationToken.IsCancellationRequested) {
+                throw;
+            } catch (Exception ex)
+                when (!RegistroErroresService.EsExcepcionCritica(ex)) {
+                advertenciaMotivacion = ex;
+            }
+
+            PresentacionInicio presentacion = motivacion is null
+                ? presentador.Crear(resumen)
+                : presentador.Crear(resumen, motivacion);
 
             lock (sincronizacion) {
                 if (cerrado) {
@@ -132,7 +166,9 @@ public sealed class CoordinadorCargaInicio {
                 generacion,
                 EstadoResultadoCargaInicio.Completada,
                 presentacion,
-                null);
+                null) {
+                AdvertenciaMotivacion = advertenciaMotivacion
+            };
         } catch (OperationCanceledException)
             when (cancellationToken.IsCancellationRequested) {
             lock (sincronizacion) {
@@ -195,6 +231,12 @@ public sealed class CoordinadorCargaInicio {
             estado,
             null,
             null);
+    }
+
+    private static Task<ResumenMotivacion?> CargarMotivacionNoDisponibleAsync(
+        CancellationToken cancellationToken) {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult<ResumenMotivacion?>(null);
     }
 
     private static void IntentarCancelar(

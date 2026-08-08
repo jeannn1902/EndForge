@@ -87,6 +87,17 @@ public sealed class CalculadorLayoutInicioTests {
     }
 
     [Fact]
+    public void NivelCompacto_NoAlteraComposicionExteriorDelDashboard() {
+        var amplio = CalcularAmplio(1);
+        var compacto = CalcularCompacto(1);
+
+        Assert.Equal(166, amplio.AltoProgreso);
+        Assert.Equal(166, compacto.AltoProgreso);
+        Assert.Equal(4, amplio.ColumnasMetricas);
+        Assert.Equal(2, compacto.ColumnasMetricas);
+    }
+
+    [Fact]
     public void Recomendacion_OcupaTodoElAnchoInferior() {
         var amplio = CalcularAmplio(1);
         var compacto = CalcularCompacto(1);

@@ -35,6 +35,7 @@ public partial class frmPrincipal {
     private int ultimoDpiInicio = -1;
     private bool ultimoModoAmplioInicio;
     private int valorBarraProgresoInicio;
+    private int valorBarraNivelInicio;
     private Task? tareaCargaInicio;
     private CancellationTokenSource? cancelacionCargaInicio;
 
@@ -74,6 +75,11 @@ public partial class frmPrincipal {
     private Panel panelRellenoProgresoInicio = null!;
     private Label lblTemasProgresoInicio = null!;
     private Label lblGradosProgresoInicio = null!;
+    private Label lblNivelInicio = null!;
+    private Label lblXpTotalInicio = null!;
+    private Panel panelPistaNivelInicio = null!;
+    private Panel panelRellenoNivelInicio = null!;
+    private Label lblXpRestanteInicio = null!;
 
     private Panel panelMetricasInicio = null!;
     private readonly List<TarjetaMetricaInicioVisual> tarjetasMetricasInicio = new();
@@ -100,7 +106,8 @@ public partial class frmPrincipal {
         resumenAprendizajeInicioService = new ResumenAprendizajeService();
         presentadorInicioService = new PresentadorInicioService();
         coordinadorCargaInicio = new CoordinadorCargaInicio(
-            resumenAprendizajeInicioService,
+            resumenAprendizajeInicioService.CrearResumenAsync,
+            CargarMotivacionInicioAsync,
             presentadorInicioService);
         cancelacionCargaInicio = new CancellationTokenSource();
 
@@ -146,6 +153,31 @@ public partial class frmPrincipal {
         AplicarEstadoCargaInicio(
             PresentadorInicioService.CrearEstadoCargando());
         ActualizarGeometriaInicio();
+    }
+
+    private Task<ResumenMotivacion?> CargarMotivacionInicioAsync(
+        CancellationToken cancellationToken) {
+        return Task.Run<ResumenMotivacion?>(() => {
+            cancellationToken.ThrowIfCancellationRequested();
+            ResultadoProcesamientoMotivacion resultado =
+                motivacionService.ReconciliarEstadoActual();
+            cancellationToken.ThrowIfCancellationRequested();
+            return PrepararResumenMotivacionInicio(resultado);
+        }, cancellationToken);
+    }
+
+    internal static ResumenMotivacion PrepararResumenMotivacionInicio(
+        ResultadoProcesamientoMotivacion resultado) {
+        ArgumentNullException.ThrowIfNull(resultado);
+
+        if (resultado.Error is not null &&
+            resultado.Resumen.Error is null) {
+            return resultado.Resumen with {
+                Error = resultado.Error
+            };
+        }
+
+        return resultado.Resumen;
     }
 
     private void ConstruirEncabezadoInicio() {
@@ -302,6 +334,35 @@ public partial class frmPrincipal {
             9.5F,
             FontStyle.Regular,
             ColorTextoSecundarioInicio,
+            ColorTarjetaInicio,
+            ContentAlignment.MiddleRight);
+        lblNivelInicio = CrearLabelInicio(
+            "Cargando nivel...",
+            10.5F,
+            FontStyle.Bold,
+            Color.White,
+            ColorTarjetaInicio);
+        lblXpTotalInicio = CrearLabelInicio(
+            string.Empty,
+            9.5F,
+            FontStyle.Bold,
+            ColorMoradoClaroCurso,
+            ColorTarjetaInicio,
+            ContentAlignment.MiddleRight);
+        panelPistaNivelInicio = new Panel {
+            BackColor = Color.FromArgb(53, 45, 67),
+            Visible = false,
+            AccessibleName = "Progreso al siguiente nivel"
+        };
+        panelRellenoNivelInicio = new Panel {
+            BackColor = ColorMoradoCurso
+        };
+        panelPistaNivelInicio.Controls.Add(panelRellenoNivelInicio);
+        lblXpRestanteInicio = CrearLabelInicio(
+            "Preparando tu experiencia...",
+            8.5F,
+            FontStyle.Regular,
+            ColorTextoTenueInicio,
             ColorTarjetaInicio);
 
         panelProgresoInicio.Controls.Add(lblTituloProgresoInicio);
@@ -310,6 +371,10 @@ public partial class frmPrincipal {
         panelProgresoInicio.Controls.Add(panelPistaProgresoInicio);
         panelProgresoInicio.Controls.Add(lblTemasProgresoInicio);
         panelProgresoInicio.Controls.Add(lblGradosProgresoInicio);
+        panelProgresoInicio.Controls.Add(lblNivelInicio);
+        panelProgresoInicio.Controls.Add(lblXpTotalInicio);
+        panelProgresoInicio.Controls.Add(panelPistaNivelInicio);
+        panelProgresoInicio.Controls.Add(lblXpRestanteInicio);
 
         panelFilaPrincipalInicio.Controls.Add(panelContinuacionInicio);
         panelFilaPrincipalInicio.Controls.Add(panelProgresoInicio);
@@ -525,8 +590,17 @@ public partial class frmPrincipal {
 
             if (resultado.Estado == EstadoResultadoCargaInicio.Completada &&
                 resultado.Presentacion is not null) {
+                if (resultado.AdvertenciaMotivacion is not null) {
+                    Program.RegistrarErrorRecuperable(
+                        resultado.AdvertenciaMotivacion);
+                }
+
                 ultimaPresentacionInicio = resultado.Presentacion;
                 AplicarPresentacionInicio(resultado.Presentacion);
+                inicioPendienteRecarga =
+                    resultado.Presentacion.Nivel.Estado ==
+                        EstadoNivelInicio.NoDisponible ||
+                    resultado.AdvertenciaMotivacion is not null;
                 AplicarEstadoCargaInicio(
                     PresentadorInicioService.CrearEstadoInactivo());
             } else if (
@@ -555,7 +629,8 @@ public partial class frmPrincipal {
     }
 
     private bool PuedeActualizarInterfazInicio() {
-        return estructuraInicioInicializada &&
+        return coordinadorCierreOperaciones.PuedeActualizarInterfaz &&
+            estructuraInicioInicializada &&
             !inicializacionSecundariaCancelada &&
             !esperandoCierreOperaciones &&
             !IsDisposed &&
@@ -645,6 +720,7 @@ public partial class frmPrincipal {
             0,
             100);
         panelPistaProgresoInicio.Visible = progreso.ValorBarra.HasValue;
+        AplicarNivelInicio(presentacion.Nivel);
 
         for (int indice = 0; indice < tarjetasMetricasInicio.Count; indice++) {
             TarjetaMetricaInicioVisual visual = tarjetasMetricasInicio[indice];
@@ -682,6 +758,18 @@ public partial class frmPrincipal {
 
         ultimoAnchoContenidoInicio = -1;
         ActualizarGeometriaInicio();
+    }
+
+    private void AplicarNivelInicio(PresentacionNivel nivel) {
+        lblNivelInicio.Text = nivel.TextoNivel;
+        lblXpTotalInicio.Text = nivel.TextoXpTotal;
+        lblXpRestanteInicio.Text = nivel.TextoXpRestante;
+        valorBarraNivelInicio = Math.Clamp(nivel.ValorBarra ?? 0, 0, 100);
+        panelPistaNivelInicio.Visible = nivel.ValorBarra.HasValue;
+        panelPistaNivelInicio.AccessibleDescription =
+            nivel.DescripcionAccesible;
+        panelProgresoInicio.AccessibleDescription =
+            nivel.DescripcionAccesible;
     }
 
     private void AplicarRecomendacionInicio(
@@ -923,6 +1011,7 @@ public partial class frmPrincipal {
             ultimoModoAmplioInicio = modoAmplio;
         } else {
             ActualizarRellenoProgresoInicio();
+            ActualizarRellenoNivelInicio();
         }
 
         desplazamientoInicio.ActualizarContenido(volverAlInicio: false);
@@ -1208,37 +1297,60 @@ public partial class frmPrincipal {
     private void ActualizarGeometriaProgresoInicio() {
         int margen = EscalarDiseno(18);
         int ancho = Math.Max(1, panelProgresoInicio.Width - margen * 2);
+        int separacionColumnas = EscalarDiseno(8);
+        int anchoColumna = Math.Max(1, (ancho - separacionColumnas) / 2);
         lblTituloProgresoInicio.SetBounds(
             margen,
-            EscalarDiseno(12),
+            EscalarDiseno(10),
             ancho,
-            EscalarDiseno(20));
+            EscalarDiseno(18));
         lblPracticasProgresoInicio.SetBounds(
             margen,
-            EscalarDiseno(36),
+            EscalarDiseno(29),
             Math.Max(1, ancho * 2 / 3),
-            EscalarDiseno(36));
+            EscalarDiseno(30));
         lblPorcentajeProgresoInicio.SetBounds(
             margen + ancho * 2 / 3,
-            EscalarDiseno(39),
+            EscalarDiseno(31),
             Math.Max(1, ancho / 3),
-            EscalarDiseno(28));
+            EscalarDiseno(24));
         panelPistaProgresoInicio.SetBounds(
             margen,
-            EscalarDiseno(78),
+            EscalarDiseno(63),
             ancho,
-            EscalarDiseno(8));
+            EscalarDiseno(6));
         lblTemasProgresoInicio.SetBounds(
             margen,
-            EscalarDiseno(101),
-            ancho,
-            EscalarDiseno(24));
+            EscalarDiseno(73),
+            anchoColumna,
+            EscalarDiseno(20));
         lblGradosProgresoInicio.SetBounds(
+            margen + anchoColumna + separacionColumnas,
+            EscalarDiseno(73),
+            Math.Max(1, ancho - anchoColumna - separacionColumnas),
+            EscalarDiseno(20));
+        lblNivelInicio.SetBounds(
             margen,
-            EscalarDiseno(130),
-            ancho,
+            EscalarDiseno(99),
+            anchoColumna,
             EscalarDiseno(24));
+        lblXpTotalInicio.SetBounds(
+            margen + anchoColumna + separacionColumnas,
+            EscalarDiseno(101),
+            Math.Max(1, ancho - anchoColumna - separacionColumnas),
+            EscalarDiseno(20));
+        panelPistaNivelInicio.SetBounds(
+            margen,
+            EscalarDiseno(127),
+            ancho,
+            EscalarDiseno(6));
+        lblXpRestanteInicio.SetBounds(
+            margen,
+            EscalarDiseno(137),
+            ancho,
+            EscalarDiseno(20));
         ActualizarRellenoProgresoInicio();
+        ActualizarRellenoNivelInicio();
     }
 
     private void ActualizarRellenoProgresoInicio() {
@@ -1254,6 +1366,20 @@ public partial class frmPrincipal {
                 panelPistaProgresoInicio.ClientSize.Width *
                 valorBarraProgresoInicio / 100D),
             panelPistaProgresoInicio.ClientSize.Height);
+    }
+
+    private void ActualizarRellenoNivelInicio() {
+        if (panelPistaNivelInicio is null || panelPistaNivelInicio.IsDisposed) {
+            return;
+        }
+
+        panelRellenoNivelInicio.SetBounds(
+            0,
+            0,
+            (int)Math.Round(
+                panelPistaNivelInicio.ClientSize.Width *
+                valorBarraNivelInicio / 100D),
+            panelPistaNivelInicio.ClientSize.Height);
     }
 
     private void ActualizarGeometriaMetricasInicio(

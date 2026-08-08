@@ -21,6 +21,22 @@ public sealed class PresentadorInicioService {
     public PresentacionInicio Crear(ResumenInicio resumen) {
         ArgumentNullException.ThrowIfNull(resumen);
 
+        return Crear(resumen, CrearNivelNoDisponible());
+    }
+
+    public PresentacionInicio Crear(
+        ResumenInicio resumen,
+        ResumenMotivacion motivacion) {
+        ArgumentNullException.ThrowIfNull(resumen);
+        ArgumentNullException.ThrowIfNull(motivacion);
+
+        return Crear(resumen, CrearNivel(motivacion));
+    }
+
+    private PresentacionInicio Crear(
+        ResumenInicio resumen,
+        PresentacionNivel nivel) {
+
         return new PresentacionInicio(
             resumen.Estado,
             new EncabezadoInicioPresentable(
@@ -31,7 +47,63 @@ public sealed class PresentadorInicioService {
             CrearMetricas(resumen),
             CrearRecomendacion(resumen),
             CrearActividades(resumen),
-            CrearBandaDatos(resumen));
+            CrearBandaDatos(resumen)) {
+            Nivel = nivel
+        };
+    }
+
+    private static PresentacionNivel CrearNivel(
+        ResumenMotivacion motivacion) {
+        if (motivacion.Estado ==
+            EstadoDisponibilidadMotivacion.VersionIncompatible) {
+            return new PresentacionNivel(
+                EstadoNivelInicio.VersionIncompatible,
+                TextoNoDisponible,
+                string.Empty,
+                "Estos datos pertenecen a otra versión de EndForge.",
+                null,
+                "El nivel y la experiencia no pueden leerse porque " +
+                    "motivacion.json pertenece a otra versión de EndForge.");
+        }
+
+        if (motivacion.Estado is not (
+                EstadoDisponibilidadMotivacion.Disponible or
+                EstadoDisponibilidadMotivacion.SinActividad) ||
+            motivacion.XpTotal is null ||
+            motivacion.Nivel is null) {
+            return CrearNivelNoDisponible();
+        }
+
+        ResumenNivel nivel = motivacion.Nivel;
+        string xpTotal = nivel.XpTotal.ToString(CultureInfo.InvariantCulture);
+        string xpRestante = nivel.XpRestante.ToString(
+            "0.##",
+            CultureInfo.InvariantCulture);
+        int porcentaje = Math.Clamp(
+            (int)Math.Round(
+                nivel.PorcentajeNivel,
+                MidpointRounding.AwayFromZero),
+            0,
+            100);
+
+        return new PresentacionNivel(
+            EstadoNivelInicio.Disponible,
+            $"Nivel {nivel.NivelActual}",
+            $"{xpTotal} XP",
+            $"{xpRestante} XP para el siguiente nivel",
+            porcentaje,
+            $"Nivel {nivel.NivelActual}. {xpTotal} XP totales. " +
+                $"Faltan {xpRestante} XP para el siguiente nivel.");
+    }
+
+    private static PresentacionNivel CrearNivelNoDisponible() {
+        return new PresentacionNivel(
+            EstadoNivelInicio.NoDisponible,
+            TextoNoDisponible,
+            string.Empty,
+            "No pudimos cargar tu nivel y XP.",
+            null,
+            "El nivel y la experiencia no están disponibles temporalmente.");
     }
 
     public static EstadoCargaInicioPresentable CrearEstadoCargando() {

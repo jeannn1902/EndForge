@@ -684,7 +684,29 @@ public partial class frmPrincipal {
             }
 
             if (guardado.EsExitosa) {
-                MarcarInicioPendienteDeRecarga();
+                if (guardado.HistorialActualizado is not null &&
+                    guardado.TransicionPersistida is not null) {
+                    HistorialPractica historialPersistido =
+                        guardado.HistorialActualizado;
+                    TransicionEvaluacionPersistida transicionPersistida =
+                        guardado.TransicionPersistida;
+                    await EncolarProcesamientoMotivacion(
+                        () => RegistrarResultadoMotivacion(
+                            motivacionService.ProcesarEvaluacionPersistida(
+                                intento.PracticaId,
+                                historialPersistido,
+                                transicionPersistida)),
+                        permitirDuranteCierre: true);
+                } else {
+                    Program.RegistrarErrorRecuperable(
+                        new InvalidOperationException(
+                            "El intento se guardó, pero no se obtuvo la transición " +
+                            "publicada necesaria para procesar motivación."));
+                }
+
+                if (PuedeActualizarInterfazEvaluacion()) {
+                    MarcarInicioPendienteDeRecarga();
+                }
             }
 
             textoEstadoEvaluacion = "Resultado generado.";
@@ -915,6 +937,9 @@ public partial class frmPrincipal {
     private async void FrmPrincipal_OperacionesFormClosing(
         object? sender,
         FormClosingEventArgs e) {
+        Task? cargaInicioPendiente = tareaCargaInicio is { IsCompleted: false }
+            ? tareaCargaInicio
+            : null;
         CancelarCargaInicioAlCerrar();
         Task? evaluacionPendiente =
             tareaEvaluacionActiva is { IsCompleted: false }
@@ -925,10 +950,13 @@ public partial class frmPrincipal {
             tareaCreacionPracticaActiva is { IsCompleted: false }
                 ? tareaCreacionPracticaActiva
                 : null;
+        Task motivacionPendiente = ObtenerTareaMotivacionPendiente();
         DecisionCierreOperacionesAsync decision =
             coordinadorCierreOperaciones.SolicitarCierre(
                 evaluacionPendiente,
-                creacionPendiente);
+                creacionPendiente,
+                motivacionPendiente,
+                cargaInicioPendiente);
 
         if (cierreTrasOperacionesAutorizado ||
             decision.PermitirCierre) {

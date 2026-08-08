@@ -104,6 +104,9 @@ public sealed class ProgresoCursoService {
 
         ProgresoPractica? practica = carga.Progreso.Practicas.FirstOrDefault(item =>
             item.PracticaId.Equals(practicaId, StringComparison.OrdinalIgnoreCase));
+        ProgresoPractica? progresoAnterior = practica is null
+            ? null
+            : CopiarPractica(practica);
         DateTimeOffset ahora = DateTimeOffset.Now;
 
         if (practica is null) {
@@ -126,7 +129,11 @@ public sealed class ProgresoCursoService {
             ? ahora
             : null;
 
-        return GuardarProgreso(carga.Progreso, carga.RegistrosInvalidos);
+        return GuardarProgreso(
+            carga.Progreso,
+            carga.RegistrosInvalidos,
+            practica.PracticaId,
+            progresoAnterior);
     }
 
     public ResultadoEscrituraProgreso ActualizarPractica(ProgresoPractica practica) {
@@ -134,8 +141,10 @@ public sealed class ProgresoCursoService {
             return CrearResultadoEscritura(EstadoEscrituraProgreso.ContenidoInvalido);
         }
 
+        ProgresoPractica practicaSolicitada = CopiarPractica(practica);
+
         return EjecutarEscrituraConBloqueo(
-            () => ActualizarPracticaSinBloqueo(practica));
+            () => ActualizarPracticaSinBloqueo(practicaSolicitada));
     }
 
     private ResultadoEscrituraProgreso ActualizarPracticaSinBloqueo(
@@ -148,11 +157,23 @@ public sealed class ProgresoCursoService {
             return errorCarga;
         }
 
+        ProgresoPractica? progresoAnterior = carga.Progreso.Practicas
+            .FirstOrDefault(item => item.PracticaId.Equals(
+                practica.PracticaId,
+                StringComparison.OrdinalIgnoreCase));
+        progresoAnterior = progresoAnterior is null
+            ? null
+            : CopiarPractica(progresoAnterior);
+
         carga.Progreso.Practicas.RemoveAll(item =>
             item.PracticaId.Equals(practica.PracticaId, StringComparison.OrdinalIgnoreCase));
         carga.Progreso.Practicas.Add(CopiarPractica(practica));
 
-        return GuardarProgreso(carga.Progreso, carga.RegistrosInvalidos);
+        return GuardarProgreso(
+            carga.Progreso,
+            carga.RegistrosInvalidos,
+            practica.PracticaId,
+            progresoAnterior);
     }
 
     public ResultadoEscrituraProgreso GuardarProgreso(ProgresoCurso progreso) {
@@ -248,8 +269,19 @@ public sealed class ProgresoCursoService {
 
     private ResultadoEscrituraProgreso GuardarProgreso(
         ProgresoCurso progreso,
-        int registrosInvalidosIgnorados) {
+        int registrosInvalidosIgnorados,
+        string? practicaIdTransicion = null,
+        ProgresoPractica? progresoAnterior = null) {
         if (!IntentarNormalizarProgreso(progreso, out ProgresoCurso progresoNormalizado)) {
+            return CrearResultadoEscritura(EstadoEscrituraProgreso.ContenidoInvalido);
+        }
+
+        TransicionProgresoPersistida? transicion = CrearTransicionPersistida(
+            progresoNormalizado,
+            practicaIdTransicion,
+            progresoAnterior);
+
+        if (practicaIdTransicion is not null && transicion is null) {
             return CrearResultadoEscritura(EstadoEscrituraProgreso.ContenidoInvalido);
         }
 
@@ -271,6 +303,8 @@ public sealed class ProgresoCursoService {
 
             return new ResultadoEscrituraProgreso {
                 Estado = EstadoEscrituraProgreso.Exitosa,
+                ProgresoPersistido = CopiarProgreso(progresoNormalizado),
+                TransicionPersistida = transicion,
                 RegistrosInvalidosIgnorados = registrosInvalidosIgnorados
             };
         } catch (UnauthorizedAccessException ex) {
@@ -383,6 +417,48 @@ public sealed class ProgresoCursoService {
             FechaCreacion = practica.FechaCreacion,
             FechaActualizacion = practica.FechaActualizacion,
             FechaFinalizacion = practica.FechaFinalizacion
+        };
+    }
+
+    private static ProgresoCurso CopiarProgreso(ProgresoCurso progreso) {
+        return new ProgresoCurso {
+            Practicas = progreso.Practicas
+                .Select(CopiarPractica)
+                .ToList()
+        };
+    }
+
+    private static TransicionProgresoPersistida? CrearTransicionPersistida(
+        ProgresoCurso documentoFinal,
+        string? practicaId,
+        ProgresoPractica? progresoAnterior) {
+        if (string.IsNullOrWhiteSpace(practicaId)) {
+            return null;
+        }
+
+        ProgresoPractica? practicaFinal = documentoFinal.Practicas.FirstOrDefault(item =>
+            item.PracticaId.Equals(practicaId, StringComparison.OrdinalIgnoreCase));
+
+        if (practicaFinal is null) {
+            return null;
+        }
+
+        ProgresoPractica? anterior = progresoAnterior is null
+            ? null
+            : CopiarPractica(progresoAnterior);
+        ProgresoPractica final = CopiarPractica(practicaFinal);
+
+        return new TransicionProgresoPersistida {
+            PracticaId = final.PracticaId,
+            ProgresoAnterior = anterior,
+            ProgresoFinal = final,
+            PracticaCreada = anterior is null,
+            VinculoPersistidoAhora =
+                string.IsNullOrWhiteSpace(anterior?.RutaProyecto) &&
+                !string.IsNullOrWhiteSpace(final.RutaProyecto),
+            RealizadaPersistidaAhora =
+                anterior?.Estado != EstadoPracticaCurso.Realizada &&
+                final.Estado == EstadoPracticaCurso.Realizada
         };
     }
 

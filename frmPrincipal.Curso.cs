@@ -3930,8 +3930,25 @@ public partial class frmPrincipal {
         }
 
         ActualizarProgresoEnMemoria(practicaId, estado, rutaProyecto);
+        ProgresoCurso? progresoPersistido = resultado.ProgresoPersistido;
+        TransicionProgresoPersistida? transicionPersistida =
+            resultado.TransicionPersistida;
         CargarProgresoCurso(mostrarAvisoInmediato: false);
         MarcarInicioPendienteDeRecarga();
+
+        if (progresoPersistido is not null && transicionPersistida is not null) {
+            _ = EncolarProcesamientoMotivacion(() =>
+                RegistrarResultadoMotivacion(
+                    motivacionService.ProcesarProgresoPersistido(
+                        practicaId,
+                        progresoPersistido,
+                        transicionPersistida)));
+        } else {
+            Program.RegistrarErrorRecuperable(new InvalidOperationException(
+                "El progreso se guardó, pero no se obtuvo la transición " +
+                "publicada necesaria para procesar motivación."));
+        }
+
         return true;
     }
 

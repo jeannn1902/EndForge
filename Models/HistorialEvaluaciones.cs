@@ -64,11 +64,33 @@ public sealed class ResultadoEscrituraHistorialEvaluaciones {
 
     public HistorialPractica? HistorialActualizado { get; init; }
 
+    public TransicionEvaluacionPersistida? TransicionPersistida { get; init; }
+
     public int RegistrosInvalidosIgnorados { get; init; }
 
     public Exception? Error { get; init; }
 
     public bool EsExitosa => Estado == EstadoEscrituraHistorialEvaluaciones.Exitosa;
+}
+
+public sealed class TransicionEvaluacionPersistida {
+    public string PracticaId { get; init; } = "";
+
+    public string IntentoId { get; init; } = "";
+
+    public int CalificacionIntento { get; init; }
+
+    public int? MejorCalificacionAnterior { get; init; }
+
+    public int? UltimaCalificacionAnterior { get; init; }
+
+    public DateTimeOffset? FechaUltimoIntentoAnterior { get; init; }
+
+    public int MejorCalificacionPosterior { get; init; }
+
+    public int TotalIntentos { get; init; }
+
+    public bool IntentoPublicado { get; init; }
 }
 
 public enum EstadoEliminacionHistorialEvaluaciones {

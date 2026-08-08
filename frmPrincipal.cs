@@ -13,6 +13,7 @@ public partial class frmPrincipal : Form {
     private readonly RecientesService recientesService;
     private readonly CreacionPracticasOrquestador creacionPracticasOrquestador;
     private readonly VistaPreviaPracticaService vistaPreviaPracticaService;
+    private readonly MotivacionService motivacionService;
     private Panel panelSeleccionado = null!;
     private string rutaBase = "";
     private string rutaPlantilla = "";
@@ -24,6 +25,7 @@ public partial class frmPrincipal : Form {
         recientesService = new RecientesService(configuracionService.RutaRecientes);
         vistaPreviaPracticaService = new VistaPreviaPracticaService(temasService);
         creacionPracticasOrquestador = new CreacionPracticasOrquestador(proyectoService, recientesService, aperturaPracticasService);
+        motivacionService = new MotivacionService();
 
         InitializeComponent();
         InicializarPreferenciasAprendizaje();

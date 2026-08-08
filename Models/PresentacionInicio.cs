@@ -28,6 +28,12 @@ public enum EstadoCargaInicio {
     ErrorRecuperable
 }
 
+public enum EstadoNivelInicio {
+    Disponible,
+    NoDisponible,
+    VersionIncompatible
+}
+
 public enum EstadoResultadoCargaInicio {
     Completada,
     ErrorRecuperable,
@@ -74,6 +80,14 @@ public sealed record ProgresoInicioPresentable(
     DatoInicioPresentable TemasCompletados,
     DatoInicioPresentable GradosCompletados);
 
+public sealed record PresentacionNivel(
+    EstadoNivelInicio Estado,
+    string TextoNivel,
+    string TextoXpTotal,
+    string TextoXpRestante,
+    int? ValorBarra,
+    string DescripcionAccesible);
+
 public sealed record MetricaInicioPresentable(
     TipoMetricaInicio Tipo,
     string Titulo,
@@ -113,7 +127,15 @@ public sealed record PresentacionInicio(
     IReadOnlyList<MetricaInicioPresentable> Metricas,
     RecomendacionInicioPresentable? Recomendacion,
     IReadOnlyList<ActividadInicioPresentable> Actividades,
-    BandaDatosInicioPresentable? BandaDatos);
+    BandaDatosInicioPresentable? BandaDatos) {
+    public PresentacionNivel Nivel { get; init; } = new(
+        EstadoNivelInicio.NoDisponible,
+        "No disponible",
+        string.Empty,
+        "No pudimos cargar tu nivel y XP.",
+        null,
+        "El nivel y la experiencia no están disponibles temporalmente.");
+}
 
 public sealed record EstadoCargaInicioPresentable(
     EstadoCargaInicio Estado,
@@ -125,4 +147,6 @@ public sealed record ResultadoCargaInicio(
     long Generacion,
     EstadoResultadoCargaInicio Estado,
     PresentacionInicio? Presentacion,
-    Exception? Error);
+    Exception? Error) {
+    public Exception? AdvertenciaMotivacion { get; init; }
+}
