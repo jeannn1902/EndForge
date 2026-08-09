@@ -27,7 +27,7 @@ public sealed class MotivacionServiceTests {
         Assert.True(File.Exists(servicio.RutaMotivacion));
         using JsonDocument documento = JsonDocument.Parse(
             File.ReadAllText(servicio.RutaMotivacion));
-        Assert.Equal(1, documento.RootElement.GetProperty("Version").GetInt32());
+        Assert.Equal(2, documento.RootElement.GetProperty("Version").GetInt32());
         Assert.Equal(
             entorno.Reloj.LocalTimeZone.Id,
             documento.RootElement.GetProperty("ZonaHorariaEstudio").GetString());
@@ -269,10 +269,12 @@ public sealed class MotivacionServiceTests {
         entorno.Historial = CrearCargaHistorial(historial);
         MotivacionService servicio = entorno.CrearServicio();
 
-        servicio.ProcesarEvaluacionPersistida(
-            PracticaId,
-            historial,
-            intentoActual);
+        ResultadoProcesamientoMotivacion resultado =
+            servicio.ProcesarEvaluacionPersistida(
+                PracticaId,
+                historial,
+                intentoActual);
+        Assert.Null(resultado.Error);
 
         IReadOnlyDictionary<string, bool> importadas =
             LeerEstadoImportacion(servicio.RutaMotivacion);
@@ -525,6 +527,7 @@ public sealed class MotivacionServiceTests {
         TransicionEvaluacionPersistida transicion = new() {
             PracticaId = PracticaId,
             IntentoId = actual.Id,
+            FechaIntento = actual.Fecha,
             CalificacionIntento = actual.Calificacion,
             MejorCalificacionAnterior = mejorAnterior,
             UltimaCalificacionAnterior = mejorAnterior,
@@ -751,6 +754,7 @@ public sealed class MotivacionServiceTests {
                 historial,
                 actual);
 
+        Assert.Null(resultado.Error);
         Assert.Equal(41, resultado.XpConcedido);
         Assert.Equal(41, resultado.XpTotalResultante);
     }
@@ -783,6 +787,7 @@ public sealed class MotivacionServiceTests {
                 historialActual,
                 actual);
 
+        Assert.Null(resultado.Error);
         Assert.Equal(26, resultado.XpConcedido);
         Assert.Equal(66, resultado.XpTotalResultante);
     }
@@ -1350,6 +1355,48 @@ public sealed class MotivacionServiceTests {
         Assert.Equal(EstadoProcesamientoMotivacion.Aplicada, primera.Estado);
         Assert.Equal(0, segunda.XpConcedido);
         Assert.Equal(primera.XpTotalResultante, segunda.XpTotalResultante);
+    }
+
+    [Fact]
+    public void MutexOcupado_HastaAgotarEsperaDevuelveErrorRecuperable() {
+        using EntornoPrueba entorno = new();
+        MotivacionService servicio = entorno.CrearServicio();
+        string rutaNormalizada = Path.GetFullPath(servicio.RutaMotivacion)
+            .ToUpperInvariant();
+        string nombreMutex = @"Global\EndForge.Motivacion." +
+            Convert.ToHexString(SHA256.HashData(
+                Encoding.UTF8.GetBytes(rutaNormalizada)));
+        using ManualResetEventSlim adquirido = new(initialState: false);
+        using ManualResetEventSlim liberar = new(initialState: false);
+        Thread hilo = new(() => {
+            using Mutex mutex = new(initiallyOwned: false, nombreMutex);
+            mutex.WaitOne();
+
+            try {
+                adquirido.Set();
+                liberar.Wait(TimeSpan.FromSeconds(15));
+            } finally {
+                mutex.ReleaseMutex();
+            }
+        }) {
+            IsBackground = true
+        };
+        hilo.Start();
+        Assert.True(adquirido.Wait(TimeSpan.FromSeconds(5)));
+        ResultadoProcesamientoMotivacion resultado;
+
+        try {
+            resultado = servicio.ReconciliarEstadoActual();
+        } finally {
+            liberar.Set();
+            Assert.True(hilo.Join(TimeSpan.FromSeconds(5)));
+        }
+
+        Assert.Equal(
+            EstadoProcesamientoMotivacion.ErrorRecuperable,
+            resultado.Estado);
+        Assert.IsType<TimeoutException>(resultado.Error);
+        Assert.False(File.Exists(servicio.RutaMotivacion));
     }
 
     [Fact]

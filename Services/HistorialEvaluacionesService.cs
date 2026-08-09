@@ -199,16 +199,19 @@ public sealed class HistorialEvaluacionesService {
 
         EscribirHistorial(practicas);
         HistorialPractica historialActualizado = ConvertirAPublico(practica);
+        IntentoPractica intentoPublicado = historialActualizado.Intentos.Single(item =>
+            item.Id.Equals(intento.Id, StringComparison.OrdinalIgnoreCase));
         TransicionEvaluacionPersistida transicionPersistida =
             new() {
-                PracticaId = intento.PracticaId,
-                IntentoId = intento.Id,
-                CalificacionIntento = intento.Calificacion,
+                PracticaId = intentoPublicado.PracticaId,
+                IntentoId = intentoPublicado.Id,
+                FechaIntento = intentoPublicado.Fecha,
+                CalificacionIntento = intentoPublicado.Calificacion,
                 MejorCalificacionAnterior = mejorCalificacionAnterior,
                 UltimaCalificacionAnterior = ultimaCalificacionAnterior,
                 FechaUltimoIntentoAnterior = fechaUltimoIntentoAnterior,
                 MejorCalificacionPosterior = practica.MejorCalificacion
-                    ?? intento.Calificacion,
+                    ?? intentoPublicado.Calificacion,
                 TotalIntentos = practica.TotalIntentos,
                 IntentoPublicado = true
             };

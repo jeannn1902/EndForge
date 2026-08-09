@@ -44,10 +44,28 @@ public sealed class MetadatosMigracionMotivacion {
     public int MejorasHistoricasOmitidas { get; set; }
 
     public DateTimeOffset? UltimaReconciliacionUtc { get; set; }
+
+    public bool MigracionVersion2Completada { get; set; }
+
+    public DateTimeOffset? FechaMigracionVersion2Utc { get; set; }
+
+    public bool LogrosHistoricosProcesados { get; set; }
+
+    public bool ActividadHistoricaProcesada { get; set; }
+
+    public bool HistoriaActividadParcial { get; set; }
+}
+
+public sealed class LogroDesbloqueado {
+    public string LogroId { get; set; } = string.Empty;
+
+    public DateTimeOffset FechaReconocimientoUtc { get; set; }
+
+    public bool EsImportado { get; set; }
 }
 
 internal sealed class DocumentoMotivacion {
-    public int Version { get; set; } = 1;
+    public int Version { get; set; } = 2;
 
     public string ZonaHorariaEstudio { get; set; } = string.Empty;
 
@@ -64,6 +82,47 @@ internal sealed class DocumentoMotivacion {
     public DateTimeOffset UltimoInstanteUtcAceptado { get; set; }
 
     public MetadatosMigracionMotivacion MetadatosMigracion { get; set; } = new();
+
+    public List<LogroDesbloqueado> LogrosDesbloqueados { get; set; } = new();
+
+    public List<DateOnly> DiasActividadAcademica { get; set; } = new();
+}
+
+internal sealed class DocumentoMotivacionVersion1 {
+    public int? Version { get; set; }
+
+    public string? ZonaHorariaEstudio { get; set; }
+
+    public List<ConcesionXP>? ConcesionesXP { get; set; }
+
+    public Dictionary<string, int>? MejorCalificacionReconocidaPorPractica {
+        get;
+        set;
+    }
+
+    public Dictionary<string, int>? XPMejoraConcedidoPorPractica { get; set; }
+
+    public DateTimeOffset? UltimoInstanteUtcAceptado { get; set; }
+
+    public MetadatosMigracionMotivacionVersion1? MetadatosMigracion { get; set; }
+}
+
+internal sealed class MetadatosMigracionMotivacionVersion1 {
+    public int? VersionMigracion { get; set; }
+
+    public bool? MigracionInicialCompletada { get; set; }
+
+    public DateTimeOffset? FechaMigracionUtc { get; set; }
+
+    public bool? ProgresoProcesado { get; set; }
+
+    public bool? HistorialProcesado { get; set; }
+
+    public int? MejorasHistoricasReconocidas { get; set; }
+
+    public int? MejorasHistoricasOmitidas { get; set; }
+
+    public DateTimeOffset? UltimaReconciliacionUtc { get; set; }
 }
 
 public enum AdvertenciaMotivacion {
@@ -89,6 +148,11 @@ public sealed record ResumenNivel(
     decimal XpRestante,
     decimal PorcentajeNivel);
 
+public sealed record ResumenRacha(
+    int RachaActual,
+    int MejorRachaHistorica,
+    DateOnly? UltimoDiaEstudio);
+
 public sealed record ResumenMotivacion(
     EstadoDisponibilidadMotivacion Estado,
     long? XpTotal,
@@ -96,7 +160,12 @@ public sealed record ResumenMotivacion(
     string ZonaHorariaEstudio,
     DateTimeOffset? UltimoInstanteUtcAceptado,
     IReadOnlyList<AdvertenciaMotivacion> Advertencias,
-    Exception? Error);
+    Exception? Error) {
+    public ResumenRacha Racha { get; init; } = new(0, 0, null);
+
+    public IReadOnlyList<LogroDesbloqueado> LogrosDesbloqueados { get; init; } =
+        Array.Empty<LogroDesbloqueado>();
+}
 
 public enum EstadoProcesamientoMotivacion {
     Aplicada,
@@ -116,4 +185,7 @@ public sealed record ResultadoProcesamientoMotivacion(
     bool SubioNivel,
     IReadOnlyList<string> ClavesProcesadas,
     ResumenMotivacion Resumen,
-    Exception? Error);
+    Exception? Error) {
+    public IReadOnlyList<LogroDesbloqueado> LogrosNuevos { get; init; } =
+        Array.Empty<LogroDesbloqueado>();
+}

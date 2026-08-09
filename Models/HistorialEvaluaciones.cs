@@ -78,6 +78,8 @@ public sealed class TransicionEvaluacionPersistida {
 
     public string IntentoId { get; init; } = "";
 
+    public DateTimeOffset FechaIntento { get; init; }
+
     public int CalificacionIntento { get; init; }
 
     public int? MejorCalificacionAnterior { get; init; }

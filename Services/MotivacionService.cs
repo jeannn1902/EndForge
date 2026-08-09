@@ -8,10 +8,13 @@ using System.Text.Json.Serialization;
 namespace EndForge.Services;
 
 public sealed class MotivacionService {
-    private const int VersionActual = 1;
+    private const int VersionAnterior = 1;
+    private const int VersionActual = 2;
     private const int VersionMigracionActual = 1;
     private const int MaximoConcesiones = 50_000;
     private const int MaximoEstadosPorPractica = 10_000;
+    private const int MaximoLogros = 512;
+    private const int MaximoDiasActividad = 36_600;
     private const int MaximoLongitudIdentificador = 256;
     private const int MaximoLongitudClave = 1_024;
     private const long MaximoBytesArchivo = 16L * 1024L * 1024L;
@@ -26,6 +29,8 @@ public sealed class MotivacionService {
     private readonly Func<ResultadoCargaProgreso> cargarProgreso;
     private readonly Func<ResultadoCargaHistorialEvaluaciones> cargarHistorial;
     private readonly CalculadoraNivelService calculadoraNivel;
+    private readonly CalculadoraRachaService calculadoraRacha;
+    private readonly CatalogoLogrosService catalogoLogros;
     private readonly ISistemaArchivosMotivacion archivos;
     private readonly JsonSerializerOptions opcionesJson;
 
@@ -74,6 +79,8 @@ public sealed class MotivacionService {
             throw new ArgumentNullException(nameof(cargarHistorial));
         this.archivos = archivos ?? new SistemaArchivosMotivacion();
         calculadoraNivel = new CalculadoraNivelService();
+        calculadoraRacha = new CalculadoraRachaService(reloj);
+        catalogoLogros = new CatalogoLogrosService();
         RutaMotivacion = Path.Combine(this.carpetaDatos, "motivacion.json");
         nombreMutex = CrearNombreMutex(RutaMotivacion);
         opcionesJson = CrearOpcionesJson();
@@ -315,8 +322,49 @@ public sealed class MotivacionService {
             ContextoMutacion contexto = new();
             DocumentoMotivacion documento;
             bool documentoNuevo = carga.Estado == EstadoCargaDocumento.ArchivoInexistente;
+            bool migradoDesdeVersion1 =
+                carga.Estado == EstadoCargaDocumento.RequiereMigracion;
 
-            if (documentoNuevo) {
+            if (migradoDesdeVersion1) {
+                documento = ConvertirDocumentoVersion1(
+                    carga.DocumentoVersion1!,
+                    ObtenerAhoraUtc());
+                long xpVersion1 = CalcularXpTotal(documento);
+                CompletarMigracionVersion2(
+                    documento,
+                    contexto,
+                    identificador,
+                    evidencia);
+
+                if (CalcularXpTotal(documento) != xpVersion1) {
+                    throw new InvalidDataException(
+                        "La migracion Version 1 a Version 2 intento modificar el XP.");
+                }
+
+                if (operacion == TipoOperacionMotivacion.Reconciliacion) {
+                    GuardarDocumentoSinBloqueo(
+                        documento,
+                        ordenarConcesiones: false);
+                    ResumenMotivacion resumenMigrado = CrearResumen(
+                        documento,
+                        contexto.Advertencias);
+                    long nivelMigrado = resumenMigrado.Nivel!.NivelActual;
+                    return new ResultadoProcesamientoMotivacion(
+                        EstadoProcesamientoMotivacion.Aplicada,
+                        0,
+                        xpVersion1,
+                        nivelMigrado,
+                        nivelMigrado,
+                        false,
+                        Array.Empty<string>(),
+                        resumenMigrado,
+                        contexto.ErrorFuente);
+                }
+
+                contexto.FuenteNoDisponible = false;
+                contexto.InstanteConcesionUtc = null;
+                contexto.InstanteReconocimientoLogrosUtc = null;
+            } else if (documentoNuevo) {
                 ResultadoCreacionDocumento migracion = CrearDocumentoMigrado(
                     contexto,
                     identificador,
@@ -342,10 +390,20 @@ public sealed class MotivacionService {
                     evidencia?.TransicionEvaluacion is not null);
 
             PrepararInstanteOperacion(documento, contexto);
+            ImportarLogrosDesdeConcesiones(
+                documento,
+                contexto,
+                esImportado: true);
             long xpAntesDeAplicar = documentoNuevo
                 ? 0
                 : CalcularXpTotal(documento);
             EstadoAplicacionOperacion estadoAplicacion = AplicarOperacion(
+                documento,
+                contexto,
+                operacion,
+                identificador,
+                evidencia);
+            ProcesarVersion2OperacionActual(
                 documento,
                 contexto,
                 operacion,
@@ -381,7 +439,9 @@ public sealed class MotivacionService {
                 ActualizarInstanteAceptado(documento, contexto);
                 documento.MetadatosMigracion.UltimaReconciliacionUtc =
                     documento.UltimoInstanteUtcAceptado;
-                GuardarDocumentoSinBloqueo(documento);
+                GuardarDocumentoSinBloqueo(
+                    documento,
+                    ordenarConcesiones: !migradoDesdeVersion1);
             }
 
             long xpActual = CalcularXpTotal(documento);
@@ -397,7 +457,9 @@ public sealed class MotivacionService {
             IReadOnlyList<string> clavesResultado =
                 ObtenerClavesResultado(contexto);
             EstadoProcesamientoMotivacion estado = xpConcedido > 0 ||
-                documentoNuevo
+                documentoNuevo ||
+                contexto.HuboCambioVersion2OperacionActual ||
+                estadoAplicacion == EstadoAplicacionOperacion.Aplicada
                 ? EstadoProcesamientoMotivacion.Aplicada
                 : estadoAplicacion == EstadoAplicacionOperacion.YaAplicada
                     ? EstadoProcesamientoMotivacion.YaAplicada
@@ -412,7 +474,11 @@ public sealed class MotivacionService {
                 nivelActual > nivelAnterior,
                 clavesResultado,
                 resumen,
-                contexto.ErrorFuente);
+                contexto.ErrorFuente) {
+                LogrosNuevos = contexto.LogrosNuevos
+                    .Select(CopiarLogro)
+                    .ToArray()
+            };
         } catch (UnauthorizedAccessException ex) {
             return CrearResultadoNoDisponible(
                 EstadoProcesamientoMotivacion.ErrorRecuperable,
@@ -471,7 +537,12 @@ public sealed class MotivacionService {
                 FechaMigracionUtc = ahora,
                 ProgresoProcesado = true,
                 HistorialProcesado = true,
-                UltimaReconciliacionUtc = ahora
+                UltimaReconciliacionUtc = ahora,
+                MigracionVersion2Completada = true,
+                FechaMigracionVersion2Utc = ahora,
+                LogrosHistoricosProcesados = true,
+                ActividadHistoricaProcesada = true,
+                HistoriaActividadParcial = false
             }
         };
         contexto.InstanteConcesionUtc = ahora;
@@ -488,13 +559,568 @@ public sealed class MotivacionService {
             null);
     }
 
+    private void CompletarMigracionVersion2(
+        DocumentoMotivacion documento,
+        ContextoMutacion contexto,
+        string? practicaId,
+        EvidenciaOperacion? evidencia) {
+        ResultadoFuentes fuentes = PrepararFuentesHistoricasParaOperacionActual(
+            CargarFuentesAcademicas(),
+            practicaId,
+            evidencia);
+        contexto.InstanteReconocimientoLogrosUtc =
+            documento.MetadatosMigracion.FechaMigracionVersion2Utc;
+        ReconciliarDatosVersion2Historicos(documento, fuentes, contexto);
+        contexto.HuboCambio = true;
+    }
+
+    private void ReconciliarDatosVersion2Historicos(
+        DocumentoMotivacion documento,
+        ResultadoFuentes fuentes,
+        ContextoMutacion contexto) {
+        ImportarLogrosDesdeFuentes(documento, fuentes, contexto);
+        ImportarDiasHistoricos(documento, fuentes, contexto);
+
+        bool fuentesCompletas = fuentes.Catalogo is not null &&
+            fuentes.ProgresoDisponible &&
+            fuentes.HistorialDisponible;
+        bool historiaParcial = !fuentesCompletas ||
+            fuentes.DatosParciales ||
+            fuentes.Progreso.Values.Any(item =>
+                !string.IsNullOrWhiteSpace(item.RutaProyecto)) ||
+            fuentes.Historial.Values.Any(item =>
+                item.TotalIntentos > item.Intentos.Count);
+        MetadatosMigracionMotivacion metadatos = documento.MetadatosMigracion;
+        bool logrosProcesados =
+            metadatos.LogrosHistoricosProcesados || fuentesCompletas;
+        bool actividadProcesada =
+            metadatos.ActividadHistoricaProcesada || fuentesCompletas;
+        if (metadatos.LogrosHistoricosProcesados != logrosProcesados ||
+            metadatos.ActividadHistoricaProcesada != actividadProcesada ||
+            metadatos.HistoriaActividadParcial != historiaParcial) {
+            metadatos.LogrosHistoricosProcesados = logrosProcesados;
+            metadatos.ActividadHistoricaProcesada = actividadProcesada;
+            metadatos.HistoriaActividadParcial = historiaParcial;
+            contexto.HuboCambio = true;
+        }
+
+        if (!fuentesCompletas) {
+            contexto.FuenteNoDisponible = true;
+            contexto.ErrorFuente ??= fuentes.Error;
+        }
+
+        if (!fuentesCompletas || fuentes.DatosParciales) {
+            contexto.Advertencias.Add(
+                AdvertenciaMotivacion.DatosAcademicosParciales);
+        }
+    }
+
+    private void ImportarLogrosDesdeFuentes(
+        DocumentoMotivacion documento,
+        ResultadoFuentes fuentes,
+        ContextoMutacion contexto) {
+        HechosLogros hechos = CrearHechosLogros(documento, fuentes);
+        ReconocerLogrosCumplidos(
+            documento,
+            contexto,
+            hechos,
+            esImportado: true);
+    }
+
+    private void ImportarLogrosDesdeConcesiones(
+        DocumentoMotivacion documento,
+        ContextoMutacion contexto,
+        bool esImportado,
+        IReadOnlySet<string>? clavesExcluidas = null) {
+        ReconocerLogrosCumplidos(
+            documento,
+            contexto,
+            CrearHechosLogros(
+                documento,
+                CrearFuentesSinDatosAcademicos(),
+                clavesExcluidas),
+            esImportado);
+    }
+
+    private static ResultadoFuentes CrearFuentesSinDatosAcademicos() {
+        return new ResultadoFuentes(
+            null,
+            new Dictionary<string, ProgresoPractica>(),
+            new Dictionary<string, HistorialPractica>(),
+            false,
+            false,
+            false,
+            false,
+            null);
+    }
+
+    private HechosLogros CrearHechosLogros(
+        DocumentoMotivacion documento,
+        ResultadoFuentes fuentes,
+        IReadOnlySet<string>? clavesExcluidas = null) {
+        HashSet<string> vinculadas = new(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> realizadas = new(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> aprobadas = new(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> perfectas = new(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> temas = new(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> grados = new(StringComparer.OrdinalIgnoreCase);
+
+        foreach (ConcesionXP concesion in documento.ConcesionesXP) {
+            if (clavesExcluidas?.Contains(concesion.Clave) == true) {
+                continue;
+            }
+
+            switch (concesion.Tipo) {
+                case TipoConcesionXP.PracticaVinculada:
+                    vinculadas.Add(concesion.PracticaId!);
+                    break;
+                case TipoConcesionXP.PracticaRealizada:
+                    realizadas.Add(concesion.PracticaId!);
+                    break;
+                case TipoConcesionXP.EvaluacionAprobada:
+                    aprobadas.Add(concesion.PracticaId!);
+                    break;
+                case TipoConcesionXP.EvaluacionPerfecta:
+                    perfectas.Add(concesion.PracticaId!);
+                    break;
+                case TipoConcesionXP.TemaCompletado:
+                    temas.Add($"{concesion.GradoId}:{concesion.TemaId}");
+                    break;
+                case TipoConcesionXP.GradoCompletado:
+                    grados.Add(concesion.GradoId!);
+                    break;
+            }
+        }
+
+        CatalogoAprendizajeSnapshot? catalogo = fuentes.Catalogo;
+
+        if (catalogo is not null && fuentes.ProgresoDisponible) {
+            foreach ((string id, ProgresoPractica progreso) in fuentes.Progreso) {
+                if (!catalogo.PracticasPorId.ContainsKey(id)) {
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(progreso.RutaProyecto)) {
+                    vinculadas.Add(id);
+                }
+
+                if (progreso.Estado == EstadoPracticaCurso.Realizada) {
+                    realizadas.Add(id);
+                }
+            }
+
+            foreach (TemaCatalogoAprendizaje tema in catalogo.Temas) {
+                if (tema.Practicas.Count > 0 && tema.Practicas.All(item =>
+                        fuentes.Progreso.TryGetValue(
+                            item.Practica.Id,
+                            out ProgresoPractica? progreso) &&
+                        progreso.Estado == EstadoPracticaCurso.Realizada)) {
+                    temas.Add($"{tema.Grado.Id}:{tema.Tema.Id}");
+                }
+            }
+
+            foreach (GradoCurso grado in catalogo.Grados) {
+                PracticaCatalogoAprendizaje[] practicas = catalogo.Practicas
+                    .Where(item => item.Grado.Id.Equals(
+                        grado.Id,
+                        StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+
+                if (practicas.Length > 0 && practicas.All(item =>
+                        fuentes.Progreso.TryGetValue(
+                            item.Practica.Id,
+                            out ProgresoPractica? progreso) &&
+                        progreso.Estado == EstadoPracticaCurso.Realizada)) {
+                    grados.Add(grado.Id);
+                }
+            }
+        }
+
+        if (catalogo is not null && fuentes.HistorialDisponible) {
+            foreach ((string id, HistorialPractica historial) in
+                fuentes.Historial) {
+                if (!catalogo.PracticasPorId.ContainsKey(id) ||
+                    !historial.MejorCalificacion.HasValue) {
+                    continue;
+                }
+
+                if (historial.MejorCalificacion.Value >= 70) {
+                    aprobadas.Add(id);
+                }
+
+                if (historial.MejorCalificacion.Value == 100) {
+                    perfectas.Add(id);
+                }
+            }
+        }
+
+        return new HechosLogros(
+            vinculadas,
+            realizadas,
+            aprobadas,
+            perfectas,
+            temas,
+            grados);
+    }
+
+    private void ReconocerLogrosCumplidos(
+        DocumentoMotivacion documento,
+        ContextoMutacion contexto,
+        HechosLogros hechos,
+        bool esImportado) {
+        foreach (DefinicionLogro definicion in catalogoLogros.CargarDefiniciones()) {
+            bool cumplido = definicion.Criterio switch {
+                CriterioLogro.PracticasVinculadasDistintas =>
+                    hechos.PracticasVinculadas.Count >= definicion.Umbral,
+                CriterioLogro.PracticasRealizadasDistintas =>
+                    hechos.PracticasRealizadas.Count >= definicion.Umbral,
+                CriterioLogro.PracticasAprobadasDistintas =>
+                    hechos.PracticasAprobadas.Count >= definicion.Umbral,
+                CriterioLogro.PracticasPerfectasDistintas =>
+                    hechos.PracticasPerfectas.Count >= definicion.Umbral,
+                CriterioLogro.TemasCompletadosDistintos =>
+                    hechos.TemasCompletados.Count >= definicion.Umbral,
+                CriterioLogro.GradosCompletadosDistintos =>
+                    hechos.GradosCompletados.Count >= definicion.Umbral,
+                CriterioLogro.GradoEspecificoCompletado =>
+                    hechos.GradosCompletados.Contains(definicion.GradoId!),
+                _ => false
+            };
+
+            if (cumplido) {
+                AgregarLogro(
+                    documento,
+                    contexto,
+                    definicion.Id,
+                    esImportado);
+            }
+        }
+    }
+
+    private static bool AgregarLogro(
+        DocumentoMotivacion documento,
+        ContextoMutacion contexto,
+        string logroId,
+        bool esImportado) {
+        if (documento.LogrosDesbloqueados.Any(item => item.LogroId.Equals(
+                logroId,
+                StringComparison.OrdinalIgnoreCase))) {
+            return false;
+        }
+
+        LogroDesbloqueado logro = new() {
+            LogroId = logroId,
+            FechaReconocimientoUtc =
+                contexto.InstanteReconocimientoLogrosUtc ??
+                contexto.InstanteConcesionUtc ??
+                documento.UltimoInstanteUtcAceptado,
+            EsImportado = esImportado
+        };
+        documento.LogrosDesbloqueados.Add(logro);
+        contexto.HuboCambio = true;
+
+        if (!esImportado) {
+            contexto.HuboCambioVersion2OperacionActual = true;
+            contexto.LogrosNuevos.Add(CopiarLogro(logro));
+        }
+
+        return true;
+    }
+
+    private void ImportarDiasHistoricos(
+        DocumentoMotivacion documento,
+        ResultadoFuentes fuentes,
+        ContextoMutacion contexto) {
+        if (!IntentarResolverZonaHoraria(documento, contexto, out TimeZoneInfo? zona)) {
+            return;
+        }
+
+        DateTimeOffset limiteUtc = ObtenerAhoraUtc() + ToleranciaRetrocesoReloj;
+        List<DateTimeOffset> instantes = new();
+
+        if (fuentes.ProgresoDisponible) {
+            instantes.AddRange(fuentes.Progreso.Values
+                .Where(item =>
+                    item.Estado == EstadoPracticaCurso.Realizada &&
+                    item.FechaFinalizacion.HasValue)
+                .Select(item => item.FechaFinalizacion!.Value));
+        }
+
+        if (fuentes.HistorialDisponible) {
+            instantes.AddRange(fuentes.Historial.Values
+                .SelectMany(item => item.Intentos)
+                .Select(item => item.Fecha));
+        }
+
+        foreach (DateTimeOffset instante in instantes) {
+            if (instante == default || instante.ToUniversalTime() > limiteUtc) {
+                contexto.Advertencias.Add(
+                    AdvertenciaMotivacion.DatosAcademicosParciales);
+                continue;
+            }
+
+            DateOnly dia = ObtenerDiaAcademico(instante, zona!);
+
+            if (!documento.DiasActividadAcademica.Contains(dia)) {
+                documento.DiasActividadAcademica.Add(dia);
+                contexto.HuboCambio = true;
+            }
+        }
+    }
+
+    private void ProcesarVersion2OperacionActual(
+        DocumentoMotivacion documento,
+        ContextoMutacion contexto,
+        TipoOperacionMotivacion operacion,
+        string? practicaId,
+        EvidenciaOperacion? evidencia) {
+        DateTimeOffset? instanteActividad = operacion switch {
+            TipoOperacionMotivacion.ProgresoPersistido
+                when evidencia?.TransicionProgreso is not null &&
+                    (evidencia.TransicionProgreso.VinculoPersistidoAhora ||
+                     evidencia.TransicionProgreso.RealizadaPersistidaAhora) =>
+                evidencia.TransicionProgreso.ProgresoFinal.FechaActualizacion,
+            TipoOperacionMotivacion.EvaluacionPersistida
+                when evidencia?.TransicionEvaluacion is not null =>
+                evidencia.TransicionEvaluacion.FechaIntento,
+            _ => null
+        };
+
+        if (contexto.OperacionAcademicaActualConfirmada &&
+            instanteActividad.HasValue &&
+            RegistrarDiaActividadActual(
+                documento,
+                contexto,
+                instanteActividad.Value)) {
+            DateTimeOffset instanteActividadUtc =
+                instanteActividad.Value.ToUniversalTime();
+            contexto.InstanteReconocimientoLogrosUtc = instanteActividadUtc;
+
+            if (!contexto.InstanteConcesionUtc.HasValue ||
+                instanteActividadUtc > contexto.InstanteConcesionUtc.Value) {
+                contexto.InstanteConcesionUtc = instanteActividadUtc;
+            }
+        }
+
+        if (operacion == TipoOperacionMotivacion.Reconciliacion) {
+            return;
+        }
+
+        if (!contexto.OperacionAcademicaActualConfirmada ||
+            evidencia is null ||
+            string.IsNullOrWhiteSpace(practicaId)) {
+            ImportarLogrosDesdeConcesiones(
+                documento,
+                contexto,
+                esImportado: true);
+            return;
+        }
+
+        HechosLogros hechosAnteriores = CrearHechosLogros(
+            documento,
+            CrearFuentesSinDatosAcademicos(),
+            contexto.ClavesConcedidasOperacionActual);
+        ReconocerLogrosCumplidos(
+            documento,
+            contexto,
+            hechosAnteriores,
+            esImportado: true);
+        HechosLogros hechosPosteriores = CrearHechosLogrosOperacionActual(
+            hechosAnteriores,
+            contexto.CatalogoOperacionActual,
+            operacion,
+            practicaId,
+            evidencia);
+        ReconocerLogrosCumplidos(
+            documento,
+            contexto,
+            hechosPosteriores,
+            esImportado: false);
+    }
+
+    private HechosLogros CrearHechosLogrosOperacionActual(
+        HechosLogros hechosAnteriores,
+        CatalogoAprendizajeSnapshot? catalogo,
+        TipoOperacionMotivacion operacion,
+        string practicaId,
+        EvidenciaOperacion evidencia) {
+        HashSet<string> vinculadas = new(
+            hechosAnteriores.PracticasVinculadas,
+            StringComparer.OrdinalIgnoreCase);
+        HashSet<string> realizadas = new(
+            hechosAnteriores.PracticasRealizadas,
+            StringComparer.OrdinalIgnoreCase);
+        HashSet<string> aprobadas = new(
+            hechosAnteriores.PracticasAprobadas,
+            StringComparer.OrdinalIgnoreCase);
+        HashSet<string> perfectas = new(
+            hechosAnteriores.PracticasPerfectas,
+            StringComparer.OrdinalIgnoreCase);
+        HashSet<string> temas = new(
+            hechosAnteriores.TemasCompletados,
+            StringComparer.OrdinalIgnoreCase);
+        HashSet<string> grados = new(
+            hechosAnteriores.GradosCompletados,
+            StringComparer.OrdinalIgnoreCase);
+
+        if (operacion == TipoOperacionMotivacion.ProgresoPersistido &&
+            evidencia.TransicionProgreso is not null) {
+            if (evidencia.TransicionProgreso.VinculoPersistidoAhora) {
+                vinculadas.Add(practicaId);
+            }
+
+            if (evidencia.TransicionProgreso.RealizadaPersistidaAhora) {
+                realizadas.Add(practicaId);
+                AgregarContenidoCompletadoDesdeRealizadas(
+                    catalogo,
+                    realizadas,
+                    temas,
+                    grados);
+            }
+        }
+
+        if (operacion == TipoOperacionMotivacion.EvaluacionPersistida &&
+            evidencia.TransicionEvaluacion is not null) {
+            TransicionEvaluacionPersistida transicion =
+                evidencia.TransicionEvaluacion;
+
+            if (transicion.CalificacionIntento >= 70 &&
+                (!transicion.MejorCalificacionAnterior.HasValue ||
+                 transicion.MejorCalificacionAnterior.Value < 70)) {
+                aprobadas.Add(practicaId);
+            }
+
+            if (transicion.CalificacionIntento == 100 &&
+                (!transicion.MejorCalificacionAnterior.HasValue ||
+                 transicion.MejorCalificacionAnterior.Value < 100)) {
+                perfectas.Add(practicaId);
+            }
+        }
+
+        return new HechosLogros(
+            vinculadas,
+            realizadas,
+            aprobadas,
+            perfectas,
+            temas,
+            grados);
+    }
+
+    private static void AgregarContenidoCompletadoDesdeRealizadas(
+        CatalogoAprendizajeSnapshot? catalogo,
+        IReadOnlySet<string> realizadas,
+        HashSet<string> temas,
+        HashSet<string> grados) {
+        if (catalogo is null) {
+            return;
+        }
+
+        foreach (TemaCatalogoAprendizaje tema in catalogo.Temas) {
+            if (tema.Practicas.Count > 0 && tema.Practicas.All(item =>
+                    realizadas.Contains(item.Practica.Id))) {
+                temas.Add($"{tema.Grado.Id}:{tema.Tema.Id}");
+            }
+        }
+
+        foreach (GradoCurso grado in catalogo.Grados) {
+            PracticaCatalogoAprendizaje[] practicas = catalogo.Practicas
+                .Where(item => item.Grado.Id.Equals(
+                    grado.Id,
+                    StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+
+            if (practicas.Length > 0 && practicas.All(item =>
+                    realizadas.Contains(item.Practica.Id))) {
+                grados.Add(grado.Id);
+            }
+        }
+    }
+
+    private bool RegistrarDiaActividadActual(
+        DocumentoMotivacion documento,
+        ContextoMutacion contexto,
+        DateTimeOffset instante) {
+        if (!IntentarResolverZonaHoraria(documento, contexto, out TimeZoneInfo? zona)) {
+            return false;
+        }
+
+        DateTimeOffset instanteUtc = instante.ToUniversalTime();
+        DateTimeOffset ahoraUtc = ObtenerAhoraUtc();
+
+        if (instante == default ||
+            instanteUtc > ahoraUtc + ToleranciaRetrocesoReloj) {
+            contexto.Advertencias.Add(
+                AdvertenciaMotivacion.DatosAcademicosParciales);
+            return false;
+        }
+
+        DateOnly dia = ObtenerDiaAcademico(instanteUtc, zona!);
+
+        if (!documento.DiasActividadAcademica.Contains(dia)) {
+            documento.DiasActividadAcademica.Add(dia);
+            contexto.HuboCambio = true;
+            contexto.HuboCambioVersion2OperacionActual = true;
+        }
+
+        return true;
+    }
+
+    private static DateOnly ObtenerDiaAcademico(
+        DateTimeOffset instante,
+        TimeZoneInfo zona) {
+        return DateOnly.FromDateTime(
+            TimeZoneInfo.ConvertTime(instante.ToUniversalTime(), zona).DateTime);
+    }
+
+    private static bool IntentarResolverZonaHoraria(
+        DocumentoMotivacion documento,
+        ContextoMutacion contexto,
+        out TimeZoneInfo? zona) {
+        try {
+            zona = TimeZoneInfo.FindSystemTimeZoneById(
+                documento.ZonaHorariaEstudio);
+            return true;
+        } catch (Exception ex) when (ex is TimeZoneNotFoundException or
+            InvalidTimeZoneException) {
+            contexto.Advertencias.Add(
+                AdvertenciaMotivacion.ZonaHorariaNoDisponible);
+            zona = null;
+            return false;
+        }
+    }
+
+    private static LogroDesbloqueado CopiarLogro(LogroDesbloqueado logro) {
+        return new LogroDesbloqueado {
+            LogroId = logro.LogroId,
+            FechaReconocimientoUtc = logro.FechaReconocimientoUtc,
+            EsImportado = logro.EsImportado
+        };
+    }
+
     private static ResultadoFuentes PrepararFuentesHistoricasParaOperacionActual(
         ResultadoFuentes fuentes,
         string? practicaId,
         EvidenciaOperacion? evidencia) {
         if (fuentes.Catalogo is null ||
             string.IsNullOrWhiteSpace(practicaId) ||
-            evidencia?.TransicionEvaluacion is null ||
+            evidencia is null) {
+            return fuentes;
+        }
+
+        if (evidencia.TransicionProgreso is not null) {
+            Dictionary<string, ProgresoPractica> progresoAnterior =
+                new(fuentes.Progreso, StringComparer.OrdinalIgnoreCase);
+            progresoAnterior.Remove(practicaId);
+
+            if (evidencia.TransicionProgreso.ProgresoAnterior is not null) {
+                progresoAnterior[practicaId] = CopiarProgresoPractica(
+                    evidencia.TransicionProgreso.ProgresoAnterior);
+            }
+
+            fuentes = fuentes with { Progreso = progresoAnterior };
+        }
+
+        if (evidencia.TransicionEvaluacion is null ||
             evidencia.Historial is null) {
             return fuentes;
         }
@@ -660,6 +1286,8 @@ public sealed class MotivacionService {
 
             vinculoPersistidoAhora = transicionPersistida.VinculoPersistidoAhora;
             realizadaPersistidaAhora = transicionPersistida.RealizadaPersistidaAhora;
+            contexto.CatalogoOperacionActual = fuentes.Catalogo;
+            contexto.OperacionAcademicaActualConfirmada = true;
         }
 
         bool aplicada = false;
@@ -850,6 +1478,8 @@ public sealed class MotivacionService {
                     permitirMejoraHistorica: !fuentes.HistorialParcial);
             }
         }
+
+        ReconciliarDatosVersion2Historicos(documento, fuentes, contexto);
     }
 
     private bool ProcesarHistorialPractica(
@@ -1198,6 +1828,8 @@ public sealed class MotivacionService {
             return EstadoAplicacionOperacion.SinRecompensa;
         }
 
+        contexto.OperacionAcademicaActualConfirmada = true;
+
         bool aplicada = false;
         bool habiaConcesionExistente = contexto.HuboConcesionYaExistente;
         int? mejorAnterior = transicion.MejorCalificacionAnterior;
@@ -1344,6 +1976,7 @@ public sealed class MotivacionService {
         transicion = new TransicionEvaluacionPersistida {
             PracticaId = practicaId,
             IntentoId = intentoActual.Id,
+            FechaIntento = intentoActual.Fecha,
             CalificacionIntento = intentoActual.Calificacion,
             MejorCalificacionAnterior = mejorAnterior,
             UltimaCalificacionAnterior = ultimoAnterior?.Calificacion,
@@ -1388,6 +2021,7 @@ public sealed class MotivacionService {
         TransicionEvaluacionPersistida transicion) {
         if (!transicion.IntentoPublicado ||
             string.IsNullOrWhiteSpace(transicion.IntentoId) ||
+            transicion.FechaIntento == default ||
             transicion.CalificacionIntento is < 0 or > 100 ||
             transicion.MejorCalificacionPosterior is < 0 or > 100 ||
             transicion.TotalIntentos <= 0 ||
@@ -1399,7 +2033,20 @@ public sealed class MotivacionService {
                 StringComparison.OrdinalIgnoreCase) ||
             historial.TotalIntentos != transicion.TotalIntentos ||
             historial.MejorCalificacion != transicion.MejorCalificacionPosterior ||
-            historial.UltimaCalificacion != transicion.CalificacionIntento) {
+            historial.UltimaCalificacion != transicion.CalificacionIntento ||
+            historial.FechaUltimoIntento != transicion.FechaIntento) {
+            return false;
+        }
+
+        IntentoPractica[] coincidencias = historial.Intentos
+            .Where(item => item.Id.Equals(
+                transicion.IntentoId,
+                StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        if (coincidencias.Length != 1 ||
+            coincidencias[0].Fecha != transicion.FechaIntento ||
+            coincidencias[0].Calificacion != transicion.CalificacionIntento) {
             return false;
         }
 
@@ -1511,6 +2158,7 @@ public sealed class MotivacionService {
         return new TransicionEvaluacionPersistida {
             PracticaId = transicion.PracticaId,
             IntentoId = transicion.IntentoId,
+            FechaIntento = transicion.FechaIntento,
             CalificacionIntento = transicion.CalificacionIntento,
             MejorCalificacionAnterior = transicion.MejorCalificacionAnterior,
             UltimaCalificacionAnterior = transicion.UltimaCalificacionAnterior,
@@ -1572,7 +2220,10 @@ public sealed class MotivacionService {
             transicion.ProgresoAnterior?.Estado != EstadoPracticaCurso.Realizada &&
             final.Estado == EstadoPracticaCurso.Realizada;
         return transicion.VinculoPersistidoAhora == vinculoPersistidoAhora &&
-            transicion.RealizadaPersistidaAhora == realizadaPersistidaAhora;
+            transicion.RealizadaPersistidaAhora == realizadaPersistidaAhora &&
+            (!vinculoPersistidoAhora && !realizadaPersistidaAhora ||
+                final.FechaActualizacion.HasValue &&
+                final.FechaActualizacion.Value != default);
     }
 
     private static bool PracticasEquivalentes(
@@ -1860,17 +2511,33 @@ public sealed class MotivacionService {
             ? new HashSet<AdvertenciaMotivacion>()
             : new HashSet<AdvertenciaMotivacion>(advertencias);
 
+        ResumenRacha racha;
+
         try {
-            _ = TimeZoneInfo.FindSystemTimeZoneById(
+            TimeZoneInfo zona = TimeZoneInfo.FindSystemTimeZoneById(
                 documento.ZonaHorariaEstudio);
+            DateTimeOffset referenciaUtc = ObtenerAhoraUtc();
+
+            if (documento.UltimoInstanteUtcAceptado > referenciaUtc) {
+                referenciaUtc = documento.UltimoInstanteUtcAceptado;
+            }
+
+            racha = calculadoraRacha.Calcular(
+                documento.DiasActividadAcademica,
+                zona,
+                referenciaUtc);
         } catch (Exception ex) when (ex is TimeZoneNotFoundException or
             InvalidTimeZoneException) {
             todas.Add(AdvertenciaMotivacion.ZonaHorariaNoDisponible);
+            racha = CrearResumenRachaSinZona(
+                documento.DiasActividadAcademica);
         }
 
         long xpTotal = CalcularXpTotal(documento);
         return new ResumenMotivacion(
-            xpTotal == 0
+            xpTotal == 0 &&
+                documento.LogrosDesbloqueados.Count == 0 &&
+                documento.DiasActividadAcademica.Count == 0
                 ? EstadoDisponibilidadMotivacion.SinActividad
                 : EstadoDisponibilidadMotivacion.Disponible,
             xpTotal,
@@ -1878,7 +2545,39 @@ public sealed class MotivacionService {
             documento.ZonaHorariaEstudio,
             documento.UltimoInstanteUtcAceptado,
             todas.OrderBy(item => item).ToArray(),
-            null);
+            null) {
+            Racha = racha,
+            LogrosDesbloqueados = documento.LogrosDesbloqueados
+                .Select(CopiarLogro)
+                .ToArray()
+        };
+    }
+
+    private static ResumenRacha CrearResumenRachaSinZona(
+        IEnumerable<DateOnly> dias) {
+        DateOnly[] ordenados = dias
+            .Distinct()
+            .OrderBy(item => item.DayNumber)
+            .ToArray();
+
+        if (ordenados.Length == 0) {
+            return new ResumenRacha(0, 0, null);
+        }
+
+        int actual = 0;
+        int mejor = 0;
+        DateOnly? anterior = null;
+
+        foreach (DateOnly dia in ordenados) {
+            actual = anterior.HasValue &&
+                dia.DayNumber == anterior.Value.DayNumber + 1
+                    ? actual + 1
+                    : 1;
+            mejor = Math.Max(mejor, actual);
+            anterior = dia;
+        }
+
+        return new ResumenRacha(0, mejor, ordenados[^1]);
     }
 
     private ResultadoProcesamientoMotivacion CrearResultadoNoDisponible(
@@ -1951,12 +2650,38 @@ public sealed class MotivacionService {
                         "motivacion.json no contiene una versión válida."));
             }
 
-            if (version != VersionActual) {
+            if (version > VersionActual || version < VersionAnterior) {
                 return new ResultadoCargaDocumento(
                     EstadoCargaDocumento.VersionIncompatible,
                     null,
                     new InvalidDataException(
                         $"La versión {version} de motivacion.json no es compatible."));
+            }
+
+            if (version == VersionAnterior) {
+                DocumentoMotivacionVersion1? anterior =
+                    JsonSerializer.Deserialize<DocumentoMotivacionVersion1>(
+                        contenido,
+                        opcionesJson);
+                Exception? errorAnterior = null;
+
+                if (!ContienePropiedadesObligatoriasVersion1(json.RootElement) ||
+                    anterior is null ||
+                    !IntentarValidarDocumentoVersion1(
+                        anterior,
+                        out errorAnterior)) {
+                    return new ResultadoCargaDocumento(
+                        EstadoCargaDocumento.ContenidoInvalido,
+                        null,
+                        errorAnterior ?? new InvalidDataException(
+                            "motivacion.json Version 1 contiene datos invÃ¡lidos."));
+                }
+
+                return new ResultadoCargaDocumento(
+                    EstadoCargaDocumento.RequiereMigracion,
+                    null,
+                    null,
+                    anterior);
             }
 
             DocumentoMotivacion? documento =
@@ -1965,7 +2690,8 @@ public sealed class MotivacionService {
                     opcionesJson);
             Exception? error = null;
 
-            if (documento is null ||
+            if (!ContienePropiedadesObligatoriasVersion2(json.RootElement) ||
+                documento is null ||
                 !IntentarNormalizarYValidarDocumento(
                     documento,
                     out error)) {
@@ -2008,16 +2734,30 @@ public sealed class MotivacionService {
         }
     }
 
-    private void GuardarDocumentoSinBloqueo(DocumentoMotivacion documento) {
+    private void GuardarDocumentoSinBloqueo(
+        DocumentoMotivacion documento,
+        bool ordenarConcesiones = true) {
+        if (ordenarConcesiones) {
+            documento.ConcesionesXP = documento.ConcesionesXP
+                .OrderBy(item => item.Clave, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(item => item.Clave, StringComparer.Ordinal)
+                .ToList();
+        }
+
+        documento.LogrosDesbloqueados = documento.LogrosDesbloqueados
+            .OrderBy(item => item.LogroId, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.LogroId, StringComparer.Ordinal)
+            .ToList();
+        documento.DiasActividadAcademica = documento.DiasActividadAcademica
+            .Distinct()
+            .OrderBy(item => item.DayNumber)
+            .ToList();
+
         if (!IntentarNormalizarYValidarDocumento(documento, out Exception? error)) {
             throw error ?? new InvalidDataException(
                 "El documento motivacional no es válido.");
         }
 
-        documento.ConcesionesXP = documento.ConcesionesXP
-            .OrderBy(item => item.Clave, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(item => item.Clave, StringComparer.Ordinal)
-            .ToList();
         string contenido = JsonSerializer.Serialize(documento, opcionesJson);
 
         if (Encoding.UTF8.GetByteCount(contenido) > MaximoBytesArchivo) {
@@ -2074,6 +2814,7 @@ public sealed class MotivacionService {
             EstadoCargaDocumento estado =
                 CargarDocumentoSinBloqueo(temporal).Estado;
             return estado is EstadoCargaDocumento.Exitosa or
+                EstadoCargaDocumento.RequiereMigracion or
                 EstadoCargaDocumento.VersionIncompatible;
         });
 
@@ -2101,6 +2842,268 @@ public sealed class MotivacionService {
         }
     }
 
+    private static bool ContienePropiedadesObligatoriasVersion2(
+        JsonElement raiz) {
+        if (!ContienePropiedades(
+                raiz,
+                nameof(DocumentoMotivacion.Version),
+                nameof(DocumentoMotivacion.ZonaHorariaEstudio),
+                nameof(DocumentoMotivacion.ConcesionesXP),
+                nameof(DocumentoMotivacion.MejorCalificacionReconocidaPorPractica),
+                nameof(DocumentoMotivacion.XPMejoraConcedidoPorPractica),
+                nameof(DocumentoMotivacion.UltimoInstanteUtcAceptado),
+                nameof(DocumentoMotivacion.MetadatosMigracion),
+                nameof(DocumentoMotivacion.LogrosDesbloqueados),
+                nameof(DocumentoMotivacion.DiasActividadAcademica))) {
+            return false;
+        }
+
+        if (!ColeccionContieneObjetosConPropiedades(
+                raiz,
+                nameof(DocumentoMotivacion.ConcesionesXP),
+                nameof(ConcesionXP.Clave),
+                nameof(ConcesionXP.CantidadXP),
+                nameof(ConcesionXP.FechaUtc),
+                nameof(ConcesionXP.Tipo),
+                nameof(ConcesionXP.PracticaId),
+                nameof(ConcesionXP.TemaId),
+                nameof(ConcesionXP.GradoId),
+                nameof(ConcesionXP.EsImportada)) ||
+            !ColeccionContieneObjetosConPropiedades(
+                raiz,
+                nameof(DocumentoMotivacion.LogrosDesbloqueados),
+                nameof(LogroDesbloqueado.LogroId),
+                nameof(LogroDesbloqueado.FechaReconocimientoUtc),
+                nameof(LogroDesbloqueado.EsImportado))) {
+            return false;
+        }
+
+        JsonElement metadatos = raiz.EnumerateObject()
+            .First(item => item.Name.Equals(
+                nameof(DocumentoMotivacion.MetadatosMigracion),
+                StringComparison.OrdinalIgnoreCase))
+            .Value;
+        return ContienePropiedades(
+            metadatos,
+            nameof(MetadatosMigracionMotivacion.VersionMigracion),
+            nameof(MetadatosMigracionMotivacion.MigracionInicialCompletada),
+            nameof(MetadatosMigracionMotivacion.FechaMigracionUtc),
+            nameof(MetadatosMigracionMotivacion.ProgresoProcesado),
+            nameof(MetadatosMigracionMotivacion.HistorialProcesado),
+            nameof(MetadatosMigracionMotivacion.MejorasHistoricasReconocidas),
+            nameof(MetadatosMigracionMotivacion.MejorasHistoricasOmitidas),
+            nameof(MetadatosMigracionMotivacion.UltimaReconciliacionUtc),
+            nameof(MetadatosMigracionMotivacion.MigracionVersion2Completada),
+            nameof(MetadatosMigracionMotivacion.FechaMigracionVersion2Utc),
+            nameof(MetadatosMigracionMotivacion.LogrosHistoricosProcesados),
+            nameof(MetadatosMigracionMotivacion.ActividadHistoricaProcesada),
+            nameof(MetadatosMigracionMotivacion.HistoriaActividadParcial));
+    }
+
+    private static bool ContienePropiedadesObligatoriasVersion1(
+        JsonElement raiz) {
+        if (!ContienePropiedades(
+                raiz,
+                nameof(DocumentoMotivacionVersion1.Version),
+                nameof(DocumentoMotivacionVersion1.ZonaHorariaEstudio),
+                nameof(DocumentoMotivacionVersion1.ConcesionesXP),
+                nameof(DocumentoMotivacionVersion1.MejorCalificacionReconocidaPorPractica),
+                nameof(DocumentoMotivacionVersion1.XPMejoraConcedidoPorPractica),
+                nameof(DocumentoMotivacionVersion1.UltimoInstanteUtcAceptado),
+                nameof(DocumentoMotivacionVersion1.MetadatosMigracion))) {
+            return false;
+        }
+
+        if (!ColeccionContieneObjetosConPropiedades(
+                raiz,
+                nameof(DocumentoMotivacionVersion1.ConcesionesXP),
+                nameof(ConcesionXP.Clave),
+                nameof(ConcesionXP.CantidadXP),
+                nameof(ConcesionXP.FechaUtc),
+                nameof(ConcesionXP.Tipo),
+                nameof(ConcesionXP.PracticaId),
+                nameof(ConcesionXP.TemaId),
+                nameof(ConcesionXP.GradoId),
+                nameof(ConcesionXP.EsImportada))) {
+            return false;
+        }
+
+        JsonElement metadatos = raiz.EnumerateObject()
+            .First(item => item.Name.Equals(
+                nameof(DocumentoMotivacionVersion1.MetadatosMigracion),
+                StringComparison.OrdinalIgnoreCase))
+            .Value;
+        return ContienePropiedades(
+            metadatos,
+            nameof(MetadatosMigracionMotivacionVersion1.VersionMigracion),
+            nameof(MetadatosMigracionMotivacionVersion1.MigracionInicialCompletada),
+            nameof(MetadatosMigracionMotivacionVersion1.FechaMigracionUtc),
+            nameof(MetadatosMigracionMotivacionVersion1.ProgresoProcesado),
+            nameof(MetadatosMigracionMotivacionVersion1.HistorialProcesado),
+            nameof(MetadatosMigracionMotivacionVersion1.MejorasHistoricasReconocidas),
+            nameof(MetadatosMigracionMotivacionVersion1.MejorasHistoricasOmitidas),
+            nameof(MetadatosMigracionMotivacionVersion1.UltimaReconciliacionUtc));
+    }
+
+    private static bool ColeccionContieneObjetosConPropiedades(
+        JsonElement raiz,
+        string nombreColeccion,
+        params string[] propiedades) {
+        JsonElement coleccion = raiz.EnumerateObject()
+            .First(item => item.Name.Equals(
+                nombreColeccion,
+                StringComparison.OrdinalIgnoreCase))
+            .Value;
+        return coleccion.ValueKind == JsonValueKind.Array &&
+            coleccion.EnumerateArray().All(item =>
+                ContienePropiedades(item, propiedades));
+    }
+
+    private static bool ContienePropiedades(
+        JsonElement elemento,
+        params string[] nombres) {
+        if (elemento.ValueKind != JsonValueKind.Object) {
+            return false;
+        }
+
+        HashSet<string> presentes = elemento.EnumerateObject()
+            .Select(item => item.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return nombres.All(presentes.Contains);
+    }
+
+    private static bool IntentarValidarDocumentoVersion1(
+        DocumentoMotivacionVersion1 documento,
+        out Exception? error) {
+        error = null;
+
+        try {
+            MetadatosMigracionMotivacionVersion1? metadatos =
+                documento.MetadatosMigracion;
+
+            if (documento.Version != VersionAnterior ||
+                string.IsNullOrWhiteSpace(documento.ZonaHorariaEstudio) ||
+                documento.ConcesionesXP is null ||
+                documento.MejorCalificacionReconocidaPorPractica is null ||
+                documento.XPMejoraConcedidoPorPractica is null ||
+                !documento.UltimoInstanteUtcAceptado.HasValue ||
+                metadatos is null ||
+                !metadatos.VersionMigracion.HasValue ||
+                !metadatos.MigracionInicialCompletada.HasValue ||
+                !metadatos.FechaMigracionUtc.HasValue ||
+                !metadatos.ProgresoProcesado.HasValue ||
+                !metadatos.HistorialProcesado.HasValue ||
+                !metadatos.MejorasHistoricasReconocidas.HasValue ||
+                !metadatos.MejorasHistoricasOmitidas.HasValue) {
+                throw new InvalidDataException(
+                    "motivacion.json Version 1 no contiene todos sus campos obligatorios.");
+            }
+
+            DocumentoMotivacion copia = ConvertirDocumentoVersion1(
+                documento,
+                documento.UltimoInstanteUtcAceptado.Value);
+
+            if (!IntentarNormalizarYValidarDocumento(copia, out error)) {
+                throw error ?? new InvalidDataException(
+                    "motivacion.json Version 1 contiene datos invalidos.");
+            }
+
+            return true;
+        } catch (Exception ex) when (!RegistroErroresService.EsExcepcionCritica(ex)) {
+            error = ex;
+            return false;
+        }
+    }
+
+    private static DocumentoMotivacion ConvertirDocumentoVersion1(
+        DocumentoMotivacionVersion1 anterior,
+        DateTimeOffset fechaMigracionVersion2Utc) {
+        MetadatosMigracionMotivacionVersion1 metadatos =
+            anterior.MetadatosMigracion!;
+        return new DocumentoMotivacion {
+            Version = VersionActual,
+            ZonaHorariaEstudio = anterior.ZonaHorariaEstudio!,
+            ConcesionesXP = anterior.ConcesionesXP!
+                .Select(CopiarConcesion)
+                .ToList(),
+            MejorCalificacionReconocidaPorPractica = new Dictionary<string, int>(
+                anterior.MejorCalificacionReconocidaPorPractica!,
+                StringComparer.OrdinalIgnoreCase),
+            XPMejoraConcedidoPorPractica = new Dictionary<string, int>(
+                anterior.XPMejoraConcedidoPorPractica!,
+                StringComparer.OrdinalIgnoreCase),
+            UltimoInstanteUtcAceptado =
+                anterior.UltimoInstanteUtcAceptado!.Value,
+            MetadatosMigracion = new MetadatosMigracionMotivacion {
+                VersionMigracion = metadatos.VersionMigracion!.Value,
+                MigracionInicialCompletada =
+                    metadatos.MigracionInicialCompletada!.Value,
+                FechaMigracionUtc = metadatos.FechaMigracionUtc!.Value,
+                ProgresoProcesado = metadatos.ProgresoProcesado!.Value,
+                HistorialProcesado = metadatos.HistorialProcesado!.Value,
+                MejorasHistoricasReconocidas =
+                    metadatos.MejorasHistoricasReconocidas!.Value,
+                MejorasHistoricasOmitidas =
+                    metadatos.MejorasHistoricasOmitidas!.Value,
+                UltimaReconciliacionUtc = metadatos.UltimaReconciliacionUtc,
+                MigracionVersion2Completada = true,
+                FechaMigracionVersion2Utc = fechaMigracionVersion2Utc,
+                LogrosHistoricosProcesados = false,
+                ActividadHistoricaProcesada = false,
+                HistoriaActividadParcial = true
+            },
+            LogrosDesbloqueados = new List<LogroDesbloqueado>(),
+            DiasActividadAcademica = new List<DateOnly>()
+        };
+    }
+
+    private static ConcesionXP CopiarConcesion(ConcesionXP concesion) {
+        return new ConcesionXP {
+            Clave = concesion.Clave,
+            CantidadXP = concesion.CantidadXP,
+            FechaUtc = concesion.FechaUtc,
+            Tipo = concesion.Tipo,
+            PracticaId = concesion.PracticaId,
+            TemaId = concesion.TemaId,
+            GradoId = concesion.GradoId,
+            EsImportada = concesion.EsImportada
+        };
+    }
+
+    private static bool EsIdentificadorLogroValido(string? logroId) {
+        return !string.IsNullOrWhiteSpace(logroId) &&
+            logroId.Length <= MaximoLongitudIdentificador &&
+            logroId.Equals(logroId.Trim(), StringComparison.Ordinal) &&
+            logroId.StartsWith("logro:", StringComparison.OrdinalIgnoreCase) &&
+            !logroId.Any(char.IsControl);
+    }
+
+    private static void ValidarDiasNoFuturos(DocumentoMotivacion documento) {
+        if (documento.DiasActividadAcademica.Count == 0) {
+            return;
+        }
+
+        try {
+            TimeZoneInfo zona = TimeZoneInfo.FindSystemTimeZoneById(
+                documento.ZonaHorariaEstudio);
+            DateTimeOffset limiteUtc =
+                documento.MetadatosMigracion.FechaMigracionVersion2Utc!.Value >
+                    documento.UltimoInstanteUtcAceptado
+                    ? documento.MetadatosMigracion.FechaMigracionVersion2Utc.Value
+                    : documento.UltimoInstanteUtcAceptado;
+            DateOnly limite = DateOnly.FromDateTime(
+                TimeZoneInfo.ConvertTime(limiteUtc, zona).DateTime);
+
+            if (documento.DiasActividadAcademica[^1] > limite) {
+                throw new InvalidDataException(
+                    "motivacion.json contiene actividad academica futura.");
+            }
+        } catch (Exception ex) when (ex is TimeZoneNotFoundException or
+            InvalidTimeZoneException) {
+            // Una zona no disponible se informa en el resumen sin destruir datos.
+        }
+    }
+
     private static bool IntentarNormalizarYValidarDocumento(
         DocumentoMotivacion documento,
         out Exception? error) {
@@ -2113,7 +3116,11 @@ public sealed class MotivacionService {
                 documento.MejorCalificacionReconocidaPorPractica is null ||
                 documento.XPMejoraConcedidoPorPractica is null ||
                 documento.MetadatosMigracion is null ||
+                documento.LogrosDesbloqueados is null ||
+                documento.DiasActividadAcademica is null ||
                 documento.ConcesionesXP.Count > MaximoConcesiones ||
+                documento.LogrosDesbloqueados.Count > MaximoLogros ||
+                documento.DiasActividadAcademica.Count > MaximoDiasActividad ||
                 documento.MejorCalificacionReconocidaPorPractica.Count >
                     MaximoEstadosPorPractica ||
                 documento.XPMejoraConcedidoPorPractica.Count >
@@ -2122,6 +3129,12 @@ public sealed class MotivacionService {
                 !documento.MetadatosMigracion.MigracionInicialCompletada ||
                 documento.MetadatosMigracion.VersionMigracion !=
                     VersionMigracionActual ||
+                !documento.MetadatosMigracion.MigracionVersion2Completada ||
+                !documento.MetadatosMigracion.FechaMigracionVersion2Utc.HasValue ||
+                !EsFechaUtcValida(
+                    documento.MetadatosMigracion.FechaMigracionVersion2Utc.Value) ||
+                !documento.MetadatosMigracion.ActividadHistoricaProcesada &&
+                    !documento.MetadatosMigracion.HistoriaActividadParcial ||
                 !EsFechaUtcValida(
                     documento.MetadatosMigracion.FechaMigracionUtc) ||
                 documento.MetadatosMigracion.MejorasHistoricasReconocidas < 0 ||
@@ -2147,6 +3160,7 @@ public sealed class MotivacionService {
                     valor => valor is >= 0 and <= 25,
                     "XP de mejora");
             HashSet<string> claves = new(StringComparer.OrdinalIgnoreCase);
+            HashSet<string> logros = new(StringComparer.OrdinalIgnoreCase);
             Dictionary<string, List<int>> tramosMejoraPorPractica =
                 new(StringComparer.OrdinalIgnoreCase);
             long total = 0;
@@ -2212,6 +3226,37 @@ public sealed class MotivacionService {
                         "El resumen de XP por mejora contiene un total inconsistente.");
                 }
             }
+
+            DateTimeOffset limiteReconocimiento =
+                documento.MetadatosMigracion.FechaMigracionVersion2Utc.Value >
+                    documento.UltimoInstanteUtcAceptado
+                    ? documento.MetadatosMigracion.FechaMigracionVersion2Utc.Value
+                    : documento.UltimoInstanteUtcAceptado;
+
+            foreach (LogroDesbloqueado logro in documento.LogrosDesbloqueados) {
+                if (logro is null ||
+                    !EsIdentificadorLogroValido(logro.LogroId) ||
+                    !EsFechaUtcValida(logro.FechaReconocimientoUtc) ||
+                    logro.FechaReconocimientoUtc > limiteReconocimiento ||
+                    !logros.Add(logro.LogroId)) {
+                    throw new InvalidDataException(
+                        "motivacion.json contiene un logro invÃ¡lido o duplicado.");
+                }
+            }
+
+            DateOnly? anterior = null;
+
+            foreach (DateOnly dia in documento.DiasActividadAcademica) {
+                if (dia == default ||
+                    anterior.HasValue && dia.DayNumber <= anterior.Value.DayNumber) {
+                    throw new InvalidDataException(
+                        "Los dÃ­as de actividad deben ser vÃ¡lidos, Ãºnicos y ordenados.");
+                }
+
+                anterior = dia;
+            }
+
+            ValidarDiasNoFuturos(documento);
 
             _ = total;
             return true;
@@ -2461,7 +3506,15 @@ public sealed class MotivacionService {
 
         public bool ReportarSoloConcesionesOperacionActual { get; set; }
 
+        public bool HuboCambioVersion2OperacionActual { get; set; }
+
+        public bool OperacionAcademicaActualConfirmada { get; set; }
+
         public DateTimeOffset? InstanteConcesionUtc { get; set; }
+
+        public DateTimeOffset? InstanteReconocimientoLogrosUtc { get; set; }
+
+        public CatalogoAprendizajeSnapshot? CatalogoOperacionActual { get; set; }
 
         public List<string> ClavesProcesadas { get; } = new();
 
@@ -2475,6 +3528,8 @@ public sealed class MotivacionService {
             new(StringComparer.OrdinalIgnoreCase);
 
         public HashSet<AdvertenciaMotivacion> Advertencias { get; } = new();
+
+        public List<LogroDesbloqueado> LogrosNuevos { get; } = new();
 
         public Exception? ErrorFuente { get; set; }
     }
@@ -2494,6 +3549,14 @@ public sealed class MotivacionService {
             Catalogo is not null && ProgresoDisponible && HistorialDisponible;
     }
 
+    private sealed record HechosLogros(
+        IReadOnlySet<string> PracticasVinculadas,
+        IReadOnlySet<string> PracticasRealizadas,
+        IReadOnlySet<string> PracticasAprobadas,
+        IReadOnlySet<string> PracticasPerfectas,
+        IReadOnlySet<string> TemasCompletados,
+        IReadOnlySet<string> GradosCompletados);
+
     private sealed record ResultadoCreacionDocumento(
         DocumentoMotivacion? Documento,
         EstadoProcesamientoMotivacion Estado,
@@ -2502,7 +3565,8 @@ public sealed class MotivacionService {
     private sealed record ResultadoCargaDocumento(
         EstadoCargaDocumento Estado,
         DocumentoMotivacion? Documento,
-        Exception? Error);
+        Exception? Error,
+        DocumentoMotivacionVersion1? DocumentoVersion1 = null);
 
     private sealed record DependenciasPredeterminadas(
         Func<IReadOnlyList<GradoCurso>> CargarCatalogo,
@@ -2534,6 +3598,7 @@ public sealed class MotivacionService {
 
     private enum EstadoCargaDocumento {
         Exitosa,
+        RequiereMigracion,
         ArchivoInexistente,
         ContenidoInvalido,
         VersionIncompatible,
