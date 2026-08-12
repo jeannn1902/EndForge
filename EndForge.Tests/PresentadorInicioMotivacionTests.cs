@@ -20,6 +20,45 @@ public sealed class PresentadorInicioMotivacionTests {
             presentacion.Nivel.TextoXpRestante);
         Assert.Equal(0, presentacion.Nivel.ValorBarra);
         Assert.Equal(4, presentacion.Metricas.Count);
+        Assert.Equal("0 días", presentacion.Motivacion.Racha.TextoValor);
+        Assert.Equal("0 / 14", presentacion.Motivacion.Logros.TextoValor);
+    }
+
+    [Fact]
+    public void RachaYLogrosDisponibles_SeIntegranSinRecalcularNegocio() {
+        ResumenMotivacion motivacion = CrearResumenMotivacion(
+            EstadoDisponibilidadMotivacion.Disponible,
+            new ResumenNivel(150, 2, 150, 450, 0, 300, 0)) with {
+            Racha = new ResumenRacha(4, 8, new DateOnly(2026, 8, 9)),
+            LogrosDesbloqueados = new[] {
+                new LogroDesbloqueado {
+                    LogroId =
+                        CatalogoLogrosService.PrimeraPracticaVinculadaId,
+                    FechaReconocimientoUtc = new DateTimeOffset(
+                        2026,
+                        8,
+                        9,
+                        12,
+                        0,
+                        0,
+                        TimeSpan.Zero),
+                    EsImportado = false
+                }
+            }
+        };
+
+        PresentacionInicio presentacion = CrearPresentador().Crear(
+            CrearResumenAcademico(),
+            motivacion);
+
+        Assert.Equal("4 días de racha", presentacion.Motivacion.Racha.TextoValor);
+        Assert.Equal(
+            "Mejor racha: 8 días",
+            presentacion.Motivacion.Racha.TextoDetalle);
+        Assert.Equal(4, presentacion.Motivacion.Racha.RachaActual);
+        Assert.Equal(8, presentacion.Motivacion.Racha.MejorRacha);
+        Assert.Equal("1 / 14", presentacion.Motivacion.Logros.TextoValor);
+        Assert.Equal(1, presentacion.Motivacion.Logros.LogrosDesbloqueados);
     }
 
     [Fact]
@@ -67,6 +106,10 @@ public sealed class PresentadorInicioMotivacionTests {
         Assert.DoesNotContain("0 XP", presentacion.Nivel.TextoXpTotal);
         Assert.Null(presentacion.Nivel.ValorBarra);
         Assert.Equal(4, presentacion.Metricas.Count);
+        Assert.Equal(
+            EstadoMetricaMotivacionalInicio.NoDisponible,
+            presentacion.Motivacion.Racha.Estado);
+        Assert.Equal("—", presentacion.Motivacion.Logros.TextoValor);
     }
 
     [Fact]
@@ -95,6 +138,12 @@ public sealed class PresentadorInicioMotivacionTests {
         Assert.Null(presentacion.Nivel.ValorBarra);
         Assert.Equal("0 de 60", presentacion.Progreso.PracticasRealizadas.Texto);
         Assert.Equal(4, presentacion.Metricas.Count);
+        Assert.Equal(
+            EstadoMetricaMotivacionalInicio.VersionIncompatible,
+            presentacion.Motivacion.Racha.Estado);
+        Assert.Equal(
+            "Disponible con una versión compatible",
+            presentacion.Motivacion.Logros.TextoDetalle);
     }
 
     [Fact]
@@ -107,6 +156,9 @@ public sealed class PresentadorInicioMotivacionTests {
             presentacion.Nivel.Estado);
         Assert.Null(presentacion.Nivel.ValorBarra);
         Assert.Equal(4, presentacion.Metricas.Count);
+        Assert.Equal(
+            EstadoMetricaMotivacionalInicio.NoDisponible,
+            presentacion.Motivacion.Logros.Estado);
     }
 
     private static ResumenMotivacion CrearResumenMotivacion(

@@ -131,6 +131,7 @@ public partial class frmPrincipal {
         panelRecientesVista.Visible = false;
         panelConfiguracionVista.Visible = false;
         panelVistaNuevaPractica.Visible = false;
+        OcultarVistaLogros();
         OcultarVistasCurso();
 
         CentrarPanelPrincipal();

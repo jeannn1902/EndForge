@@ -135,6 +135,21 @@ public sealed record PresentacionInicio(
         "No pudimos cargar tu nivel y XP.",
         null,
         "El nivel y la experiencia no están disponibles temporalmente.");
+    public PresentacionMotivacionInicio Motivacion { get; init; } = new(
+        new RachaInicioPresentable(
+            EstadoMetricaMotivacionalInicio.NoDisponible,
+            null,
+            null,
+            "—",
+            "Temporalmente no disponible",
+            "La racha de estudio no está disponible temporalmente."),
+        new LogrosInicioPresentable(
+            EstadoMetricaMotivacionalInicio.NoDisponible,
+            null,
+            14,
+            "—",
+            "Temporalmente no disponible",
+            "Los logros no están disponibles temporalmente."));
 }
 
 public sealed record EstadoCargaInicioPresentable(
@@ -149,4 +164,6 @@ public sealed record ResultadoCargaInicio(
     PresentacionInicio? Presentacion,
     Exception? Error) {
     public Exception? AdvertenciaMotivacion { get; init; }
+
+    public PresentacionLogros? Logros { get; init; }
 }

@@ -9,7 +9,8 @@ public partial class frmPrincipal {
         Inicio,
         Curso,
         NuevaPractica,
-        Estadisticas
+        Estadisticas,
+        Logros
     }
 
     private System.Windows.Forms.Timer timerRecalcularVista = new System.Windows.Forms.Timer();
@@ -238,7 +239,8 @@ public partial class frmPrincipal {
             if (distribucionPanelPrincipal is
                 DistribucionPanelPrincipal.Inicio or
                 DistribucionPanelPrincipal.Curso or
-                DistribucionPanelPrincipal.Estadisticas) {
+                DistribucionPanelPrincipal.Estadisticas or
+                DistribucionPanelPrincipal.Logros) {
                 ancho = anchoUtil;
                 alto = altoUtil;
             } else {
@@ -283,6 +285,7 @@ public partial class frmPrincipal {
         AjustarGeometriaNuevaPractica();
         RecalcularGeometriaEstadisticas();
         ActualizarGeometriaInicio();
+        ActualizarGeometriaLogros();
     }
 
     private void SincronizarLimitesVistasAdaptables() {
@@ -292,6 +295,7 @@ public partial class frmPrincipal {
             limites.Top,
             Math.Max(1, limites.Width),
             Math.Max(1, limites.Height));
+        SincronizarLimitesVistaLogros(limites);
         panelVistaNuevaPractica.SetBounds(
             limites.Left,
             limites.Top,

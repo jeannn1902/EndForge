@@ -34,6 +34,7 @@ public partial class frmPrincipal : Form {
 
         ConfigurarBarraTitulo();
         InicializarEstructuraInicio();
+        InicializarEstructuraLogros();
         ConfigurarVentana();
         ActivarBarraTituloOscura();
         ConfigurarNavegacion();

@@ -14,6 +14,40 @@ public static class CalculadorLayoutInicio {
         return anchoContenidoLogico >= AnchoMinimoModoAmplio;
     }
 
+    internal static RectanguloLayoutInicio EscalarRectanguloFisico(
+        RectanguloLayoutInicio rectangulo,
+        int anchoReal,
+        int anchoLogico,
+        int dpi) {
+        if (anchoReal <= 0) {
+            throw new ArgumentOutOfRangeException(nameof(anchoReal));
+        }
+
+        if (anchoLogico <= 0) {
+            throw new ArgumentOutOfRangeException(nameof(anchoLogico));
+        }
+
+        if (dpi <= 0) {
+            throw new ArgumentOutOfRangeException(nameof(dpi));
+        }
+
+        int x = rectangulo.X == 0
+            ? 0
+            : EscalarMedida(rectangulo.X, dpi);
+        int y = rectangulo.Y == 0
+            ? 0
+            : EscalarMedida(rectangulo.Y, dpi);
+        int derecha = rectangulo.Derecha >= anchoLogico
+            ? anchoReal
+            : EscalarMedida(rectangulo.Derecha, dpi);
+
+        return new RectanguloLayoutInicio(
+            x,
+            y,
+            Math.Max(1, derecha - x),
+            EscalarMedida(rectangulo.Alto, dpi));
+    }
+
     public static MedidasLayoutInicio Calcular(
         bool modoAmplio,
         int anchoContenidoLogico,
@@ -28,7 +62,8 @@ public static class CalculadorLayoutInicio {
             MaximoActividadesVisibles);
         const int separacion = 12;
         const int altoContinuacion = 220;
-        const int altoProgreso = 166;
+        const int altoProgreso =
+            CalculadorLayoutFranjaMotivacionInicio.AltoPanelLogico;
         int altoActividad = actividades switch {
             0 => 96,
             _ => 100 + (actividades - 1) * 54
@@ -121,5 +156,9 @@ public static class CalculadorLayoutInicio {
             progreso,
             actividad,
             recomendacion);
+    }
+
+    private static int EscalarMedida(int valor, int dpi) {
+        return Math.Max(1, (int)Math.Round(valor * dpi / 96D));
     }
 }

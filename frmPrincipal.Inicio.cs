@@ -41,8 +41,14 @@ public partial class frmPrincipal {
 
     private ResumenAprendizajeService resumenAprendizajeInicioService = null!;
     private PresentadorInicioService presentadorInicioService = null!;
+    private PresentadorLogrosService presentadorLogrosService = null!;
     private CoordinadorCargaInicio coordinadorCargaInicio = null!;
+    private readonly CoordinadorNotificacionesLogros
+        coordinadorNotificacionesLogros = new();
     private PresentacionInicio? ultimaPresentacionInicio;
+    private IReadOnlyList<LogroDesbloqueado> loteNotificacionLogrosVisible =
+        Array.Empty<LogroDesbloqueado>();
+    private bool notificacionesLogrosCerradas;
 
     private PanelDesplazableSinBarras desplazamientoInicio = null!;
     private FlowLayoutPanel contenidoInicio = null!;
@@ -54,6 +60,12 @@ public partial class frmPrincipal {
     private Label lblTituloBandaDatosInicio = null!;
     private Label lblMensajeBandaDatosInicio = null!;
     private BotonInicio btnReintentarInicio = null!;
+
+    private Panel panelBandaLogroNuevoInicio = null!;
+    private Label lblBandaLogroNuevoInicio = null!;
+    private BotonInicio btnVerLogrosBandaInicio = null!;
+    private BotonInicio btnCerrarBandaLogroInicio = null!;
+    private System.Windows.Forms.Timer timerNotificacionLogrosInicio = null!;
 
     private Panel panelFilaPrincipalInicio = null!;
     private Panel panelContinuacionInicio = null!;
@@ -80,6 +92,13 @@ public partial class frmPrincipal {
     private Panel panelPistaNivelInicio = null!;
     private Panel panelRellenoNivelInicio = null!;
     private Label lblXpRestanteInicio = null!;
+    private Panel panelSeparadorMotivacionInicio = null!;
+    private Label lblTituloRachaInicio = null!;
+    private Label lblValorRachaInicio = null!;
+    private Label lblDetalleRachaInicio = null!;
+    private Label lblTituloLogrosInicio = null!;
+    private Label lblValorLogrosInicio = null!;
+    private BotonInicio btnVerLogrosInicio = null!;
 
     private Panel panelMetricasInicio = null!;
     private readonly List<TarjetaMetricaInicioVisual> tarjetasMetricasInicio = new();
@@ -104,11 +123,13 @@ public partial class frmPrincipal {
         }
 
         resumenAprendizajeInicioService = new ResumenAprendizajeService();
+        presentadorLogrosService = new PresentadorLogrosService();
         presentadorInicioService = new PresentadorInicioService();
         coordinadorCargaInicio = new CoordinadorCargaInicio(
             resumenAprendizajeInicioService.CrearResumenAsync,
             CargarMotivacionInicioAsync,
-            presentadorInicioService);
+            presentadorInicioService,
+            presentadorLogrosService);
         cancelacionCargaInicio = new CancellationTokenSource();
 
         panelInicioVista.SuspendLayout();
@@ -135,17 +156,22 @@ public partial class frmPrincipal {
 
             ConstruirEncabezadoInicio();
             ConstruirBandaDatosInicio();
+            ConstruirBandaLogroNuevoInicio();
             ConstruirFilaPrincipalInicio();
             ConstruirMetricasInicio();
             ConstruirFilaInferiorInicio();
 
             contenidoInicio.Controls.Add(panelEncabezadoInicio);
             contenidoInicio.Controls.Add(panelBandaDatosInicio);
+            contenidoInicio.Controls.Add(panelBandaLogroNuevoInicio);
             contenidoInicio.Controls.Add(panelFilaPrincipalInicio);
             contenidoInicio.Controls.Add(panelMetricasInicio);
             contenidoInicio.Controls.Add(panelFilaInferiorInicio);
             panelInicioVista.Controls.Add(desplazamientoInicio);
             estructuraInicioInicializada = true;
+            panelInicioVista.VisibleChanged +=
+                PanelInicioVista_NotificacionLogrosVisibleChanged;
+            Disposed += (_, _) => CerrarNotificacionesLogrosAlCerrar();
         } finally {
             panelInicioVista.ResumeLayout(performLayout: false);
         }
@@ -222,6 +248,52 @@ public partial class frmPrincipal {
         panelBandaDatosInicio.Controls.Add(lblTituloBandaDatosInicio);
         panelBandaDatosInicio.Controls.Add(lblMensajeBandaDatosInicio);
         panelBandaDatosInicio.Controls.Add(btnReintentarInicio);
+    }
+
+    private void ConstruirBandaLogroNuevoInicio() {
+        panelBandaLogroNuevoInicio = CrearTarjetaInicio(
+            "panelBandaLogroNuevoInicio",
+            Color.FromArgb(49, 35, 68));
+        panelBandaLogroNuevoInicio.Visible = false;
+        panelBandaLogroNuevoInicio.AccessibleName =
+            "Notificación de logro nuevo";
+        lblBandaLogroNuevoInicio = CrearLabelInicio(
+            string.Empty,
+            10F,
+            FontStyle.Bold,
+            Color.White,
+            panelBandaLogroNuevoInicio.BackColor);
+        btnVerLogrosBandaInicio = CrearBotonInicio(
+            "Ver logros",
+            esPrimario: true,
+            tabIndex: 5);
+        btnVerLogrosBandaInicio.AccessibleName =
+            "Ver logros desbloqueados";
+        btnVerLogrosBandaInicio.AccessibleDescription =
+            "Abre la vista de logros para consultar el avance actualizado.";
+        btnVerLogrosBandaInicio.Click += (_, _) =>
+            MostrarLogrosDesdeInicio();
+        btnCerrarBandaLogroInicio = CrearBotonInicio(
+            "Cerrar",
+            esPrimario: false,
+            tabIndex: 6);
+        btnCerrarBandaLogroInicio.AccessibleName =
+            "Cerrar notificación de logro";
+        btnCerrarBandaLogroInicio.AccessibleDescription =
+            "Oculta este aviso sin abrir la vista de logros.";
+        btnCerrarBandaLogroInicio.Click += (_, _) =>
+            OcultarNotificacionLogrosInicio();
+        panelBandaLogroNuevoInicio.Controls.Add(lblBandaLogroNuevoInicio);
+        panelBandaLogroNuevoInicio.Controls.Add(btnVerLogrosBandaInicio);
+        panelBandaLogroNuevoInicio.Controls.Add(btnCerrarBandaLogroInicio);
+
+        timerNotificacionLogrosInicio = new System.Windows.Forms.Timer {
+            Interval = 8000
+        };
+        timerNotificacionLogrosInicio.Tick += (_, _) => {
+            OcultarNotificacionLogrosInicio();
+            IntentarMostrarNotificacionLogrosPendiente();
+        };
     }
 
     private void ConstruirFilaPrincipalInicio() {
@@ -364,6 +436,50 @@ public partial class frmPrincipal {
             FontStyle.Regular,
             ColorTextoTenueInicio,
             ColorTarjetaInicio);
+        panelSeparadorMotivacionInicio = new Panel {
+            BackColor = Color.FromArgb(58, 48, 72),
+            AccessibleRole = AccessibleRole.Separator
+        };
+        lblTituloRachaInicio = CrearLabelInicio(
+            "RACHA",
+            7.75F,
+            FontStyle.Bold,
+            ColorMoradoClaroCurso,
+            ColorTarjetaInicio);
+        lblValorRachaInicio = CrearLabelInicio(
+            "—",
+            9.25F,
+            FontStyle.Bold,
+            Color.White,
+            ColorTarjetaInicio);
+        lblDetalleRachaInicio = CrearLabelInicio(
+            "Temporalmente no disponible",
+            7.75F,
+            FontStyle.Regular,
+            ColorTextoTenueInicio,
+            ColorTarjetaInicio);
+        lblTituloLogrosInicio = CrearLabelInicio(
+            "LOGROS",
+            7.75F,
+            FontStyle.Bold,
+            ColorMoradoClaroCurso,
+            ColorTarjetaInicio);
+        lblValorLogrosInicio = CrearLabelInicio(
+            "—",
+            9F,
+            FontStyle.Bold,
+            Color.White,
+            ColorTarjetaInicio,
+            ContentAlignment.MiddleRight);
+        btnVerLogrosInicio = CrearBotonInicio(
+            "Ver logros",
+            esPrimario: false,
+            tabIndex: 4);
+        btnVerLogrosInicio.AccessibleName = "Ver logros";
+        btnVerLogrosInicio.AccessibleDescription =
+            "Abre la lista de logros desbloqueados y pendientes.";
+        btnVerLogrosInicio.Click += (_, _) => MostrarLogrosDesdeInicio();
+        btnVerLogrosInicio.Enabled = false;
 
         panelProgresoInicio.Controls.Add(lblTituloProgresoInicio);
         panelProgresoInicio.Controls.Add(lblPracticasProgresoInicio);
@@ -375,6 +491,13 @@ public partial class frmPrincipal {
         panelProgresoInicio.Controls.Add(lblXpTotalInicio);
         panelProgresoInicio.Controls.Add(panelPistaNivelInicio);
         panelProgresoInicio.Controls.Add(lblXpRestanteInicio);
+        panelProgresoInicio.Controls.Add(panelSeparadorMotivacionInicio);
+        panelProgresoInicio.Controls.Add(lblTituloRachaInicio);
+        panelProgresoInicio.Controls.Add(lblValorRachaInicio);
+        panelProgresoInicio.Controls.Add(lblDetalleRachaInicio);
+        panelProgresoInicio.Controls.Add(lblTituloLogrosInicio);
+        panelProgresoInicio.Controls.Add(lblValorLogrosInicio);
+        panelProgresoInicio.Controls.Add(btnVerLogrosInicio);
 
         panelFilaPrincipalInicio.Controls.Add(panelContinuacionInicio);
         panelFilaPrincipalInicio.Controls.Add(panelProgresoInicio);
@@ -537,6 +660,8 @@ public partial class frmPrincipal {
 
         if (inicioPendienteRecarga && !coordinadorCargaInicio.CargaEnCurso) {
             _ = RecargarInicioAsync();
+        } else {
+            IntentarMostrarNotificacionLogrosPendiente();
         }
     }
 
@@ -552,7 +677,7 @@ public partial class frmPrincipal {
             return;
         }
 
-        if (panelInicioVista.Visible &&
+        if (EstaVisibleFamiliaInicio() &&
             inicializacionSecundariaCompletada &&
             IsHandleCreated &&
             !inicializacionSecundariaCancelada &&
@@ -597,12 +722,17 @@ public partial class frmPrincipal {
 
                 ultimaPresentacionInicio = resultado.Presentacion;
                 AplicarPresentacionInicio(resultado.Presentacion);
+                if (resultado.Logros is not null) {
+                    ultimaPresentacionLogros = resultado.Logros;
+                    AplicarPresentacionLogros(resultado.Logros);
+                }
                 inicioPendienteRecarga =
                     resultado.Presentacion.Nivel.Estado ==
                         EstadoNivelInicio.NoDisponible ||
                     resultado.AdvertenciaMotivacion is not null;
                 AplicarEstadoCargaInicio(
                     PresentadorInicioService.CrearEstadoInactivo());
+                IntentarMostrarNotificacionLogrosPendiente();
             } else if (
                 resultado.Estado ==
                     EstadoResultadoCargaInicio.ErrorRecuperable) {
@@ -621,7 +751,7 @@ public partial class frmPrincipal {
 
             if (inicioRecargaSolicitadaDuranteCarga &&
                 PuedeActualizarInterfazInicio() &&
-                panelInicioVista.Visible) {
+                EstaVisibleFamiliaInicio()) {
                 inicioRecargaSolicitadaDuranteCarga = false;
                 ProgramarAccionInterfazSegura(() => _ = RecargarInicioAsync());
             }
@@ -638,7 +768,14 @@ public partial class frmPrincipal {
             IsHandleCreated;
     }
 
+    private bool EstaVisibleFamiliaInicio() {
+        return panelInicioVista.Visible ||
+            (estructuraLogrosInicializada && panelLogrosVista.Visible);
+    }
+
     private void CancelarCargaInicioAlCerrar() {
+        CerrarNotificacionesLogrosAlCerrar();
+
         if (!estructuraInicioInicializada) {
             return;
         }
@@ -656,10 +793,172 @@ public partial class frmPrincipal {
         }
     }
 
+    private void RegistrarLogrosNuevosParaNotificacion(
+        IReadOnlyList<LogroDesbloqueado> logros) {
+        if (logros.Count == 0) {
+            return;
+        }
+
+        coordinadorNotificacionesLogros.Registrar(logros);
+    }
+
+    private void IntentarMostrarNotificacionLogrosPendiente() {
+        IReadOnlyList<LogroDesbloqueado> pendientes =
+            coordinadorNotificacionesLogros.ConsultarPendientes();
+        bool puedeMostrar = PuedeMostrarNotificacionLogros(
+            entradaAplicacionRealizada,
+            coordinadorCierreOperaciones.CierreSolicitado,
+            PuedeActualizarInterfazInicio(),
+            panelInicioVista.Visible,
+            panelBandaDatosInicio.Visible,
+            panelBandaLogroNuevoInicio.Visible,
+            pendientes.Count);
+
+        if (!puedeMostrar || ultimaPresentacionLogros is null) {
+            return;
+        }
+
+        Dictionary<string, string> nombres = ultimaPresentacionLogros.Logros
+            .ToDictionary(
+                logro => logro.Id,
+                logro => logro.Nombre,
+                StringComparer.OrdinalIgnoreCase);
+        IReadOnlyList<LogroDesbloqueado> consumidos =
+            coordinadorNotificacionesLogros.ConsumirPendientes();
+        LogroDesbloqueado[] logrosConocidos = consumidos
+            .Where(logro => nombres.ContainsKey(logro.LogroId))
+            .ToArray();
+        string[] nombresConocidos = logrosConocidos
+            .Select(logro => nombres[logro.LogroId])
+            .ToArray();
+
+        if (nombresConocidos.Length == 0) {
+            return;
+        }
+
+        loteNotificacionLogrosVisible = Array.AsReadOnly(logrosConocidos);
+        string mensaje = CrearTextoNotificacionLogros(nombresConocidos);
+        lblBandaLogroNuevoInicio.Text = mensaje;
+        panelBandaLogroNuevoInicio.AccessibleDescription = mensaje;
+        panelBandaLogroNuevoInicio.Visible = true;
+        timerNotificacionLogrosInicio.Stop();
+        timerNotificacionLogrosInicio.Start();
+        ultimoAnchoContenidoInicio = -1;
+        ActualizarGeometriaInicio();
+    }
+
+    internal static bool PuedeMostrarNotificacionLogros(
+        bool entradaRealizada,
+        bool cierreSolicitado,
+        bool puedeActualizarInterfaz,
+        bool inicioVisible,
+        bool bandaPrioritariaVisible,
+        bool notificacionYaVisible,
+        int cantidadPendientes) {
+        return entradaRealizada &&
+            !cierreSolicitado &&
+            puedeActualizarInterfaz &&
+            inicioVisible &&
+            !bandaPrioritariaVisible &&
+            !notificacionYaVisible &&
+            cantidadPendientes > 0;
+    }
+
+    internal static string CrearTextoNotificacionLogros(
+        IReadOnlyList<string> nombres) {
+        ArgumentNullException.ThrowIfNull(nombres);
+
+        if (nombres.Count == 0) {
+            return string.Empty;
+        }
+
+        return nombres.Count == 1
+            ? $"Nuevo logro: {nombres[0]}"
+            : $"{nombres.Count} logros nuevos · " +
+                $"{nombres[0]} y {nombres.Count - 1} más";
+    }
+
+    private void OcultarNotificacionLogrosInicio(
+        bool conservarPendientes = false) {
+        if (!estructuraInicioInicializada ||
+            panelBandaLogroNuevoInicio is null) {
+            return;
+        }
+
+        timerNotificacionLogrosInicio?.Stop();
+
+        if (conservarPendientes && loteNotificacionLogrosVisible.Count > 0) {
+            coordinadorNotificacionesLogros.ReponerPendientesAlInicio(
+                loteNotificacionLogrosVisible);
+        }
+
+        loteNotificacionLogrosVisible = Array.Empty<LogroDesbloqueado>();
+
+        if (panelBandaLogroNuevoInicio.Visible) {
+            panelBandaLogroNuevoInicio.Visible = false;
+            ultimoAnchoContenidoInicio = -1;
+            ActualizarGeometriaInicio();
+        }
+    }
+
+    private void CerrarNotificacionesLogrosAlCerrar() {
+        if (notificacionesLogrosCerradas) {
+            return;
+        }
+
+        notificacionesLogrosCerradas = true;
+        loteNotificacionLogrosVisible = Array.Empty<LogroDesbloqueado>();
+        coordinadorNotificacionesLogros.Cerrar();
+
+        if (timerNotificacionLogrosInicio is not null) {
+            timerNotificacionLogrosInicio.Stop();
+            timerNotificacionLogrosInicio.Dispose();
+        }
+    }
+
+    private void PanelInicioVista_NotificacionLogrosVisibleChanged(
+        object? sender,
+        EventArgs e) {
+        if (!estructuraInicioInicializada || notificacionesLogrosCerradas) {
+            return;
+        }
+
+        if (Disposing || IsDisposed) {
+            CerrarNotificacionesLogrosAlCerrar();
+            return;
+        }
+
+        if (!IsHandleCreated) {
+            return;
+        }
+
+        if (!panelInicioVista.Visible) {
+            OcultarNotificacionLogrosInicio(conservarPendientes: true);
+            return;
+        }
+
+        IntentarMostrarNotificacionLogrosPendiente();
+
+        if (enfocarVerLogrosInicioAlMostrar) {
+            enfocarVerLogrosInicioAlMostrar = false;
+            ProgramarAccionInterfazSegura(() => {
+                if (panelInicioVista.Visible &&
+                    !btnVerLogrosInicio.IsDisposed &&
+                    btnVerLogrosInicio.CanFocus) {
+                    btnVerLogrosInicio.Focus();
+                }
+            });
+        }
+    }
+
     private void AplicarEstadoCargaInicio(
         EstadoCargaInicioPresentable estado) {
         if (!estructuraInicioInicializada) {
             return;
+        }
+
+        if (estado.Estado != EstadoCargaInicio.Inactivo) {
+            OcultarNotificacionLogrosInicio(conservarPendientes: true);
         }
 
         if (estado.Estado == EstadoCargaInicio.Inactivo) {
@@ -721,6 +1020,7 @@ public partial class frmPrincipal {
             100);
         panelPistaProgresoInicio.Visible = progreso.ValorBarra.HasValue;
         AplicarNivelInicio(presentacion.Nivel);
+        AplicarMotivacionInicio(presentacion.Motivacion);
 
         for (int indice = 0; indice < tarjetasMetricasInicio.Count; indice++) {
             TarjetaMetricaInicioVisual visual = tarjetasMetricasInicio[indice];
@@ -770,6 +1070,23 @@ public partial class frmPrincipal {
             nivel.DescripcionAccesible;
         panelProgresoInicio.AccessibleDescription =
             nivel.DescripcionAccesible;
+    }
+
+    private void AplicarMotivacionInicio(
+        PresentacionMotivacionInicio motivacion) {
+        lblValorRachaInicio.Text = motivacion.Racha.TextoValor;
+        lblDetalleRachaInicio.Text = motivacion.Racha.TextoDetalle;
+        lblValorLogrosInicio.Text = motivacion.Logros.TextoValor;
+        lblTituloRachaInicio.AccessibleName = "Racha de estudio";
+        lblTituloRachaInicio.AccessibleDescription =
+            motivacion.Racha.DescripcionAccesible;
+        lblTituloLogrosInicio.AccessibleName = "Resumen de logros";
+        lblTituloLogrosInicio.AccessibleDescription =
+            motivacion.Logros.DescripcionAccesible;
+        panelProgresoInicio.AccessibleDescription =
+            $"{panelProgresoInicio.AccessibleDescription} " +
+            $"{motivacion.Racha.DescripcionAccesible} " +
+            motivacion.Logros.DescripcionAccesible;
     }
 
     private void AplicarRecomendacionInicio(
@@ -859,11 +1176,15 @@ public partial class frmPrincipal {
                 case TipoAccionInicio.VerEstadisticas: {
                     Panel panelSeleccionadoAlSolicitar = panelSeleccionado;
                     await PrepararCursoParaInteraccionAsync();
-                    if (PuedeActualizarInterfazInicio() &&
-                        cursoPreparado &&
-                        ReferenceEquals(
-                            panelSeleccionado,
-                            panelSeleccionadoAlSolicitar)) {
+                    if (PuedeCompletarAccionInicioDespuesDeEspera(
+                            PuedeActualizarInterfazInicio(),
+                            panelInicioVista.Visible,
+                            distribucionPanelPrincipal ==
+                                DistribucionPanelPrincipal.Inicio,
+                            cursoPreparado,
+                            ReferenceEquals(
+                                panelSeleccionado,
+                                panelSeleccionadoAlSolicitar))) {
                         MostrarEstadisticas();
                     }
                     break;
@@ -905,9 +1226,15 @@ public partial class frmPrincipal {
         Panel panelSeleccionadoAlSolicitar = panelSeleccionado;
         await PrepararCursoParaInteraccionAsync();
 
-        if (!PuedeActualizarInterfazInicio() ||
-            !cursoPreparado ||
-            !ReferenceEquals(panelSeleccionado, panelSeleccionadoAlSolicitar) ||
+        if (!PuedeCompletarAccionInicioDespuesDeEspera(
+                PuedeActualizarInterfazInicio(),
+                panelInicioVista.Visible,
+                distribucionPanelPrincipal ==
+                    DistribucionPanelPrincipal.Inicio,
+                cursoPreparado,
+                ReferenceEquals(
+                    panelSeleccionado,
+                    panelSeleccionadoAlSolicitar)) ||
             !IntentarSeleccionarGrado(referencia.GradoId)) {
             return;
         }
@@ -943,6 +1270,19 @@ public partial class frmPrincipal {
         boton.AccessibleDescription = accion.AccessibleDescription;
     }
 
+    internal static bool PuedeCompletarAccionInicioDespuesDeEspera(
+        bool puedeActualizarInterfaz,
+        bool inicioVisible,
+        bool distribucionInicio,
+        bool cursoPreparado,
+        bool opcionMenuSinCambios) {
+        return puedeActualizarInterfaz &&
+            inicioVisible &&
+            distribucionInicio &&
+            cursoPreparado &&
+            opcionMenuSinCambios;
+    }
+
     private void ActualizarEstadoBotonesInicio() {
         foreach (BotonInicio boton in new[] {
             btnReintentarInicio,
@@ -953,6 +1293,10 @@ public partial class frmPrincipal {
             boton.Enabled = boton.Tag is AccionInicioPresentable &&
                 !accionInicioEnCurso;
         }
+
+        btnVerLogrosInicio.Enabled = !accionInicioEnCurso &&
+            ultimaPresentacionLogros is not null;
+        btnVerLogrosBandaInicio.Enabled = !accionInicioEnCurso;
     }
 
     private void ActualizarGeometriaInicio() {
@@ -1061,6 +1405,18 @@ public partial class frmPrincipal {
                 separacion);
             ActualizarGeometriaBandaInicio(ancho, bandaCompacta);
 
+            bool notificacionCompacta = ancho < EscalarDiseno(620);
+            int altoNotificacion = EscalarDiseno(
+                notificacionCompacta ? 100 : 64);
+            ConfigurarControlFlujoInicio(
+                panelBandaLogroNuevoInicio,
+                ancho,
+                altoNotificacion,
+                separacion);
+            ActualizarGeometriaBandaLogroNuevoInicio(
+                ancho,
+                notificacionCompacta);
+
             int altoFilaPrincipal = EscalarDiseno(
                 medidas.AltoFilaPrincipal);
             ConfigurarControlFlujoInicio(
@@ -1128,15 +1484,17 @@ public partial class frmPrincipal {
         RectanguloLayoutInicio rectangulo,
         int anchoReal,
         int anchoLogico) {
-        int x = EscalarDiseno(rectangulo.X);
-        int derecha = rectangulo.Derecha >= anchoLogico
-            ? anchoReal
-            : EscalarDiseno(rectangulo.Derecha);
+        RectanguloLayoutInicio fisico =
+            CalculadorLayoutInicio.EscalarRectanguloFisico(
+                rectangulo,
+                anchoReal,
+                anchoLogico,
+                DeviceDpi);
         control.SetBounds(
-            x,
-            EscalarDiseno(rectangulo.Y),
-            Math.Max(1, derecha - x),
-            Math.Max(1, EscalarDiseno(rectangulo.Alto)));
+            fisico.X,
+            fisico.Y,
+            fisico.Ancho,
+            fisico.Alto);
     }
 
     private void ActualizarGeometriaBandaInicio(
@@ -1179,6 +1537,58 @@ public partial class frmPrincipal {
                     (panelBandaDatosInicio.Height - altoBoton) / 2),
             anchoBoton,
             altoBoton);
+    }
+
+    private void ActualizarGeometriaBandaLogroNuevoInicio(
+        int ancho,
+        bool apilarAcciones) {
+        int margen = EscalarDiseno(16);
+        int separacion = EscalarDiseno(8);
+        int altoBoton = EscalarDiseno(32);
+        int anchoCerrar = EscalarDiseno(76);
+        int anchoVer = EscalarDiseno(112);
+
+        if (apilarAcciones) {
+            lblBandaLogroNuevoInicio.SetBounds(
+                margen,
+                EscalarDiseno(10),
+                Math.Max(1, ancho - margen * 2),
+                EscalarDiseno(38));
+            int yBotones = EscalarDiseno(56);
+            btnCerrarBandaLogroInicio.SetBounds(
+                Math.Max(margen, ancho - margen - anchoCerrar),
+                yBotones,
+                anchoCerrar,
+                altoBoton);
+            btnVerLogrosBandaInicio.SetBounds(
+                Math.Max(
+                    margen,
+                    btnCerrarBandaLogroInicio.Left - separacion - anchoVer),
+                yBotones,
+                anchoVer,
+                altoBoton);
+            return;
+        }
+
+        btnCerrarBandaLogroInicio.SetBounds(
+            Math.Max(margen, ancho - margen - anchoCerrar),
+            EscalarDiseno(16),
+            anchoCerrar,
+            altoBoton);
+        btnVerLogrosBandaInicio.SetBounds(
+            Math.Max(
+                margen,
+                btnCerrarBandaLogroInicio.Left - separacion - anchoVer),
+            btnCerrarBandaLogroInicio.Top,
+            anchoVer,
+            altoBoton);
+        lblBandaLogroNuevoInicio.SetBounds(
+            margen,
+            EscalarDiseno(10),
+            Math.Max(
+                1,
+                btnVerLogrosBandaInicio.Left - margen - separacion),
+            EscalarDiseno(44));
     }
 
     private int CalcularAltoBandaInicio(
@@ -1349,8 +1759,43 @@ public partial class frmPrincipal {
             EscalarDiseno(137),
             ancho,
             EscalarDiseno(20));
+        MedidasFranjaMotivacionInicio franja =
+            CalculadorLayoutFranjaMotivacionInicio.Calcular(
+                panelProgresoInicio.ClientSize.Width,
+                DeviceDpi);
+        AplicarRectanguloFisicoInicio(
+            panelSeparadorMotivacionInicio,
+            franja.Separador);
+        AplicarRectanguloFisicoInicio(
+            lblTituloRachaInicio,
+            franja.TituloRacha);
+        AplicarRectanguloFisicoInicio(
+            lblValorRachaInicio,
+            franja.ValorRacha);
+        AplicarRectanguloFisicoInicio(
+            lblDetalleRachaInicio,
+            franja.DetalleRacha);
+        AplicarRectanguloFisicoInicio(
+            lblTituloLogrosInicio,
+            franja.TituloLogros);
+        AplicarRectanguloFisicoInicio(
+            lblValorLogrosInicio,
+            franja.ValorLogros);
+        AplicarRectanguloFisicoInicio(
+            btnVerLogrosInicio,
+            franja.BotonVerLogros);
         ActualizarRellenoProgresoInicio();
         ActualizarRellenoNivelInicio();
+    }
+
+    private static void AplicarRectanguloFisicoInicio(
+        Control control,
+        RectanguloLayoutInicio rectangulo) {
+        control.SetBounds(
+            rectangulo.X,
+            rectangulo.Y,
+            rectangulo.Ancho,
+            rectangulo.Alto);
     }
 
     private void ActualizarRellenoProgresoInicio() {
@@ -1525,7 +1970,8 @@ public partial class frmPrincipal {
         Panel tarjeta = CrearTarjetaCurso(
             Point.Empty,
             new Size(1, 1),
-            16);
+            16,
+            resaltarFocoContenido: false);
         tarjeta.Name = nombre;
         tarjeta.BackColor = color;
         tarjeta.Margin = Padding.Empty;

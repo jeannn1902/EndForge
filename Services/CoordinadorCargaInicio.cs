@@ -7,6 +7,7 @@ public sealed class CoordinadorCargaInicio {
     private readonly Func<CancellationToken, Task<ResumenMotivacion?>>
         cargarMotivacion;
     private readonly PresentadorInicioService presentador;
+    private readonly PresentadorLogrosService presentadorLogros;
     private readonly SemaphoreSlim cargaExclusiva = new(1, 1);
     private readonly object sincronizacion = new();
     private CancellationTokenSource? cancelacionSolicitudActual;
@@ -27,12 +28,11 @@ public sealed class CoordinadorCargaInicio {
 
     public CoordinadorCargaInicio(
         Func<CancellationToken, Task<ResumenInicio>> cargarResumen,
-        PresentadorInicioService presentador) {
-        this.cargarResumen = cargarResumen ??
-            throw new ArgumentNullException(nameof(cargarResumen));
-        cargarMotivacion = CargarMotivacionNoDisponibleAsync;
-        this.presentador = presentador ??
-            throw new ArgumentNullException(nameof(presentador));
+        PresentadorInicioService presentador)
+        : this(
+            cargarResumen,
+            CargarMotivacionNoDisponibleAsync,
+            presentador) {
     }
 
     public CoordinadorCargaInicio(
@@ -45,6 +45,22 @@ public sealed class CoordinadorCargaInicio {
             throw new ArgumentNullException(nameof(cargarMotivacion));
         this.presentador = presentador ??
             throw new ArgumentNullException(nameof(presentador));
+        presentadorLogros = new PresentadorLogrosService();
+    }
+
+    public CoordinadorCargaInicio(
+        Func<CancellationToken, Task<ResumenInicio>> cargarResumen,
+        Func<CancellationToken, Task<ResumenMotivacion?>> cargarMotivacion,
+        PresentadorInicioService presentador,
+        PresentadorLogrosService presentadorLogros) {
+        this.cargarResumen = cargarResumen ??
+            throw new ArgumentNullException(nameof(cargarResumen));
+        this.cargarMotivacion = cargarMotivacion ??
+            throw new ArgumentNullException(nameof(cargarMotivacion));
+        this.presentador = presentador ??
+            throw new ArgumentNullException(nameof(presentador));
+        this.presentadorLogros = presentadorLogros ??
+            throw new ArgumentNullException(nameof(presentadorLogros));
     }
 
     public bool CargaEnCurso {
@@ -144,9 +160,14 @@ public sealed class CoordinadorCargaInicio {
                 advertenciaMotivacion = ex;
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             PresentacionInicio presentacion = motivacion is null
                 ? presentador.Crear(resumen)
                 : presentador.Crear(resumen, motivacion);
+            PresentacionLogros presentacionLogros = presentadorLogros.Crear(
+                resumen,
+                motivacion ?? CrearMotivacionNoDisponible());
+            cancellationToken.ThrowIfCancellationRequested();
 
             lock (sincronizacion) {
                 if (cerrado) {
@@ -167,7 +188,8 @@ public sealed class CoordinadorCargaInicio {
                 EstadoResultadoCargaInicio.Completada,
                 presentacion,
                 null) {
-                AdvertenciaMotivacion = advertenciaMotivacion
+                AdvertenciaMotivacion = advertenciaMotivacion,
+                Logros = presentacionLogros
             };
         } catch (OperationCanceledException)
             when (cancellationToken.IsCancellationRequested) {
@@ -237,6 +259,17 @@ public sealed class CoordinadorCargaInicio {
         CancellationToken cancellationToken) {
         cancellationToken.ThrowIfCancellationRequested();
         return Task.FromResult<ResumenMotivacion?>(null);
+    }
+
+    private static ResumenMotivacion CrearMotivacionNoDisponible() {
+        return new ResumenMotivacion(
+            EstadoDisponibilidadMotivacion.NoDisponible,
+            null,
+            null,
+            string.Empty,
+            null,
+            Array.Empty<AdvertenciaMotivacion>(),
+            null);
     }
 
     private static void IntentarCancelar(

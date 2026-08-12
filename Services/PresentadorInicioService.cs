@@ -9,6 +9,7 @@ public sealed class PresentadorInicioService {
     private const string TextoNoDisponible = "No disponible";
     private const string TextoInformacionParcial = "Información parcial";
     private readonly TimeProvider reloj;
+    private readonly PresentadorLogrosService presentadorLogros;
 
     public PresentadorInicioService()
         : this(TimeProvider.System) {
@@ -16,12 +17,16 @@ public sealed class PresentadorInicioService {
 
     public PresentadorInicioService(TimeProvider reloj) {
         this.reloj = reloj ?? throw new ArgumentNullException(nameof(reloj));
+        presentadorLogros = new PresentadorLogrosService();
     }
 
     public PresentacionInicio Crear(ResumenInicio resumen) {
         ArgumentNullException.ThrowIfNull(resumen);
 
-        return Crear(resumen, CrearNivelNoDisponible());
+        return Crear(
+            resumen,
+            CrearNivelNoDisponible(),
+            presentadorLogros.CrearPresentacionInicioNoDisponible());
     }
 
     public PresentacionInicio Crear(
@@ -30,12 +35,16 @@ public sealed class PresentadorInicioService {
         ArgumentNullException.ThrowIfNull(resumen);
         ArgumentNullException.ThrowIfNull(motivacion);
 
-        return Crear(resumen, CrearNivel(motivacion));
+        return Crear(
+            resumen,
+            CrearNivel(motivacion),
+            presentadorLogros.CrearPresentacionInicio(motivacion));
     }
 
     private PresentacionInicio Crear(
         ResumenInicio resumen,
-        PresentacionNivel nivel) {
+        PresentacionNivel nivel,
+        PresentacionMotivacionInicio motivacion) {
 
         return new PresentacionInicio(
             resumen.Estado,
@@ -48,7 +57,8 @@ public sealed class PresentadorInicioService {
             CrearRecomendacion(resumen),
             CrearActividades(resumen),
             CrearBandaDatos(resumen)) {
-            Nivel = nivel
+            Nivel = nivel,
+            Motivacion = motivacion
         };
     }
 

@@ -46,8 +46,10 @@ public partial class frmPrincipal {
         }
     }
 
-    private static void RegistrarResultadoMotivacion(
+    private void RegistrarResultadoMotivacion(
         ResultadoProcesamientoMotivacion resultado) {
+        RegistrarLogrosNuevosParaNotificacion(resultado.LogrosNuevos);
+
         if (resultado.Error is not null) {
             Program.RegistrarErrorRecuperable(resultado.Error);
             return;

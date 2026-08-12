@@ -1,3 +1,4 @@
+using EndForge.Models;
 using EndForge.Services;
 
 namespace EndForge.Tests;
@@ -91,10 +92,29 @@ public sealed class CalculadorLayoutInicioTests {
         var amplio = CalcularAmplio(1);
         var compacto = CalcularCompacto(1);
 
-        Assert.Equal(166, amplio.AltoProgreso);
-        Assert.Equal(166, compacto.AltoProgreso);
+        Assert.Equal(
+            CalculadorLayoutFranjaMotivacionInicio.AltoPanelLogico,
+            amplio.AltoProgreso);
+        Assert.Equal(
+            CalculadorLayoutFranjaMotivacionInicio.AltoPanelLogico,
+            compacto.AltoProgreso);
         Assert.Equal(4, amplio.ColumnasMetricas);
         Assert.Equal(2, compacto.ColumnasMetricas);
+    }
+
+    [Fact]
+    public void ProgresoAmpliado_ConservaAnchosYAlturasDeLasDemasTarjetas() {
+        var layout = CalcularAmplio(1);
+
+        Assert.Equal(new Models.RectanguloLayoutInicio(0, 0, 760, 220),
+            layout.Continuacion);
+        Assert.Equal(new Models.RectanguloLayoutInicio(772, 0, 428, 248),
+            layout.Progreso);
+        Assert.Equal(new Models.RectanguloLayoutInicio(772, 260, 428, 100),
+            layout.Actividad);
+        Assert.Equal(104, layout.AltoTarjetaMetrica);
+        Assert.Equal(184, layout.AltoRecomendacion);
+        Assert.Equal(1200, layout.Recomendacion.Ancho);
     }
 
     [Fact]
@@ -173,6 +193,84 @@ public sealed class CalculadorLayoutInicioTests {
         Assert.Equal(segundo, tercero);
     }
 
+    [Theory]
+    [InlineData(720, false)]
+    [InlineData(819, false)]
+    [InlineData(820, true)]
+    [InlineData(1200, true)]
+    [InlineData(1500, true)]
+    public void ProgresoYActividad_UsanElBordeInferiorRealEnTodosLosModos(
+        int ancho,
+        bool modoAmplio) {
+        MedidasLayoutInicio layout = CalculadorLayoutInicio.Calcular(
+            modoAmplio,
+            ancho,
+            altoViewportLogico: 900,
+            cantidadActividades: 3);
+
+        Assert.Equal(
+            layout.Progreso.Inferior + layout.Separacion,
+            layout.Actividad.Y);
+        Assert.True(layout.Progreso.Inferior < layout.Actividad.Y);
+        Assert.True(layout.Actividad.Inferior <= layout.AltoFilaPrincipal);
+    }
+
+    [Theory]
+    [InlineData(720, false, 96)]
+    [InlineData(819, false, 120)]
+    [InlineData(820, true, 144)]
+    [InlineData(1200, true, 120)]
+    [InlineData(1500, true, 144)]
+    public void ProgresoYActividad_ConservanSeparacionTrasEscalarDpi(
+        int ancho,
+        bool modoAmplio,
+        int dpi) {
+        MedidasLayoutInicio layout = CalculadorLayoutInicio.Calcular(
+            modoAmplio,
+            ancho,
+            altoViewportLogico: 900,
+            cantidadActividades: 2);
+        int anchoReal = Escalar(ancho, dpi);
+        RectanguloLayoutInicio progreso =
+            CalculadorLayoutInicio.EscalarRectanguloFisico(
+                layout.Progreso,
+                anchoReal,
+                ancho,
+                dpi);
+        RectanguloLayoutInicio actividad =
+            CalculadorLayoutInicio.EscalarRectanguloFisico(
+                layout.Actividad,
+                anchoReal,
+                ancho,
+                dpi);
+
+        Assert.True(
+            progreso.Inferior + Escalar(layout.Separacion, dpi) <=
+                actividad.Y);
+    }
+
+    [Fact]
+    public void InicioLogrosInicio_RepetidoConservaLaMismaGeometria() {
+        MedidasLayoutInicio geometriaInicial = CalcularAmplio(3);
+
+        for (int ciclo = 0; ciclo < 10; ciclo++) {
+            MedidasLayoutInicio geometriaLogros =
+                CalculadorLayoutInicio.Calcular(
+                    modoAmplio: false,
+                    anchoContenidoLogico: AnchoCompacto,
+                    altoViewportLogico: 720,
+                    cantidadActividades: 1);
+            MedidasLayoutInicio geometriaRestaurada = CalcularAmplio(3);
+
+            Assert.NotEqual(geometriaInicial, geometriaLogros);
+            Assert.Equal(geometriaInicial, geometriaRestaurada);
+            Assert.Equal(
+                geometriaRestaurada.Progreso.Inferior +
+                    geometriaRestaurada.Separacion,
+                geometriaRestaurada.Actividad.Y);
+        }
+    }
+
     [Fact]
     public void CambioSoloDeViewport_NoAlteraBoundsLogicos() {
         var reducido = CalculadorLayoutInicio.Calcular(
@@ -208,5 +306,9 @@ public sealed class CalculadorLayoutInicioTests {
             anchoContenidoLogico: AnchoCompacto,
             altoViewportLogico: 720,
             cantidadActividades);
+    }
+
+    private static int Escalar(int valor, int dpi) {
+        return Math.Max(1, (int)Math.Round(valor * dpi / 96D));
     }
 }

@@ -104,6 +104,7 @@ public partial class frmPrincipal {
 
     private void OcultarVistasPrincipalesFueraDelCurso() {
         panelInicioVista.Visible = false;
+        OcultarVistaLogros();
         panelRecientesVista.Visible = false;
         panelConfiguracionVista.Visible = false;
         panelVistaNuevaPractica.Visible = false;
@@ -192,6 +193,7 @@ public partial class frmPrincipal {
         try {
             PrepararNavegacionPrincipalDesdeRuta();
             panelInicioVista.Visible = false;
+            OcultarVistaLogros();
             panelRecientesVista.Visible = false;
             panelConfiguracionVista.Visible = false;
             panelVistaNuevaPractica.Visible = false;
@@ -237,6 +239,7 @@ public partial class frmPrincipal {
         SeleccionarPanelMenu(panelNuevaPractica);
 
         panelInicioVista.Visible = false;
+        OcultarVistaLogros();
         panelRecientesVista.Visible = false;
         panelConfiguracionVista.Visible = false;
         panelVistaNuevaPractica.Visible = true;
@@ -321,11 +324,15 @@ public partial class frmPrincipal {
 
         PrepararNavegacionPrincipalDesdeRuta();
         Panel panelAnterior = panelSeleccionado;
+        bool logrosEraVisible =
+            estructuraLogrosInicializada && panelLogrosVista.Visible;
 
         if (modoCursoInmersivo) {
             MostrarCursoPrincipal();
         } else if (panelAnterior == panelEstadisticas) {
             MostrarNavegacionPrincipal(DistribucionPanelPrincipal.Estadisticas);
+        } else if (logrosEraVisible) {
+            MostrarNavegacionPrincipal(DistribucionPanelPrincipal.Logros);
         } else {
             MostrarNavegacionPrincipal();
         }
@@ -349,6 +356,9 @@ public partial class frmPrincipal {
         } else if (panelAnterior == panelEstadisticas) {
             SeleccionarPanelMenu(panelEstadisticas);
             panelEstadisticasVista.BringToFront();
+        } else if (logrosEraVisible) {
+            SeleccionarPanelMenu(panelInicio);
+            panelLogrosVista.BringToFront();
         }
     }
 }

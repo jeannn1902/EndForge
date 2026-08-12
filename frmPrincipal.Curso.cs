@@ -4161,7 +4161,8 @@ public partial class frmPrincipal {
         Point ubicacion,
         Size tamano,
         int radio,
-        bool interactiva = false) {
+        bool interactiva = false,
+        bool resaltarFocoContenido = true) {
         Panel tarjeta = interactiva
             ? new TarjetaCursoInteractiva()
             : new Panel();
@@ -4184,10 +4185,13 @@ public partial class frmPrincipal {
             tarjeta.Paint += (_, e) => {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 Rectangle limites = new(1, 1, tarjeta.Width - 3, tarjeta.Height - 3);
-                Color colorBorde = tarjeta.ContainsFocus
+                bool resaltarFoco = DebeResaltarFocoTarjetaCurso(
+                    resaltarFocoContenido,
+                    tarjeta.ContainsFocus);
+                Color colorBorde = resaltarFoco
                     ? ColorMoradoClaroCurso
                     : ColorBordeCurso;
-                float anchoBorde = tarjeta.ContainsFocus ? 2.2F : 1.2F;
+                float anchoBorde = resaltarFoco ? 2.2F : 1.2F;
 
                 using GraphicsPath contorno = CrearContornoRedondeado(limites, radio);
                 using Pen borde = new(colorBorde, anchoBorde);
@@ -4196,6 +4200,12 @@ public partial class frmPrincipal {
         }
 
         return tarjeta;
+    }
+
+    internal static bool DebeResaltarFocoTarjetaCurso(
+        bool resaltarFocoContenido,
+        bool contieneFoco) {
+        return resaltarFocoContenido && contieneFoco;
     }
 
     private static void AplicarRegionRedondeada(Control control, int radio) {

@@ -70,6 +70,11 @@ public sealed class CoordinadorCargaInicioMotivacionTests {
         Assert.Equal(EstadoResultadoCargaInicio.Completada, resultado.Estado);
         Assert.Equal("Nivel 2", resultado.Presentacion?.Nivel.TextoNivel);
         Assert.Equal("150 XP", resultado.Presentacion?.Nivel.TextoXpTotal);
+        Assert.NotNull(resultado.Logros);
+        Assert.Equal(14, resultado.Logros.TotalLogros);
+        Assert.Equal(
+            resultado.Presentacion?.Motivacion.Logros.LogrosDesbloqueados,
+            resultado.Logros.LogrosDesbloqueados);
         Assert.Null(resultado.AdvertenciaMotivacion);
     }
 
@@ -88,6 +93,9 @@ public sealed class CoordinadorCargaInicioMotivacionTests {
         Assert.Equal(
             "0 de 60",
             resultado.Presentacion?.Progreso.PracticasRealizadas.Texto);
+        Assert.Equal(
+            EstadoPresentacionLogros.NoDisponible,
+            resultado.Logros?.Estado);
         Assert.Same(error, resultado.AdvertenciaMotivacion);
     }
 
@@ -132,6 +140,9 @@ public sealed class CoordinadorCargaInicioMotivacionTests {
         Assert.Equal(
             EstadoNivelInicio.VersionIncompatible,
             resultado.Presentacion?.Nivel.Estado);
+        Assert.Equal(
+            EstadoPresentacionLogros.VersionIncompatible,
+            resultado.Logros?.Estado);
         Assert.Equal(4, resultado.Presentacion?.Metricas.Count);
     }
 
@@ -155,6 +166,93 @@ public sealed class CoordinadorCargaInicioMotivacionTests {
 
         Assert.Equal(EstadoResultadoCargaInicio.Cancelada, resultado.Estado);
         Assert.Null(resultado.Presentacion);
+        Assert.Null(resultado.Logros);
+    }
+
+    [Fact]
+    public async Task CancelacionSeguidaDeErrorMotivacional_DevuelveCancelada() {
+        using CancellationTokenSource cancelacion = new();
+        CoordinadorCargaInicio coordinador = CrearCoordinador(
+            _ => {
+                cancelacion.Cancel();
+                return Task.FromException<ResumenMotivacion?>(
+                    new IOException("Lectura interrumpida"));
+            });
+
+        ResultadoCargaInicio resultado = await coordinador.RecargarAsync(
+            cancelacion.Token);
+
+        Assert.Equal(EstadoResultadoCargaInicio.Cancelada, resultado.Estado);
+        Assert.Null(resultado.Presentacion);
+        Assert.Null(resultado.Logros);
+    }
+
+    [Theory]
+    [InlineData(true, false, true, true, false, false, 1, true)]
+    [InlineData(false, false, true, true, false, false, 1, false)]
+    [InlineData(true, true, true, true, false, false, 1, false)]
+    [InlineData(true, false, false, true, false, false, 1, false)]
+    [InlineData(true, false, true, false, false, false, 1, false)]
+    [InlineData(true, false, true, true, true, false, 1, false)]
+    [InlineData(true, false, true, true, false, true, 1, false)]
+    [InlineData(true, false, true, true, false, false, 0, false)]
+    public void NotificacionLogros_RespetaVisibilidadPrioridadYCierre(
+        bool entradaRealizada,
+        bool cierreSolicitado,
+        bool puedeActualizar,
+        bool inicioVisible,
+        bool bandaPrioritaria,
+        bool notificacionVisible,
+        int pendientes,
+        bool esperado) {
+        Assert.Equal(
+            esperado,
+            frmPrincipal.PuedeMostrarNotificacionLogros(
+                entradaRealizada,
+                cierreSolicitado,
+                puedeActualizar,
+                inicioVisible,
+                bandaPrioritaria,
+                notificacionVisible,
+                pendientes));
+    }
+
+    [Fact]
+    public void TextoNotificacionLogros_UnoYVariosUsanCopyAprobado() {
+        Assert.Equal(
+            "Nuevo logro: Primera práctica completada",
+            frmPrincipal.CrearTextoNotificacionLogros(new[] {
+                "Primera práctica completada"
+            }));
+        Assert.Equal(
+            "3 logros nuevos · Primera práctica completada y 2 más",
+            frmPrincipal.CrearTextoNotificacionLogros(new[] {
+                "Primera práctica completada",
+                "Cinco prácticas completadas",
+                "Primer tema completado"
+            }));
+    }
+
+    [Theory]
+    [InlineData(true, true, true, true, true, true)]
+    [InlineData(true, false, false, true, true, false)]
+    [InlineData(true, true, false, true, true, false)]
+    [InlineData(false, true, true, true, true, false)]
+    public void AccionInicioTrasEspera_NoReemplazaVistaLogros(
+        bool puedeActualizar,
+        bool inicioVisible,
+        bool distribucionInicio,
+        bool cursoPreparado,
+        bool opcionSinCambios,
+        bool esperado) {
+        Assert.Equal(
+            esperado,
+            frmPrincipal.PuedeCompletarAccionInicioDespuesDeEspera(
+                puedeActualizar,
+                inicioVisible,
+                distribucionInicio,
+                cursoPreparado,
+                opcionSinCambios));
     }
 
     private static CoordinadorCargaInicio CrearCoordinador(
