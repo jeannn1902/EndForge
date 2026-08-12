@@ -779,13 +779,22 @@ public partial class frmPrincipal {
     }
 
     private async void PanelCurso_Click(object? sender, EventArgs e) {
-        await MostrarRutaAprendizajeDesdeMenuAsync();
-    }
-
-    private async Task MostrarRutaAprendizajeDesdeMenuAsync() {
         if (entradaCursoPendiente ||
             navegacionCursoEnCurso ||
             transicionVisualCursoActiva) {
+            return;
+        }
+
+        long solicitud = RegistrarSolicitudCargaNavegacion();
+        await MostrarRutaAprendizajeDesdeMenuAsync(solicitud);
+    }
+
+    private async Task MostrarRutaAprendizajeDesdeMenuAsync(
+        long solicitudNavegacion) {
+        if (entradaCursoPendiente ||
+            navegacionCursoEnCurso ||
+            transicionVisualCursoActiva ||
+            !EsSolicitudCargaNavegacionVigente(solicitudNavegacion)) {
             return;
         }
 
@@ -797,6 +806,9 @@ public partial class frmPrincipal {
             await PrepararCursoParaInteraccionAsync();
 
             if (!cursoPreparado || IsDisposed || Disposing ||
+                !IsHandleCreated || esperandoCierreOperaciones ||
+                coordinadorCierreOperaciones.CierreSolicitado ||
+                !EsSolicitudCargaNavegacionVigente(solicitudNavegacion) ||
                 navegacionCursoEnCurso || transicionVisualCursoActiva ||
                 !ReferenceEquals(panelSeleccionado, panelSeleccionadoAlSolicitar) ||
                 secuenciaTransicionVisualCurso != secuenciaTransicionAlSolicitar) {
@@ -1511,7 +1523,11 @@ public partial class frmPrincipal {
     }
 
     private void RecalcularDistribucionCurso() {
-        if (!cursoInicializado ||
+        if (!DebeRecalcularDistribucionCurso(
+                cursoInicializado,
+                distribucionPanelPrincipal == DistribucionPanelPrincipal.Curso,
+                modoCursoInmersivo,
+                vistaRutaActual != VistaRutaAprendizaje.Ninguna) ||
             desplazamientoTemasCurso is null ||
             desplazamientoPracticasTema is null ||
             desplazamientoDetallePractica is null ||
@@ -1532,6 +1548,15 @@ public partial class frmPrincipal {
 
         ActualizarGeometriaVistaPracticas();
         ActualizarGeometriaDetallePractica();
+    }
+
+    internal static bool DebeRecalcularDistribucionCurso(
+        bool cursoInicializado,
+        bool distribucionCurso,
+        bool modoInmersivo,
+        bool vistaCursoActiva) {
+        return cursoInicializado &&
+            (distribucionCurso || modoInmersivo || vistaCursoActiva);
     }
 
     private void ActualizarGeometriaVistaPracticas() {

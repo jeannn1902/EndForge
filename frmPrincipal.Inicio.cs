@@ -1152,26 +1152,33 @@ public partial class frmPrincipal {
     private async void AccionInicio_Click(object? sender, EventArgs e) {
         if (sender is not Button boton ||
             boton.Tag is not AccionInicioPresentable accion ||
-            accionInicioEnCurso) {
+            accionInicioEnCurso ||
+            (accion.Tipo == TipoAccionInicio.VerRutaAprendizaje &&
+             entradaCursoPendiente)) {
             return;
         }
 
+        long solicitudNavegacion = RegistrarSolicitudCargaNavegacion();
         accionInicioEnCurso = true;
         ActualizarEstadoBotonesInicio();
 
         try {
             switch (accion.Tipo) {
                 case TipoAccionInicio.ContinuarPractica:
-                    await ContinuarPracticaDesdeInicioAsync(accion);
+                    await ContinuarPracticaDesdeInicioAsync(
+                        accion,
+                        solicitudNavegacion);
                     break;
                 case TipoAccionInicio.VerPractica:
                     if (accion.Practica is not null) {
                         await AbrirPracticaCurricularDesdeInicioAsync(
-                            accion.Practica);
+                            accion.Practica,
+                            solicitudNavegacion);
                     }
                     break;
                 case TipoAccionInicio.VerRutaAprendizaje:
-                    await MostrarRutaAprendizajeDesdeMenuAsync();
+                    await MostrarRutaAprendizajeDesdeMenuAsync(
+                        solicitudNavegacion);
                     break;
                 case TipoAccionInicio.VerEstadisticas: {
                     Panel panelSeleccionadoAlSolicitar = panelSeleccionado;
@@ -1184,8 +1191,10 @@ public partial class frmPrincipal {
                             cursoPreparado,
                             ReferenceEquals(
                                 panelSeleccionado,
-                                panelSeleccionadoAlSolicitar))) {
-                        MostrarEstadisticas();
+                                panelSeleccionadoAlSolicitar)) &&
+                        EsSolicitudCargaNavegacionVigente(
+                            solicitudNavegacion)) {
+                        await MostrarEstadisticasAsync(solicitudNavegacion);
                     }
                     break;
                 }
@@ -1204,8 +1213,10 @@ public partial class frmPrincipal {
     }
 
     private async Task ContinuarPracticaDesdeInicioAsync(
-        AccionInicioPresentable accion) {
-        if (accion.Practica is null) {
+        AccionInicioPresentable accion,
+        long solicitudNavegacion) {
+        if (accion.Practica is null ||
+            !EsSolicitudCargaNavegacionVigente(solicitudNavegacion)) {
             return;
         }
 
@@ -1218,15 +1229,19 @@ public partial class frmPrincipal {
             return;
         }
 
-        await AbrirPracticaCurricularDesdeInicioAsync(accion.Practica);
+        await AbrirPracticaCurricularDesdeInicioAsync(
+            accion.Practica,
+            solicitudNavegacion);
     }
 
     private async Task AbrirPracticaCurricularDesdeInicioAsync(
-        ReferenciaPracticaAprendizaje referencia) {
+        ReferenciaPracticaAprendizaje referencia,
+        long solicitudNavegacion) {
         Panel panelSeleccionadoAlSolicitar = panelSeleccionado;
         await PrepararCursoParaInteraccionAsync();
 
-        if (!PuedeCompletarAccionInicioDespuesDeEspera(
+        if (!EsSolicitudCargaNavegacionVigente(solicitudNavegacion) ||
+            !PuedeCompletarAccionInicioDespuesDeEspera(
                 PuedeActualizarInterfazInicio(),
                 panelInicioVista.Visible,
                 distribucionPanelPrincipal ==
@@ -1302,6 +1317,8 @@ public partial class frmPrincipal {
     private void ActualizarGeometriaInicio() {
         if (!estructuraInicioInicializada ||
             panelInicioVista.IsDisposed ||
+            (distribucionPanelPrincipal != DistribucionPanelPrincipal.Inicio &&
+             !panelInicioVista.Visible) ||
             panelInicioVista.ClientSize.Width <= 0 ||
             panelInicioVista.ClientSize.Height <= 0) {
             return;
@@ -1315,11 +1332,13 @@ public partial class frmPrincipal {
         int anchoViewport = Math.Min(EscalarDiseno(1500), anchoDisponible);
         int x = area.Left + margenHorizontal +
             Math.Max(0, (anchoDisponible - anchoViewport) / 2);
-        desplazamientoInicio.SetBounds(
-            x,
-            area.Top + margenVertical,
-            anchoViewport,
-            Math.Max(1, area.Height - margenVertical * 2));
+        AplicarBoundsSiCambian(
+            desplazamientoInicio,
+            new Rectangle(
+                x,
+                area.Top + margenVertical,
+                anchoViewport,
+                Math.Max(1, area.Height - margenVertical * 2)));
 
         Padding relleno = new(
             EscalarDiseno(modoAmplioVista ? 22 : 14),
@@ -1327,11 +1346,12 @@ public partial class frmPrincipal {
             EscalarDiseno(modoAmplioVista ? 22 : 14),
             EscalarDiseno(28));
 
-        if (contenidoInicio.Padding != relleno) {
+        bool cambioRelleno = contenidoInicio.Padding != relleno;
+
+        if (cambioRelleno) {
             contenidoInicio.Padding = relleno;
         }
 
-        desplazamientoInicio.ActualizarContenido(volverAlInicio: false);
         int anchoContenido = Math.Max(
             1,
             contenidoInicio.ClientSize.Width -
@@ -1343,9 +1363,12 @@ public partial class frmPrincipal {
         bool modoAmplio = CalculadorLayoutInicio.DeterminarModoAmplio(
             anchoContenidoLogico);
 
-        if (anchoContenido != ultimoAnchoContenidoInicio ||
+        bool cambioGeometria =
+            anchoContenido != ultimoAnchoContenidoInicio ||
             DeviceDpi != ultimoDpiInicio ||
-            modoAmplio != ultimoModoAmplioInicio) {
+            modoAmplio != ultimoModoAmplioInicio;
+
+        if (cambioGeometria) {
             ActualizarGeometriaContenidoInicio(
                 anchoContenido,
                 anchoContenidoLogico,
@@ -1358,7 +1381,9 @@ public partial class frmPrincipal {
             ActualizarRellenoNivelInicio();
         }
 
-        desplazamientoInicio.ActualizarContenido(volverAlInicio: false);
+        if (cambioRelleno || cambioGeometria) {
+            desplazamientoInicio.ActualizarContenido(volverAlInicio: false);
+        }
     }
 
     private void ActualizarGeometriaContenidoInicio(

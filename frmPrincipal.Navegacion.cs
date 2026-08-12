@@ -3,6 +3,24 @@ using EndForge.Models;
 namespace EndForge;
 
 public partial class frmPrincipal {
+    private long secuenciaCargaNavegacion;
+
+    private long RegistrarSolicitudCargaNavegacion() {
+        return ++secuenciaCargaNavegacion;
+    }
+
+    private bool EsSolicitudCargaNavegacionVigente(long solicitud) {
+        return EsSolicitudCargaNavegacionVigente(
+            solicitud,
+            secuenciaCargaNavegacion);
+    }
+
+    internal static bool EsSolicitudCargaNavegacionVigente(
+        long solicitud,
+        long ultimaSolicitud) {
+        return solicitud == ultimaSolicitud;
+    }
+
     private bool eventosVistasRutaAprendizajeConfigurados;
     private bool rutaAprendizajeInmersivaActiva;
 
@@ -229,6 +247,8 @@ public partial class frmPrincipal {
     }
 
     private void panelNuevaPractica_Click(object? sender, EventArgs e) {
+        RegistrarSolicitudCargaNavegacion();
+
         if (navegacionCursoEnCurso || transicionVisualCursoActiva) {
             return;
         }
@@ -250,6 +270,7 @@ public partial class frmPrincipal {
     }
 
     private void PanelInicio_Click(object? sender, EventArgs e) {
+        RegistrarSolicitudCargaNavegacion();
         NavegarVistaPrincipalConTransicion(
             panelInicioVista,
             panelInicio,
@@ -261,6 +282,8 @@ public partial class frmPrincipal {
         if (navegacionCursoEnCurso || transicionVisualCursoActiva) {
             return;
         }
+
+        long solicitud = RegistrarSolicitudCargaNavegacion();
 
         Panel panelAnterior = panelSeleccionado;
 
@@ -281,7 +304,8 @@ public partial class frmPrincipal {
             promoverReciente: true
         );
 
-        if (IsDisposed || Disposing) {
+        if (IsDisposed || Disposing ||
+            !EsSolicitudCargaNavegacionVigente(solicitud)) {
             return;
         }
 
@@ -300,15 +324,57 @@ public partial class frmPrincipal {
         }
     }
 
-    private void PanelRecientes_Click(object? sender, EventArgs e) {
+    private async void PanelRecientes_Click(object? sender, EventArgs e) {
+        long solicitud = RegistrarSolicitudCargaNavegacion();
+        Panel panelSeleccionadoAlSolicitar = panelSeleccionado;
+        long secuenciaAlSolicitar = secuenciaTransicionVisualCurso;
+        ResultadoLecturaRecientes? resultado =
+            await ObtenerCargaRecientesNavegacion();
+
+        if (!PuedeAplicarCargaNavegacion(
+                resultado is not null,
+                coordinadorCierreOperaciones.PuedeActualizarInterfaz &&
+                    !coordinadorCierreOperaciones.CierreSolicitado,
+                IsHandleCreated,
+                IsDisposed,
+                Disposing,
+                esperandoCierreOperaciones,
+                ReferenceEquals(
+                    panelSeleccionado,
+                    panelSeleccionadoAlSolicitar),
+                secuenciaTransicionVisualCurso == secuenciaAlSolicitar &&
+                    EsSolicitudCargaNavegacionVigente(solicitud))) {
+            return;
+        }
+
         NavegarVistaPrincipalConTransicion(
             panelRecientesVista,
             panelRecientes,
             DistribucionPanelPrincipal.Normal,
-            () => CargarRecientes());
+            () => CargarRecientes(resultado));
+    }
+
+    internal static bool PuedeAplicarCargaNavegacion(
+        bool resultadoDisponible,
+        bool puedeActualizarInterfaz,
+        bool handleCreado,
+        bool formularioEliminado,
+        bool formularioEliminandose,
+        bool esperandoCierre,
+        bool seleccionVigente,
+        bool secuenciaVigente) {
+        return resultadoDisponible &&
+            puedeActualizarInterfaz &&
+            handleCreado &&
+            !formularioEliminado &&
+            !formularioEliminandose &&
+            !esperandoCierre &&
+            seleccionVigente &&
+            secuenciaVigente;
     }
 
     private void PanelConfiguracion_Click(object? sender, EventArgs e) {
+        RegistrarSolicitudCargaNavegacion();
         NavegarVistaPrincipalConTransicion(
             panelConfiguracionVista,
             panelConfiguracion,
@@ -318,6 +384,8 @@ public partial class frmPrincipal {
     }
 
     private void PanelAcercaDe_Click(object? sender, EventArgs e) {
+        RegistrarSolicitudCargaNavegacion();
+
         if (navegacionCursoEnCurso || transicionVisualCursoActiva) {
             return;
         }

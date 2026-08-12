@@ -125,6 +125,9 @@ public partial class frmPrincipal {
     }
 
     private void ConfigurarEstadoInicial() {
+        ultimoEstadoVentana = WindowState;
+        ultimoTamanoVistaRecalculado = ClientSize;
+        ultimoDpiVistaRecalculado = DeviceDpi;
         distribucionPanelPrincipal = DistribucionPanelPrincipal.Inicio;
         panelSeleccionado = panelInicio;
         panelInicio.BackColor = Color.FromArgb(111, 45, 189);
@@ -138,9 +141,5 @@ public partial class frmPrincipal {
         SincronizarLimitesVistasAdaptables();
         PrepararInicioParaMostrar();
         InvalidarFondoContinuo();
-
-        panelPrincipal.Invalidate(true);
-        panelInicioVista.Invalidate(true);
-        fondoEndForge.Invalidate(true);
     }
 }

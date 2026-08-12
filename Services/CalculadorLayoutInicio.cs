@@ -96,14 +96,15 @@ public static class CalculadorLayoutInicio {
                 0,
                 anchoSecundario,
                 altoProgreso);
+            int yActividad = Math.Max(
+                continuacion.Inferior,
+                progreso.Inferior) + separacion;
             actividad = new RectanguloLayoutInicio(
-                xSecundario,
-                altoProgreso + separacion,
-                anchoSecundario,
+                0,
+                yActividad,
+                anchoContenido,
                 altoActividad);
-            altoFilaPrincipal = Math.Max(
-                altoContinuacion,
-                actividad.Inferior);
+            altoFilaPrincipal = actividad.Inferior;
         } else {
             continuacion = new RectanguloLayoutInicio(
                 0,

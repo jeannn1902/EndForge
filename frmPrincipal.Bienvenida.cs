@@ -24,7 +24,7 @@ public partial class frmPrincipal {
         public required ResultadoCargaTemas Temas { get; init; }
     }
 
-    private Panel panelPantallaBienvenida = null!;
+    private FondoEndForge panelPantallaBienvenida = null!;
     private Panel panelContenidoBienvenida = null!;
     private Label lblLogoBienvenida = null!;
     private Label lblSubtituloBienvenida = null!;
@@ -60,14 +60,14 @@ public partial class frmPrincipal {
 #endif
 
     private void InicializarBienvenida() {
-        panelPantallaBienvenida = new Panel {
+        panelPantallaBienvenida = new FondoEndForge {
             Name = "panelPantallaBienvenida",
             Anchor = AnchorStyles.Top | AnchorStyles.Bottom |
                 AnchorStyles.Left | AnchorStyles.Right,
             BackColor = Color.FromArgb(20, 16, 30),
-            BackgroundImage = fondoEndForge.ImagenFondo,
-            BackgroundImageLayout = ImageLayout.Stretch,
+            ImagenFondo = fondoEndForge.ImagenFondo,
             Cursor = Cursors.Hand,
+            TabStop = false,
             Location = Point.Empty,
             Size = ClientSize
         };
@@ -158,6 +158,7 @@ public partial class frmPrincipal {
     private void MostrarPantallaBienvenida() {
         panelMenu.Visible = false;
         panelPrincipal.Visible = false;
+        panelPantallaBienvenida.ImagenFondo = fondoEndForge.ImagenFondo;
         panelPantallaBienvenida.Visible = true;
         panelPantallaBienvenida.BringToFront();
         panelBarraTitulo.BringToFront();
@@ -712,12 +713,15 @@ public partial class frmPrincipal {
     private void PrepararGeometriaInicioTransicion() {
         CentrarPanelPrincipal();
         Rectangle limites = panelPrincipal.ClientRectangle;
-        panelInicioVista.SetBounds(
-            limites.Left,
-            limites.Top,
-            Math.Max(1, limites.Width),
-            Math.Max(1, limites.Height));
+        AplicarBoundsSiCambian(
+            panelInicioVista,
+            new Rectangle(
+                limites.Left,
+                limites.Top,
+                Math.Max(1, limites.Width),
+                Math.Max(1, limites.Height)));
         ActualizarGeometriaInicio();
+        fondoEndForge.ActualizarCacheImagenFondo();
     }
 
     private void ProgramarConfirmacionPaintInicio() {
@@ -898,6 +902,7 @@ public partial class frmPrincipal {
             panelPantallaBienvenida,
             false,
             nameof(panelPantallaBienvenida));
+        panelPantallaBienvenida.ImagenFondo = null;
         if (panelMenu.Visible) {
             panelMenu.BringToFront();
         }

@@ -7,6 +7,9 @@ using System.Text;
 namespace EndForge;
 
 public partial class frmPrincipal {
+    private Task<DatosVistaEstadisticas?>? tareaCargaEstadisticasNavegacion;
+    private CursoService? cursoCargaEstadisticasNavegacion;
+    private string? gradoCargaEstadisticasNavegacion;
     private const string SegmentoLlenoEstadisticas = "🟩";
     private const string SegmentoVacioEstadisticas = "⬜";
 
@@ -307,12 +310,46 @@ public partial class frmPrincipal {
             TextFormatFlags.SingleLine);
     }
 
-    private void PanelEstadisticas_Click(object? sender, EventArgs e) {
-        MostrarEstadisticas();
+    private async void PanelEstadisticas_Click(object? sender, EventArgs e) {
+        await MostrarEstadisticasAsync();
     }
 
-    private void MostrarEstadisticas() {
-        if (!estructuraEstadisticasInicializada || !cursoPreparado) {
+    private Task MostrarEstadisticasAsync() {
+        long solicitud = RegistrarSolicitudCargaNavegacion();
+        return MostrarEstadisticasAsync(solicitud);
+    }
+
+    private async Task MostrarEstadisticasAsync(long solicitud) {
+        if (!estructuraEstadisticasInicializada ||
+            !cursoPreparado ||
+            !EsSolicitudCargaNavegacionVigente(solicitud) ||
+            navegacionCursoEnCurso ||
+            transicionVisualCursoActiva ||
+            esperandoCierreOperaciones ||
+            coordinadorCierreOperaciones.CierreSolicitado) {
+            return;
+        }
+
+        Panel panelSeleccionadoAlSolicitar = panelSeleccionado;
+        long secuenciaAlSolicitar = secuenciaTransicionVisualCurso;
+        CursoService cursoAlSolicitar = cursoService;
+        DatosVistaEstadisticas? datos =
+            await ObtenerCargaEstadisticasNavegacion(cursoAlSolicitar);
+
+        if (!PuedeAplicarCargaNavegacion(
+                resultadoDisponible: datos is not null,
+                coordinadorCierreOperaciones.PuedeActualizarInterfaz &&
+                    !coordinadorCierreOperaciones.CierreSolicitado,
+                IsHandleCreated,
+                IsDisposed,
+                Disposing,
+                esperandoCierreOperaciones,
+                ReferenceEquals(
+                    panelSeleccionado,
+                    panelSeleccionadoAlSolicitar) &&
+                    ReferenceEquals(cursoService, cursoAlSolicitar),
+                secuenciaTransicionVisualCurso == secuenciaAlSolicitar &&
+                    EsSolicitudCargaNavegacionVigente(solicitud))) {
             return;
         }
 
@@ -320,7 +357,54 @@ public partial class frmPrincipal {
             panelEstadisticasVista,
             panelEstadisticas,
             DistribucionPanelPrincipal.Estadisticas,
-            AsegurarVistaEstadisticasConstruida);
+            () => AsegurarVistaEstadisticasConstruida(datos!));
+    }
+
+    private Task<DatosVistaEstadisticas?> ObtenerCargaEstadisticasNavegacion(
+        CursoService cursoAlSolicitar) {
+        if (!PuedeReutilizarCargaEstadisticas(
+                tareaCargaEstadisticasNavegacion is { IsCompleted: false },
+                ReferenceEquals(
+                    cursoCargaEstadisticasNavegacion,
+                    cursoAlSolicitar),
+                gradoCargaEstadisticasNavegacion,
+                cursoAlSolicitar.GradoId)) {
+            cursoCargaEstadisticasNavegacion = cursoAlSolicitar;
+            gradoCargaEstadisticasNavegacion = cursoAlSolicitar.GradoId;
+            tareaCargaEstadisticasNavegacion =
+                CargarDatosEstadisticasParaNavegacionAsync(cursoAlSolicitar);
+        }
+
+        return tareaCargaEstadisticasNavegacion!;
+    }
+
+    private async Task<DatosVistaEstadisticas?>
+        CargarDatosEstadisticasParaNavegacionAsync(
+            CursoService cursoAlSolicitar) {
+        try {
+            return await Task.Run(() =>
+                CrearDatosEstadisticasReales(cursoAlSolicitar));
+        } catch (Exception ex) {
+            if (!IsDisposed &&
+                !Disposing &&
+                IsHandleCreated &&
+                coordinadorCierreOperaciones.PuedeActualizarInterfaz) {
+                Program.RegistrarErrorRecuperable(ex);
+            }
+            return null;
+        }
+    }
+
+    internal static bool PuedeReutilizarCargaEstadisticas(
+        bool cargaActiva,
+        bool mismoCatalogo,
+        string? gradoCarga,
+        string gradoSolicitado) {
+        return cargaActiva && mismoCatalogo &&
+            !string.IsNullOrWhiteSpace(gradoCarga) &&
+            gradoCarga.Equals(
+                gradoSolicitado,
+                StringComparison.OrdinalIgnoreCase);
     }
 
     private void OcultarVistaEstadisticas() {
@@ -329,13 +413,14 @@ public partial class frmPrincipal {
         }
     }
 
-    private void AsegurarVistaEstadisticasConstruida() {
+    private void AsegurarVistaEstadisticasConstruida(
+        DatosVistaEstadisticas datos) {
         if (!vistaEstadisticasConstruida) {
             ConstruirVistaEstadisticas();
             vistaEstadisticasConstruida = true;
         }
 
-        ActualizarDatosEstadisticas(CrearDatosEstadisticasReales());
+        ActualizarDatosEstadisticas(datos);
     }
 
     private void ConstruirVistaEstadisticas() {
@@ -615,8 +700,9 @@ public partial class frmPrincipal {
         return label;
     }
 
-    private DatosVistaEstadisticas CrearDatosEstadisticasReales() {
-        IReadOnlyList<TemaCurso> temasDisponibles = cursoService
+    private DatosVistaEstadisticas CrearDatosEstadisticasReales(
+        CursoService cursoAlSolicitar) {
+        IReadOnlyList<TemaCurso> temasDisponibles = cursoAlSolicitar
             .CargarTemas()
             .Where(tema => !tema.EsProximamente)
             .OrderBy(tema => tema.Numero)

@@ -304,7 +304,11 @@ public partial class frmPrincipal {
         }
 
         ultimoAnchoContenidoLogros = -1;
-        ActualizarGeometriaLogros();
+
+        if (panelLogrosVista.Visible &&
+            distribucionPanelPrincipal == DistribucionPanelPrincipal.Logros) {
+            ActualizarGeometriaLogros();
+        }
     }
 
     private void MostrarLogrosDesdeInicio() {
@@ -363,16 +367,20 @@ public partial class frmPrincipal {
             return;
         }
 
-        panelLogrosVista.SetBounds(
-            limites.Left,
-            limites.Top,
-            Math.Max(1, limites.Width),
-            Math.Max(1, limites.Height));
+        AplicarBoundsSiCambian(
+            panelLogrosVista,
+            new Rectangle(
+                limites.Left,
+                limites.Top,
+                Math.Max(1, limites.Width),
+                Math.Max(1, limites.Height)));
     }
 
     private void ActualizarGeometriaLogros() {
         if (!estructuraLogrosInicializada ||
             panelLogrosVista.IsDisposed ||
+            (distribucionPanelPrincipal != DistribucionPanelPrincipal.Logros &&
+             !panelLogrosVista.Visible) ||
             panelLogrosVista.ClientSize.Width <= 0 ||
             panelLogrosVista.ClientSize.Height <= 0) {
             return;
@@ -383,12 +391,13 @@ public partial class frmPrincipal {
         int altoEncabezado = EscalarDiseno(78);
         int yDesplazamiento =
             margenSuperior + altoEncabezado + EscalarDiseno(8);
-        desplazamientoLogros.SetBounds(
-            area.Left,
-            yDesplazamiento,
-            Math.Max(1, area.Width),
-            Math.Max(1, area.Bottom - yDesplazamiento));
-        desplazamientoLogros.ActualizarContenido(volverAlInicio: false);
+        AplicarBoundsSiCambian(
+            desplazamientoLogros,
+            new Rectangle(
+                area.Left,
+                yDesplazamiento,
+                Math.Max(1, area.Width),
+                Math.Max(1, area.Bottom - yDesplazamiento)));
 
         int anchoContenido = Math.Max(1, contenidoLogros.ClientSize.Width);
         int anchoContenidoLogico = ConvertirALogicoLogros(anchoContenido);
@@ -400,19 +409,27 @@ public partial class frmPrincipal {
         int anchoEncabezado = Math.Min(
             anchoContenido - EscalarDiseno(medidasVista.XContenido),
             EscalarDiseno(medidasVista.AnchoContenido));
-        panelEncabezadoLogros.SetBounds(
-            xEncabezado,
-            margenSuperior,
-            Math.Max(1, anchoEncabezado),
-            altoEncabezado);
-        ActualizarGeometriaEncabezadoLogros();
+        bool cambioEncabezado = AplicarBoundsSiCambian(
+            panelEncabezadoLogros,
+            new Rectangle(
+                xEncabezado,
+                margenSuperior,
+                Math.Max(1, anchoEncabezado),
+                altoEncabezado));
+
+        if (cambioEncabezado || DeviceDpi != ultimoDpiLogros) {
+            ActualizarGeometriaEncabezadoLogros();
+        }
 
         bool modoAmplio = CalculadorLayoutLogros.DeterminarModoAmplio(
             anchoContenidoLogico);
 
-        if (anchoContenido != ultimoAnchoContenidoLogros ||
+        bool cambioGeometria =
+            anchoContenido != ultimoAnchoContenidoLogros ||
             DeviceDpi != ultimoDpiLogros ||
-            modoAmplio != ultimoModoAmplioLogros) {
+            modoAmplio != ultimoModoAmplioLogros;
+
+        if (cambioGeometria) {
             ActualizarGeometriaContenidoLogros(
                 anchoContenido,
                 anchoContenidoLogico);
@@ -423,7 +440,9 @@ public partial class frmPrincipal {
             ActualizarRellenoResumenLogros();
         }
 
-        desplazamientoLogros.ActualizarContenido(volverAlInicio: false);
+        if (cambioGeometria) {
+            desplazamientoLogros.ActualizarContenido(volverAlInicio: false);
+        }
     }
 
     private void ActualizarGeometriaEncabezadoLogros() {

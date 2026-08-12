@@ -99,7 +99,7 @@ public sealed class AperturaPracticasService {
                 Error = seleccion.Error ?? new InvalidDataException(mensaje)
             };
         }
-
+        git add .git add .
         string rutaSolucion = seleccion.RutaSolucion;
 
         try {

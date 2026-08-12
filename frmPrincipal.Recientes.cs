@@ -6,6 +6,46 @@ public partial class frmPrincipal {
     private EstadoLecturaRecientes? ultimoEstadoLecturaRecientesNotificado;
     private ResultadoLecturaRecientes? ultimoResultadoLecturaRecientes;
     private bool aperturaPracticaEnCurso;
+    private bool cargaRecientesNavegacionEnCurso;
+    private Task<ResultadoLecturaRecientes?>? tareaCargaRecientesNavegacion;
+
+    private async Task<ResultadoLecturaRecientes?> CargarRecientesParaNavegacionAsync() {
+        if (cargaRecientesNavegacionEnCurso ||
+            navegacionCursoEnCurso ||
+            transicionVisualCursoActiva ||
+            esperandoCierreOperaciones ||
+            coordinadorCierreOperaciones.CierreSolicitado) {
+            return null;
+        }
+
+        cargaRecientesNavegacionEnCurso = true;
+
+        try {
+            return await Task.Run(() =>
+                recientesService.LeerProyectosRecientes());
+        } catch (Exception ex) {
+            if (!IsDisposed &&
+                !Disposing &&
+                IsHandleCreated &&
+                coordinadorCierreOperaciones.PuedeActualizarInterfaz) {
+                Program.RegistrarErrorRecuperable(ex);
+            }
+
+            return null;
+        } finally {
+            cargaRecientesNavegacionEnCurso = false;
+        }
+    }
+
+    private Task<ResultadoLecturaRecientes?> ObtenerCargaRecientesNavegacion() {
+        if (tareaCargaRecientesNavegacion is null ||
+            tareaCargaRecientesNavegacion.IsCompleted) {
+            tareaCargaRecientesNavegacion =
+                CargarRecientesParaNavegacionAsync();
+        }
+
+        return tareaCargaRecientesNavegacion;
+    }
 
     private ResultadoEscrituraRecientes GuardarProyectoReciente(string rutaProyecto) {
         return recientesService.GuardarProyectoReciente(rutaProyecto);
