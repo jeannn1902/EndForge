@@ -409,7 +409,7 @@ public partial class frmPrincipal {
         panelVistaNuevaPractica.Visible = false;
 
         MessageBox.Show(
-            "EndForge 1.0\n\n" +
+            $"EndForge {Application.ProductVersion}\n\n" +
             "Desarrollado por:\n" +
             "Jeancarlo Pérez Pérez\n\n" +
             "Herramienta para automatizar la creación y gestión " +

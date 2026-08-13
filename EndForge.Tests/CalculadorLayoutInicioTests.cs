@@ -27,7 +27,7 @@ public sealed class CalculadorLayoutInicioTests {
         Assert.Equal(0, layout.Continuacion.X);
         Assert.Equal(0, layout.Continuacion.Y);
         Assert.True(layout.Continuacion.Ancho > layout.Progreso.Ancho);
-        Assert.Equal(220, layout.Continuacion.Alto);
+        Assert.Equal(layout.Progreso.Alto, layout.Continuacion.Alto);
     }
 
     [Fact]
@@ -81,6 +81,7 @@ public sealed class CalculadorLayoutInicioTests {
         Assert.Equal(0, layout.Actividad.X);
         Assert.Equal(ancho, layout.Actividad.Ancho);
         Assert.Equal(ancho, layout.Actividad.Derecha);
+        Assert.Equal(layout.Progreso.Inferior, layout.Continuacion.Inferior);
         Assert.Equal(
             Math.Max(
                 layout.Continuacion.Inferior,
@@ -93,11 +94,11 @@ public sealed class CalculadorLayoutInicioTests {
     }
 
     [Fact]
-    public void VistaAmplia_NoEstiraContinuacionParaIgualarColumnaSecundaria() {
+    public void VistaAmplia_AlineaContinuacionConProgreso() {
         var layout = CalcularAmplio(3);
 
-        Assert.Equal(220, layout.Continuacion.Alto);
-        Assert.True(layout.AltoFilaPrincipal > layout.Continuacion.Alto);
+        Assert.Equal(layout.Progreso.Alto, layout.Continuacion.Alto);
+        Assert.Equal(layout.Progreso.Inferior, layout.Continuacion.Inferior);
     }
 
     [Theory]
@@ -156,7 +157,7 @@ public sealed class CalculadorLayoutInicioTests {
     public void ProgresoAmpliado_ConservaAnchosYAlturasDeLasDemasTarjetas() {
         var layout = CalcularAmplio(1);
 
-        Assert.Equal(new Models.RectanguloLayoutInicio(0, 0, 760, 220),
+        Assert.Equal(new Models.RectanguloLayoutInicio(0, 0, 760, 248),
             layout.Continuacion);
         Assert.Equal(new Models.RectanguloLayoutInicio(772, 0, 428, 248),
             layout.Progreso);

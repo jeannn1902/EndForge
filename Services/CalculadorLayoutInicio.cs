@@ -61,9 +61,12 @@ public static class CalculadorLayoutInicio {
             0,
             MaximoActividadesVisibles);
         const int separacion = 12;
-        const int altoContinuacion = 220;
+        const int altoContinuacionCompacto = 220;
         const int altoProgreso =
             CalculadorLayoutFranjaMotivacionInicio.AltoPanelLogico;
+        int altoContinuacion = modoAmplio
+            ? altoProgreso
+            : altoContinuacionCompacto;
         int altoActividad = actividades switch {
             0 => 96,
             _ => 100 + (actividades - 1) * 54
