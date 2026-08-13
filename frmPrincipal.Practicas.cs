@@ -917,6 +917,4 @@ public partial class frmPrincipal {
     private void PanelMenu_Paint(object sender, PaintEventArgs e) {
     }
 
-    private void LblInicio_Click(object sender, EventArgs e) {
-    }
 }

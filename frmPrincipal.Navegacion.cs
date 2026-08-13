@@ -3,6 +3,24 @@ using EndForge.Models;
 namespace EndForge;
 
 public partial class frmPrincipal {
+    private long secuenciaCargaNavegacion;
+
+    private long RegistrarSolicitudCargaNavegacion() {
+        return ++secuenciaCargaNavegacion;
+    }
+
+    private bool EsSolicitudCargaNavegacionVigente(long solicitud) {
+        return EsSolicitudCargaNavegacionVigente(
+            solicitud,
+            secuenciaCargaNavegacion);
+    }
+
+    internal static bool EsSolicitudCargaNavegacionVigente(
+        long solicitud,
+        long ultimaSolicitud) {
+        return solicitud == ultimaSolicitud;
+    }
+
     private bool eventosVistasRutaAprendizajeConfigurados;
     private bool rutaAprendizajeInmersivaActiva;
 
@@ -13,9 +31,6 @@ public partial class frmPrincipal {
 
         panelGradosVista.VisibleChanged += PanelGradosVista_VisibleChanged;
         panelCursoVista.VisibleChanged += PanelDetalleGradoVista_VisibleChanged;
-#if DEBUG
-        panelGradosVista.Paint += PanelRutaAprendizaje_ContarPaint;
-#endif
         eventosVistasRutaAprendizajeConfigurados = true;
     }
 
@@ -107,19 +122,12 @@ public partial class frmPrincipal {
 
     private void OcultarVistasPrincipalesFueraDelCurso() {
         panelInicioVista.Visible = false;
+        OcultarVistaLogros();
         panelRecientesVista.Visible = false;
         panelConfiguracionVista.Visible = false;
         panelVistaNuevaPractica.Visible = false;
         OcultarVistaEstadisticas();
     }
-
-#if DEBUG
-    private void PanelRutaAprendizaje_ContarPaint(object? sender, PaintEventArgs e) {
-        if (transicionandoDesdeBienvenida) {
-            paintsInicioDuranteTransicion++;
-        }
-    }
-#endif
 
     private void PanelMenu_MouseEnter(object? sender, EventArgs e) {
         Panel? panel = sender as Panel ?? (sender as Control)?.Parent as Panel;
@@ -129,12 +137,6 @@ public partial class frmPrincipal {
                 panel.BackColor = Color.FromArgb(74, 35, 110);
             }
         }
-    }
-
-    private void Card_MouseEnter(object sender, EventArgs e) {
-    }
-
-    private void Card_MouseLeave(object sender, EventArgs e) {
     }
 
     private void PanelMenu_MouseLeave(object? sender, EventArgs e) {
@@ -209,6 +211,7 @@ public partial class frmPrincipal {
         try {
             PrepararNavegacionPrincipalDesdeRuta();
             panelInicioVista.Visible = false;
+            OcultarVistaLogros();
             panelRecientesVista.Visible = false;
             panelConfiguracionVista.Visible = false;
             panelVistaNuevaPractica.Visible = false;
@@ -244,6 +247,8 @@ public partial class frmPrincipal {
     }
 
     private void panelNuevaPractica_Click(object? sender, EventArgs e) {
+        RegistrarSolicitudCargaNavegacion();
+
         if (navegacionCursoEnCurso || transicionVisualCursoActiva) {
             return;
         }
@@ -254,6 +259,7 @@ public partial class frmPrincipal {
         SeleccionarPanelMenu(panelNuevaPractica);
 
         panelInicioVista.Visible = false;
+        OcultarVistaLogros();
         panelRecientesVista.Visible = false;
         panelConfiguracionVista.Visible = false;
         panelVistaNuevaPractica.Visible = true;
@@ -264,32 +270,20 @@ public partial class frmPrincipal {
     }
 
     private void PanelInicio_Click(object? sender, EventArgs e) {
+        RegistrarSolicitudCargaNavegacion();
         NavegarVistaPrincipalConTransicion(
             panelInicioVista,
             panelInicio,
-            DistribucionPanelPrincipal.Normal);
-    }
-
-    private void CardInicio_MouseEnter(object? sender, EventArgs e) {
-        Panel? panel = sender as Panel ?? (sender as Control)?.Parent as Panel;
-
-        if (panel != null) {
-            panel.BackColor = Color.FromArgb(35, 28, 48);
-        }
-    }
-
-    private void CardInicio_MouseLeave(object? sender, EventArgs e) {
-        Panel? panel = sender as Panel ?? (sender as Control)?.Parent as Panel;
-
-        if (panel != null) {
-            panel.BackColor = Color.FromArgb(20, 16, 30);
-        }
+            DistribucionPanelPrincipal.Inicio,
+            PrepararInicioParaMostrar);
     }
 
     private async void PanelAbrirPractica_Click(object? sender, EventArgs e) {
         if (navegacionCursoEnCurso || transicionVisualCursoActiva) {
             return;
         }
+
+        long solicitud = RegistrarSolicitudCargaNavegacion();
 
         Panel panelAnterior = panelSeleccionado;
 
@@ -310,7 +304,8 @@ public partial class frmPrincipal {
             promoverReciente: true
         );
 
-        if (IsDisposed || Disposing) {
+        if (IsDisposed || Disposing ||
+            !EsSolicitudCargaNavegacionVigente(solicitud)) {
             return;
         }
 
@@ -329,15 +324,57 @@ public partial class frmPrincipal {
         }
     }
 
-    private void PanelRecientes_Click(object? sender, EventArgs e) {
+    private async void PanelRecientes_Click(object? sender, EventArgs e) {
+        long solicitud = RegistrarSolicitudCargaNavegacion();
+        Panel panelSeleccionadoAlSolicitar = panelSeleccionado;
+        long secuenciaAlSolicitar = secuenciaTransicionVisualCurso;
+        ResultadoLecturaRecientes? resultado =
+            await ObtenerCargaRecientesNavegacion();
+
+        if (!PuedeAplicarCargaNavegacion(
+                resultado is not null,
+                coordinadorCierreOperaciones.PuedeActualizarInterfaz &&
+                    !coordinadorCierreOperaciones.CierreSolicitado,
+                IsHandleCreated,
+                IsDisposed,
+                Disposing,
+                esperandoCierreOperaciones,
+                ReferenceEquals(
+                    panelSeleccionado,
+                    panelSeleccionadoAlSolicitar),
+                secuenciaTransicionVisualCurso == secuenciaAlSolicitar &&
+                    EsSolicitudCargaNavegacionVigente(solicitud))) {
+            return;
+        }
+
         NavegarVistaPrincipalConTransicion(
             panelRecientesVista,
             panelRecientes,
             DistribucionPanelPrincipal.Normal,
-            () => CargarRecientes());
+            () => CargarRecientes(resultado));
+    }
+
+    internal static bool PuedeAplicarCargaNavegacion(
+        bool resultadoDisponible,
+        bool puedeActualizarInterfaz,
+        bool handleCreado,
+        bool formularioEliminado,
+        bool formularioEliminandose,
+        bool esperandoCierre,
+        bool seleccionVigente,
+        bool secuenciaVigente) {
+        return resultadoDisponible &&
+            puedeActualizarInterfaz &&
+            handleCreado &&
+            !formularioEliminado &&
+            !formularioEliminandose &&
+            !esperandoCierre &&
+            seleccionVigente &&
+            secuenciaVigente;
     }
 
     private void PanelConfiguracion_Click(object? sender, EventArgs e) {
+        RegistrarSolicitudCargaNavegacion();
         NavegarVistaPrincipalConTransicion(
             panelConfiguracionVista,
             panelConfiguracion,
@@ -347,17 +384,23 @@ public partial class frmPrincipal {
     }
 
     private void PanelAcercaDe_Click(object? sender, EventArgs e) {
+        RegistrarSolicitudCargaNavegacion();
+
         if (navegacionCursoEnCurso || transicionVisualCursoActiva) {
             return;
         }
 
         PrepararNavegacionPrincipalDesdeRuta();
         Panel panelAnterior = panelSeleccionado;
+        bool logrosEraVisible =
+            estructuraLogrosInicializada && panelLogrosVista.Visible;
 
         if (modoCursoInmersivo) {
             MostrarCursoPrincipal();
         } else if (panelAnterior == panelEstadisticas) {
             MostrarNavegacionPrincipal(DistribucionPanelPrincipal.Estadisticas);
+        } else if (logrosEraVisible) {
+            MostrarNavegacionPrincipal(DistribucionPanelPrincipal.Logros);
         } else {
             MostrarNavegacionPrincipal();
         }
@@ -366,7 +409,7 @@ public partial class frmPrincipal {
         panelVistaNuevaPractica.Visible = false;
 
         MessageBox.Show(
-            "EndForge 1.0\n\n" +
+            $"EndForge {Application.ProductVersion}\n\n" +
             "Desarrollado por:\n" +
             "Jeancarlo Pérez Pérez\n\n" +
             "Herramienta para automatizar la creación y gestión " +
@@ -381,6 +424,9 @@ public partial class frmPrincipal {
         } else if (panelAnterior == panelEstadisticas) {
             SeleccionarPanelMenu(panelEstadisticas);
             panelEstadisticasVista.BringToFront();
+        } else if (logrosEraVisible) {
+            SeleccionarPanelMenu(panelInicio);
+            panelLogrosVista.BringToFront();
         }
     }
 }

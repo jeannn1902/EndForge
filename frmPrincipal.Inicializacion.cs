@@ -23,46 +23,11 @@ public partial class frmPrincipal {
         pictureBoxBarraIcono.MouseDown += PanelBarraTitulo_MouseDown;
     }
 
-    private void ConfigurarTarjetasInicio() {
-        lblCardNuevaPracticaTitulo.MouseEnter += CardInicio_MouseEnter;
-        lblCardNuevaPracticaTitulo.MouseLeave += CardInicio_MouseLeave;
-        lblCardNuevaPracticaDesc.MouseEnter += CardInicio_MouseEnter;
-        lblCardNuevaPracticaDesc.MouseLeave += CardInicio_MouseLeave;
-
-        lblCardRecientesTitulo.MouseEnter += CardInicio_MouseEnter;
-        lblCardRecientesTitulo.MouseLeave += CardInicio_MouseLeave;
-        lblCardRecientesDesc.MouseEnter += CardInicio_MouseEnter;
-        lblCardRecientesDesc.MouseLeave += CardInicio_MouseLeave;
-
-        lblCardConfiguracionTitulo.MouseEnter += CardInicio_MouseEnter;
-        lblCardConfiguracionTitulo.MouseLeave += CardInicio_MouseLeave;
-        lblCardConfiguracionDesc.MouseEnter += CardInicio_MouseEnter;
-        lblCardConfiguracionDesc.MouseLeave += CardInicio_MouseLeave;
-
-        panelCardContinuar.MouseEnter += CardInicio_MouseEnter;
-        panelCardContinuar.MouseLeave += CardInicio_MouseLeave;
-
-        lblCardContinuarTitulo.MouseEnter += CardInicio_MouseEnter;
-        lblCardContinuarTitulo.MouseLeave += CardInicio_MouseLeave;
-
-        lblCardContinuarDesc.MouseEnter += CardInicio_MouseEnter;
-        lblCardContinuarDesc.MouseLeave += CardInicio_MouseLeave;
-
-        panelCardNuevaPractica.MouseEnter += CardInicio_MouseEnter;
-        panelCardNuevaPractica.MouseLeave += CardInicio_MouseLeave;
-
-        panelCardRecientes.MouseEnter += CardInicio_MouseEnter;
-        panelCardRecientes.MouseLeave += CardInicio_MouseLeave;
-
-        panelCardConfiguracion.MouseEnter += CardInicio_MouseEnter;
-        panelCardConfiguracion.MouseLeave += CardInicio_MouseLeave;
-    }
-
     private void ConfigurarVentana() {
         panelPrincipal.BackgroundImage = null;
         panelPrincipal.BackColor = Color.Transparent;
         panelInicioVista.BackgroundImage = null;
-        panelInicioVista.BackColor = Color.Transparent;
+        panelInicioVista.BackColor = ColorFondoInicio;
         panelRecientesVista.BackgroundImage = null;
         panelRecientesVista.BackColor = Color.Transparent;
         panelConfiguracionVista.BackgroundImage = null;
@@ -151,14 +116,6 @@ public partial class frmPrincipal {
         lblAcercaDe.MouseLeave += PanelMenu_MouseLeave;
         pictureBoxAcercaDe.MouseLeave += PanelMenu_MouseLeave;
 
-        panelCardNuevaPractica.Click += panelNuevaPractica_Click;
-        panelCardConfiguracion.Click += PanelConfiguracion_Click;
-
-        lblCardNuevaPracticaTitulo.Click += panelNuevaPractica_Click;
-        lblCardNuevaPracticaDesc.Click += panelNuevaPractica_Click;
-
-        lblCardConfiguracionTitulo.Click += PanelConfiguracion_Click;
-        lblCardConfiguracionDesc.Click += PanelConfiguracion_Click;
     }
 
     private void ConfigurarRecientes() {
@@ -168,18 +125,21 @@ public partial class frmPrincipal {
     }
 
     private void ConfigurarEstadoInicial() {
+        ultimoEstadoVentana = WindowState;
+        ultimoTamanoVistaRecalculado = ClientSize;
+        ultimoDpiVistaRecalculado = DeviceDpi;
+        distribucionPanelPrincipal = DistribucionPanelPrincipal.Inicio;
         panelSeleccionado = panelInicio;
         panelInicio.BackColor = Color.FromArgb(111, 45, 189);
         panelRecientesVista.Visible = false;
         panelConfiguracionVista.Visible = false;
         panelVistaNuevaPractica.Visible = false;
+        OcultarVistaLogros();
         OcultarVistasCurso();
 
         CentrarPanelPrincipal();
+        SincronizarLimitesVistasAdaptables();
+        PrepararInicioParaMostrar();
         InvalidarFondoContinuo();
-
-        panelPrincipal.Invalidate(true);
-        panelInicioVista.Invalidate(true);
-        fondoEndForge.Invalidate(true);
     }
 }

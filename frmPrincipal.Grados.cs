@@ -117,15 +117,21 @@ public partial class frmPrincipal {
             return;
         }
 
-        CursoService? catalogo = gradosService.ObtenerCurso(grado.Id);
+        if (IntentarSeleccionarGrado(grado.Id)) {
+            MostrarCursoPrincipal();
+        }
+    }
+
+    private bool IntentarSeleccionarGrado(string gradoId) {
+        CursoService? catalogo = gradosService.ObtenerCurso(gradoId);
         GradoCurso? gradoActualizado = gradosService.ObtenerGrado(
-            grado.Id,
+            gradoId,
             progresoCurso);
 
         if (catalogo is null ||
             gradoActualizado is null ||
             !gradoActualizado.EsContenidoDisponible) {
-            return;
+            return false;
         }
 
         bool cambioCatalogo = !cursoService.GradoId.Equals(
@@ -140,7 +146,7 @@ public partial class frmPrincipal {
             LimpiarEstadoVisualAlCambiarCatalogo();
         }
 
-        MostrarCursoPrincipal();
+        return true;
     }
 
     private void LimpiarEstadoVisualAlCambiarCatalogo() {

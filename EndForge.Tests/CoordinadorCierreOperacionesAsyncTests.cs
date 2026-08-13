@@ -39,6 +39,61 @@ public sealed class CoordinadorCierreOperacionesAsyncTests {
     }
 
     [Fact]
+    public async Task MotivacionBloqueada_FormaParteDelFlujoCompletoDeEvaluacion() {
+        CoordinadorCierreOperacionesAsync coordinador = new();
+        TaskCompletionSource<bool> evaluacion = CrearFuente();
+        TaskCompletionSource<bool> persistencia = CrearFuente();
+        TaskCompletionSource<bool> motivacion = CrearFuente();
+        TaskCompletionSource<bool> motivacionIniciada = CrearFuente();
+        Task flujo = CrearFlujoConMotivacionAsync(
+            evaluacion.Task,
+            persistencia.Task,
+            motivacion.Task,
+            motivacionIniciada);
+        DecisionCierreOperacionesAsync decision =
+            coordinador.SolicitarCierre(flujo);
+
+        evaluacion.SetResult(true);
+        persistencia.SetResult(true);
+        await motivacionIniciada.Task;
+
+        Assert.False(flujo.IsCompleted);
+        Assert.False(decision.FinalizacionPendiente!.IsCompleted);
+        Assert.False(coordinador.IntentarAutorizarReintento());
+
+        motivacion.SetResult(true);
+        await decision.FinalizacionPendiente;
+
+        Assert.True(coordinador.IntentarAutorizarReintento());
+        Assert.False(coordinador.IntentarAutorizarReintento());
+    }
+
+    [Fact]
+    public async Task MotivacionIndependienteComoTerceraOperacion_ImpideCerrar() {
+        CoordinadorCierreOperacionesAsync coordinador = new();
+        TaskCompletionSource<bool> motivacion = CrearFuente();
+
+        DecisionCierreOperacionesAsync primera = coordinador.SolicitarCierre(
+            Task.CompletedTask,
+            Task.CompletedTask,
+            motivacion.Task);
+        DecisionCierreOperacionesAsync segunda = coordinador.SolicitarCierre(
+            Task.CompletedTask,
+            Task.CompletedTask,
+            motivacion.Task);
+
+        Assert.True(primera.DebeEsperar);
+        Assert.False(segunda.PermitirCierre);
+        Assert.False(segunda.DebeEsperar);
+        Assert.False(coordinador.PuedeActualizarInterfaz);
+
+        motivacion.SetResult(true);
+        await primera.FinalizacionPendiente!;
+
+        Assert.True(coordinador.IntentarAutorizarReintento());
+    }
+
+    [Fact]
     public async Task CierreContinuaCanceladoMientrasPersiste() {
         CoordinadorCierreOperacionesAsync coordinador = new();
         TaskCompletionSource<bool> evaluacion = CrearFuente();
@@ -175,5 +230,16 @@ public sealed class CoordinadorCierreOperacionesAsyncTests {
         await evaluacion;
         persistenciaIniciada.SetResult(true);
         await persistencia;
+    }
+
+    private static async Task CrearFlujoConMotivacionAsync(
+        Task evaluacion,
+        Task persistencia,
+        Task motivacion,
+        TaskCompletionSource<bool> motivacionIniciada) {
+        await evaluacion;
+        await persistencia;
+        motivacionIniciada.SetResult(true);
+        await motivacion;
     }
 }

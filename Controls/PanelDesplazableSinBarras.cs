@@ -2,6 +2,74 @@ using System.Drawing.Drawing2D;
 
 namespace EndForge.Controls;
 
+internal readonly record struct ResultadoRuedaDesplazamiento(
+    int PosicionDestino,
+    int AcumuladoRestante);
+
+internal sealed class EstadoDesplazamientoSincrono {
+    public int PosicionActual { get; private set; }
+
+    public int MaximoActual { get; private set; }
+
+    public bool AplicacionEnCurso { get; private set; }
+
+    public int OperacionesPendientes => 0;
+
+    public void Restablecer(int posicion, int maximo) {
+        MaximoActual = Math.Max(0, maximo);
+        PosicionActual = Limitar(posicion, MaximoActual);
+    }
+
+    public bool AjustarMaximo(int maximo) {
+        if (AplicacionEnCurso) {
+            return false;
+        }
+
+        MaximoActual = Math.Max(0, maximo);
+        int nuevaPosicion = Limitar(PosicionActual, MaximoActual);
+
+        if (nuevaPosicion == PosicionActual) {
+            return false;
+        }
+
+        PosicionActual = nuevaPosicion;
+        return true;
+    }
+
+    public bool IntentarMover(
+        int destino,
+        int maximo,
+        Action<int, int> aplicar) {
+        ArgumentNullException.ThrowIfNull(aplicar);
+
+        if (AplicacionEnCurso) {
+            return false;
+        }
+
+        MaximoActual = Math.Max(0, maximo);
+        int nuevaPosicion = Limitar(destino, MaximoActual);
+
+        if (nuevaPosicion == PosicionActual) {
+            return false;
+        }
+
+        int posicionAnterior = PosicionActual;
+        PosicionActual = nuevaPosicion;
+        AplicacionEnCurso = true;
+
+        try {
+            aplicar(posicionAnterior, nuevaPosicion);
+            return true;
+        } finally {
+            AplicacionEnCurso = false;
+        }
+    }
+
+    private static int Limitar(int posicion, int maximo) {
+        return Math.Clamp(posicion, 0, Math.Max(0, maximo));
+    }
+}
+
 internal sealed class PanelDesplazableSinBarras : Panel {
     private const int DeltaRueda = 120;
     private const int PasoLinea = 40;
@@ -34,12 +102,9 @@ internal sealed class PanelDesplazableSinBarras : Panel {
         DashStyle = DashStyle.Dot
     };
 
-    private int desplazamientoVertical;
-    private int desplazamientoDestino;
+    private readonly EstadoDesplazamientoSincrono estadoDesplazamiento = new();
     private int acumuladoRueda;
     private bool actualizandoContenido;
-    private bool aplicacionDesplazamientoPendiente;
-    private long generacionAplicacionDesplazamiento;
     private bool barraVisible;
     private bool indicadorHover;
     private bool arrastrandoIndicador;
@@ -50,6 +115,12 @@ internal sealed class PanelDesplazableSinBarras : Panel {
     public FlowLayoutPanel Contenido { get; }
 
     public bool MostrarBordeFoco { get; set; } = true;
+
+    internal int PosicionDesplazamientoActual =>
+        estadoDesplazamiento.PosicionActual;
+
+    internal int OperacionesDesplazamientoPendientes =>
+        estadoDesplazamiento.OperacionesPendientes;
 
     public Color ColorFondoContenido {
         get => Contenido.BackColor;
@@ -100,9 +171,7 @@ internal sealed class PanelDesplazableSinBarras : Panel {
 
         try {
             if (volverAlInicio) {
-                desplazamientoVertical = 0;
-                desplazamientoDestino = 0;
-                CancelarAplicacionDesplazamientoPendiente();
+                estadoDesplazamiento.Restablecer(0, int.MaxValue);
                 acumuladoRueda = 0;
             }
 
@@ -112,7 +181,7 @@ internal sealed class PanelDesplazableSinBarras : Panel {
             int altoDisponible = Math.Max(1, ClientSize.Height - Padding.Vertical);
             Contenido.SetBounds(
                 Padding.Left,
-                Padding.Top - desplazamientoVertical,
+                Padding.Top - estadoDesplazamiento.PosicionActual,
                 anchoDisponible,
                 Math.Max(1, Contenido.Height));
             Contenido.PerformLayout();
@@ -125,14 +194,9 @@ internal sealed class PanelDesplazableSinBarras : Panel {
             int maximo = CalcularMaximoDesplazamiento(
                 altoContenidoReal,
                 altoDisponible);
-            desplazamientoVertical = Math.Clamp(desplazamientoVertical, 0, maximo);
-            desplazamientoDestino = aplicacionDesplazamientoPendiente
-                ? Math.Clamp(desplazamientoDestino, 0, maximo)
-                : desplazamientoVertical;
+            estadoDesplazamiento.AjustarMaximo(maximo);
 
             if (!barraVisible) {
-                CancelarAplicacionDesplazamientoPendiente();
-                desplazamientoDestino = desplazamientoVertical;
                 indicadorHover = false;
                 arrastrandoIndicador = false;
                 desfaseArrastreIndicador = 0;
@@ -145,7 +209,7 @@ internal sealed class PanelDesplazableSinBarras : Panel {
 
             Contenido.SetBounds(
                 Padding.Left,
-                Padding.Top - desplazamientoVertical,
+                Padding.Top - estadoDesplazamiento.PosicionActual,
                 anchoDisponible,
                 altoContenido);
             Contenido.PerformLayout();
@@ -164,8 +228,7 @@ internal sealed class PanelDesplazableSinBarras : Panel {
 
         DesconectarEventosContenido();
         CancelarInteraccion();
-        desplazamientoVertical = 0;
-        desplazamientoDestino = 0;
+        estadoDesplazamiento.Restablecer(0, int.MaxValue);
         barraVisible = false;
         nuevoContenedor.Controls.Add(Contenido);
         Invalidate();
@@ -186,8 +249,6 @@ internal sealed class PanelDesplazableSinBarras : Panel {
         bool requiereRepintado = indicadorHover || arrastrandoIndicador;
 
         acumuladoRueda = 0;
-        CancelarAplicacionDesplazamientoPendiente();
-        desplazamientoDestino = desplazamientoVertical;
         indicadorHover = false;
         arrastrandoIndicador = false;
         desfaseArrastreIndicador = 0;
@@ -432,102 +493,41 @@ internal sealed class PanelDesplazableSinBarras : Panel {
 
     private void ProcesarRueda(MouseEventArgs e) {
         int lineas = SystemInformation.MouseWheelScrollLines;
-
-        if (lineas == 0) {
-            return;
-        }
-
-        acumuladoRueda += e.Delta;
-        int pasos = acumuladoRueda / DeltaRueda;
-        acumuladoRueda %= DeltaRueda;
-
-        if (pasos == 0) {
-            return;
-        }
-
-        int distancia = lineas < 0
-            ? Math.Max(PasoLinea, ClientSize.Height - PasoLinea)
-            : lineas * PasoLinea;
-
-        MoverA(ObtenerDesplazamientoSolicitado() - pasos * distancia);
+        ResultadoRuedaDesplazamiento resultado = CalcularDestinoRueda(
+            ObtenerDesplazamientoSolicitado(),
+            acumuladoRueda,
+            e.Delta,
+            lineas,
+            ClientSize.Height,
+            ObtenerMaximoDesplazamiento());
+        acumuladoRueda = resultado.AcumuladoRestante;
+        MoverA(resultado.PosicionDestino);
     }
 
     private void MoverA(int destino) {
         int maximo = ObtenerMaximoDesplazamiento();
-        int nuevoValor = Math.Clamp(destino, 0, maximo);
+        Rectangle indicadorAnterior = ObtenerRectanguloIndicador();
 
-        if (nuevoValor == ObtenerDesplazamientoSolicitado()) {
-            return;
-        }
-
-        desplazamientoDestino = nuevoValor;
-        ProgramarAplicacionDesplazamiento();
+        estadoDesplazamiento.IntentarMover(
+            destino,
+            maximo,
+            (_, posicionNueva) =>
+                AplicarDesplazamiento(indicadorAnterior, posicionNueva));
     }
 
     private int ObtenerDesplazamientoSolicitado() {
-        return aplicacionDesplazamientoPendiente
-            ? desplazamientoDestino
-            : desplazamientoVertical;
+        return estadoDesplazamiento.PosicionActual;
     }
 
-    private void ProgramarAplicacionDesplazamiento() {
-        if (aplicacionDesplazamientoPendiente || IsDisposed || Disposing) {
-            return;
-        }
-
-        if (!IsHandleCreated) {
-            AplicarDesplazamientoDestino();
-            return;
-        }
-
-        aplicacionDesplazamientoPendiente = true;
-        long generacionProgramada = ++generacionAplicacionDesplazamiento;
+    private void AplicarDesplazamiento(
+        Rectangle indicadorAnterior,
+        int posicionNueva) {
+        SuspendLayout();
 
         try {
-            BeginInvoke((Action)(() => {
-                if (generacionProgramada != generacionAplicacionDesplazamiento ||
-                    !aplicacionDesplazamientoPendiente ||
-                    IsDisposed ||
-                    Disposing) {
-                    return;
-                }
-
-                aplicacionDesplazamientoPendiente = false;
-                AplicarDesplazamientoDestino();
-            }));
-        } catch (InvalidOperationException) {
-            if (generacionProgramada == generacionAplicacionDesplazamiento) {
-                aplicacionDesplazamientoPendiente = false;
-            }
-        }
-    }
-
-    private void CancelarAplicacionDesplazamientoPendiente() {
-        generacionAplicacionDesplazamiento++;
-        aplicacionDesplazamientoPendiente = false;
-    }
-
-    private void AplicarDesplazamientoDestino() {
-        int maximo = ObtenerMaximoDesplazamiento();
-        int nuevoValor = Math.Clamp(desplazamientoDestino, 0, maximo);
-
-        desplazamientoDestino = nuevoValor;
-
-        if (nuevoValor == desplazamientoVertical) {
-            return;
-        }
-
-        Rectangle indicadorAnterior = ObtenerRectanguloIndicador();
-        desplazamientoVertical = nuevoValor;
-        AplicarDesplazamiento(indicadorAnterior);
-    }
-
-    private void AplicarDesplazamiento(Rectangle indicadorAnterior) {
-        Contenido.Top = Padding.Top - desplazamientoVertical;
-        Rectangle viewport = ObtenerRectanguloViewport();
-
-        if (!viewport.IsEmpty) {
-            Invalidate(viewport, invalidateChildren: true);
+            Contenido.Top = Padding.Top - posicionNueva;
+        } finally {
+            ResumeLayout(performLayout: false);
         }
 
         Rectangle indicadorNuevo = ObtenerRectanguloIndicador();
@@ -562,13 +562,60 @@ internal sealed class PanelDesplazableSinBarras : Panel {
         Rectangle indicador = ObtenerRectanguloIndicador();
         int recorrido = pista.Height - indicador.Height;
         int maximo = ObtenerMaximoDesplazamiento();
+        return CalcularDestinoIndicador(
+            posicionY,
+            desfaseArrastreIndicador,
+            pista.Top,
+            recorrido,
+            maximo);
+    }
 
+    internal static ResultadoRuedaDesplazamiento CalcularDestinoRueda(
+        int posicionActual,
+        int acumuladoActual,
+        int delta,
+        int lineas,
+        int altoViewport,
+        int maximo) {
+        int limite = Math.Max(0, maximo);
+
+        if (lineas == 0) {
+            return new ResultadoRuedaDesplazamiento(
+                Math.Clamp(posicionActual, 0, limite),
+                acumuladoActual);
+        }
+
+        int nuevoAcumulado = acumuladoActual + delta;
+        int pasos = nuevoAcumulado / DeltaRueda;
+        nuevoAcumulado %= DeltaRueda;
+
+        if (pasos == 0) {
+            return new ResultadoRuedaDesplazamiento(
+                Math.Clamp(posicionActual, 0, limite),
+                nuevoAcumulado);
+        }
+
+        int distancia = lineas < 0
+            ? Math.Max(PasoLinea, altoViewport - PasoLinea)
+            : lineas * PasoLinea;
+        long destino = (long)posicionActual - (long)pasos * distancia;
+        return new ResultadoRuedaDesplazamiento(
+            (int)Math.Clamp(destino, 0L, limite),
+            nuevoAcumulado);
+    }
+
+    internal static int CalcularDestinoIndicador(
+        int posicionY,
+        int desfase,
+        int inicioPista,
+        int recorrido,
+        int maximo) {
         if (recorrido <= 0 || maximo <= 0) {
             return 0;
         }
 
         int posicionIndicador = Math.Clamp(
-            posicionY - desfaseArrastreIndicador - pista.Top,
+            posicionY - desfase - inicioPista,
             0,
             recorrido);
         return (int)Math.Round(posicionIndicador * maximo / (double)recorrido);
@@ -580,9 +627,7 @@ internal sealed class PanelDesplazableSinBarras : Panel {
         }
 
         int destinoFinal = CalcularDesplazamientoDesdeMouse(ubicacionMouse.Y);
-        CancelarAplicacionDesplazamientoPendiente();
-        desplazamientoDestino = destinoFinal;
-        AplicarDesplazamientoDestino();
+        MoverA(destinoFinal);
         arrastrandoIndicador = false;
         desfaseArrastreIndicador = 0;
         indicadorHover = barraVisible && ObtenerRectanguloIndicador().Contains(ubicacionMouse);
@@ -686,7 +731,9 @@ internal sealed class PanelDesplazableSinBarras : Panel {
         int y = pista.Top;
 
         if (recorrido > 0 && maximo > 0) {
-            y += (int)Math.Round(recorrido * desplazamientoVertical / (double)maximo);
+            y += (int)Math.Round(
+                recorrido * estadoDesplazamiento.PosicionActual /
+                (double)maximo);
         }
 
         return new Rectangle(pista.Left, y, pista.Width, altoIndicador);

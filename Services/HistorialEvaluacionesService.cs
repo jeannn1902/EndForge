@@ -174,6 +174,10 @@ public sealed class HistorialEvaluacionesService {
             practicas.Add(practica);
         }
 
+        int? mejorCalificacionAnterior = practica.MejorCalificacion;
+        int? ultimaCalificacionAnterior = practica.UltimaCalificacion;
+        DateTimeOffset? fechaUltimoIntentoAnterior = practica.FechaUltimoIntento;
+
         try {
             practica.TotalIntentos = checked(practica.TotalIntentos + 1);
         } catch (OverflowException ex) {
@@ -189,14 +193,33 @@ public sealed class HistorialEvaluacionesService {
         practica.UltimaCalificacion = intento.Calificacion;
         practica.FechaUltimoIntento = intento.Fecha;
         practica.Intentos.Add(CopiarIntento(intento));
-        practica.Intentos = OrdenarYLimitarIntentos(practica.Intentos);
+        practica.Intentos = OrdenarYLimitarIntentos(
+            practica.Intentos,
+            intento.Id);
 
         EscribirHistorial(practicas);
         HistorialPractica historialActualizado = ConvertirAPublico(practica);
+        IntentoPractica intentoPublicado = historialActualizado.Intentos.Single(item =>
+            item.Id.Equals(intento.Id, StringComparison.OrdinalIgnoreCase));
+        TransicionEvaluacionPersistida transicionPersistida =
+            new() {
+                PracticaId = intentoPublicado.PracticaId,
+                IntentoId = intentoPublicado.Id,
+                FechaIntento = intentoPublicado.Fecha,
+                CalificacionIntento = intentoPublicado.Calificacion,
+                MejorCalificacionAnterior = mejorCalificacionAnterior,
+                UltimaCalificacionAnterior = ultimaCalificacionAnterior,
+                FechaUltimoIntentoAnterior = fechaUltimoIntentoAnterior,
+                MejorCalificacionPosterior = practica.MejorCalificacion
+                    ?? intentoPublicado.Calificacion,
+                TotalIntentos = practica.TotalIntentos,
+                IntentoPublicado = true
+            };
 
         return new ResultadoEscrituraHistorialEvaluaciones {
             Estado = EstadoEscrituraHistorialEvaluaciones.Exitosa,
             HistorialActualizado = historialActualizado,
+            TransicionPersistida = transicionPersistida,
             RegistrosInvalidosIgnorados = carga.RegistrosInvalidos
         };
     }
@@ -720,11 +743,34 @@ public sealed class HistorialEvaluacionesService {
     }
 
     private static List<IntentoPractica> OrdenarYLimitarIntentos(
-        IEnumerable<IntentoPractica> intentos) {
-        return intentos
+        IEnumerable<IntentoPractica> intentos,
+        string? intentoPrioritarioId = null) {
+        List<IntentoPractica> ordenados = intentos
             .OrderByDescending(item => item.Fecha)
             .ThenByDescending(item => item.Id, StringComparer.Ordinal)
-            .Take(MaximoIntentosPorPractica)
+            .Select(CopiarIntento)
+            .ToList();
+
+        if (string.IsNullOrWhiteSpace(intentoPrioritarioId) ||
+            ordenados.Count <= MaximoIntentosPorPractica) {
+            return ordenados.Take(MaximoIntentosPorPractica).ToList();
+        }
+
+        IntentoPractica? intentoPrioritario = ordenados.FirstOrDefault(item =>
+            item.Id.Equals(intentoPrioritarioId, StringComparison.OrdinalIgnoreCase));
+
+        if (intentoPrioritario is null) {
+            return ordenados.Take(MaximoIntentosPorPractica).ToList();
+        }
+
+        return ordenados
+            .Where(item => !item.Id.Equals(
+                intentoPrioritarioId,
+                StringComparison.OrdinalIgnoreCase))
+            .Take(MaximoIntentosPorPractica - 1)
+            .Append(intentoPrioritario)
+            .OrderByDescending(item => item.Fecha)
+            .ThenByDescending(item => item.Id, StringComparer.Ordinal)
             .Select(CopiarIntento)
             .ToList();
     }

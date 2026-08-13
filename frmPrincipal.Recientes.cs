@@ -6,6 +6,46 @@ public partial class frmPrincipal {
     private EstadoLecturaRecientes? ultimoEstadoLecturaRecientesNotificado;
     private ResultadoLecturaRecientes? ultimoResultadoLecturaRecientes;
     private bool aperturaPracticaEnCurso;
+    private bool cargaRecientesNavegacionEnCurso;
+    private Task<ResultadoLecturaRecientes?>? tareaCargaRecientesNavegacion;
+
+    private async Task<ResultadoLecturaRecientes?> CargarRecientesParaNavegacionAsync() {
+        if (cargaRecientesNavegacionEnCurso ||
+            navegacionCursoEnCurso ||
+            transicionVisualCursoActiva ||
+            esperandoCierreOperaciones ||
+            coordinadorCierreOperaciones.CierreSolicitado) {
+            return null;
+        }
+
+        cargaRecientesNavegacionEnCurso = true;
+
+        try {
+            return await Task.Run(() =>
+                recientesService.LeerProyectosRecientes());
+        } catch (Exception ex) {
+            if (!IsDisposed &&
+                !Disposing &&
+                IsHandleCreated &&
+                coordinadorCierreOperaciones.PuedeActualizarInterfaz) {
+                Program.RegistrarErrorRecuperable(ex);
+            }
+
+            return null;
+        } finally {
+            cargaRecientesNavegacionEnCurso = false;
+        }
+    }
+
+    private Task<ResultadoLecturaRecientes?> ObtenerCargaRecientesNavegacion() {
+        if (tareaCargaRecientesNavegacion is null ||
+            tareaCargaRecientesNavegacion.IsCompleted) {
+            tareaCargaRecientesNavegacion =
+                CargarRecientesParaNavegacionAsync();
+        }
+
+        return tareaCargaRecientesNavegacion;
+    }
 
     private ResultadoEscrituraRecientes GuardarProyectoReciente(string rutaProyecto) {
         return recientesService.GuardarProyectoReciente(rutaProyecto);
@@ -35,7 +75,11 @@ public partial class frmPrincipal {
                     "EndForge",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
-                CargarRecientes();
+
+                if (promoverReciente) {
+                    CargarRecientes();
+                }
+
                 return false;
             }
 
@@ -47,7 +91,11 @@ public partial class frmPrincipal {
                     "EndForge",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
-                CargarRecientes();
+
+                if (promoverReciente) {
+                    CargarRecientes();
+                }
+
                 return false;
             }
 
@@ -100,16 +148,6 @@ public partial class frmPrincipal {
     private void LimpiarVistaRecientes() {
         listRecientes.Items.Clear();
         LimpiarLabelsRecientes();
-
-        lblCardRecientesDesc.Text = "";
-        lblCardRecientesDesc.Tag = null;
-        lblCardContinuarDesc.Text = "";
-        lblCardContinuarDesc.Tag = null;
-    }
-
-    private void MostrarTarjetasRecientesVacias() {
-        lblCardRecientesDesc.Text = "No hay proyectos recientes.";
-        lblCardContinuarDesc.Text = "No hay prácticas recientes.";
     }
 
     private async void LabelReciente_DoubleClick(object? sender, EventArgs e) {
@@ -123,13 +161,18 @@ public partial class frmPrincipal {
             promoverReciente: true);
     }
 
-    private void CargarRecientes(ResultadoLecturaRecientes? resultadoPrecargado = null) {
-        ActualizarVistaRecientes(resultadoPrecargado: resultadoPrecargado);
+    private void CargarRecientes(
+        ResultadoLecturaRecientes? resultadoPrecargado = null,
+        bool notificar = true) {
+        ActualizarVistaRecientes(
+            resultadoPrecargado: resultadoPrecargado,
+            notificar: notificar);
     }
 
     private void ActualizarVistaRecientes(
         string? filtro = null,
-        ResultadoLecturaRecientes? resultadoPrecargado = null) {
+        ResultadoLecturaRecientes? resultadoPrecargado = null,
+        bool notificar = true) {
         LimpiarVistaRecientes();
 
         ResultadoLecturaRecientes resultado =
@@ -138,18 +181,14 @@ public partial class frmPrincipal {
                 ? ultimoResultadoLecturaRecientes
                 : recientesService.LeerProyectosRecientes());
         ultimoResultadoLecturaRecientes = resultado;
-        NotificarResultadoLecturaRecientes(resultado);
 
-        if (!resultado.DatosDisponibles || resultado.Proyectos.Count == 0) {
-            MostrarTarjetasRecientesVacias();
-            return;
+        if (notificar) {
+            NotificarResultadoLecturaRecientes(resultado);
         }
 
-        ProyectoReciente primerProyecto = resultado.Proyectos[0];
-        lblCardRecientesDesc.Text = primerProyecto.Nombre;
-        lblCardRecientesDesc.Tag = primerProyecto.Ruta;
-        lblCardContinuarDesc.Text = primerProyecto.Nombre;
-        lblCardContinuarDesc.Tag = primerProyecto.Ruta;
+        if (!resultado.DatosDisponibles || resultado.Proyectos.Count == 0) {
+            return;
+        }
 
         IEnumerable<ProyectoReciente> proyectosVisibles = resultado.Proyectos;
 
@@ -285,35 +324,6 @@ public partial class frmPrincipal {
         using (Pen linea = new Pen(colorLinea)) {
             e.Graphics.DrawLine(linea, e.Bounds.Left + 8, e.Bounds.Bottom - 1, e.Bounds.Right - 8, e.Bounds.Bottom - 1);
         }
-    }
-
-    private async void LblCardRecientesDesc_Click(object sender, EventArgs e) {
-        string? rutaProyecto = lblCardRecientesDesc.Tag as string;
-
-        if (!string.IsNullOrWhiteSpace(rutaProyecto)) {
-            await IntentarAbrirPracticaAsync(rutaProyecto, true);
-        }
-    }   
-
-    private void PanelCardRecientes_Click(object sender, EventArgs e) {
-        LblCardRecientesDesc_Click(sender, e);
-    }
-
-    private void LblCardRecientesTitulo_Click(object sender, EventArgs e) {
-        LblCardRecientesDesc_Click(sender, e);
-    }
-
-    private async void PanelCardContinuar_Click(object sender, EventArgs e) {
-        string? rutaProyecto = lblCardContinuarDesc.Tag?.ToString();
-
-        if (string.IsNullOrWhiteSpace(rutaProyecto)) {
-            return;
-        }
-
-        await IntentarAbrirPracticaAsync(rutaProyecto, true);
-    }
-
-    private void panelCardContinuar_Click(object sender, EventArgs e) {
     }
 
     private void TxtBuscarReciente_TextChanged(object sender, EventArgs e) {

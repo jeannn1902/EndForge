@@ -1,19 +1,25 @@
 using System.Runtime.InteropServices;
+using EndForge.Services;
 
 namespace EndForge;
 
 public partial class frmPrincipal {
     private enum DistribucionPanelPrincipal {
         Normal,
+        Inicio,
         Curso,
         NuevaPractica,
-        Estadisticas
+        Estadisticas,
+        Logros
     }
 
     private System.Windows.Forms.Timer timerRecalcularVista = new System.Windows.Forms.Timer();
     private bool recalculandoVista;
     private bool recalculoPendienteDuranteTransicion;
     private DistribucionPanelPrincipal distribucionPanelPrincipal;
+    private FormWindowState ultimoEstadoVentana = FormWindowState.Normal;
+    private Size ultimoTamanoVistaRecalculado;
+    private int ultimoDpiVistaRecalculado;
 
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
@@ -42,7 +48,7 @@ public partial class frmPrincipal {
             return;
         }
 
-        fondoEndForge.Invalidate(true);
+        fondoEndForge.Invalidate();
     }
 
     private void PosicionarBotonesBarraTitulo() {
@@ -122,21 +128,25 @@ public partial class frmPrincipal {
                 1,
                 area.Bottom - limiteSuperior - margen * 2);
 
-            panelPrincipal.SetBounds(
-                area.Left + margen,
-                limiteSuperior + margen,
-                ancho,
-                alto);
+            AplicarBoundsSiCambian(
+                panelPrincipal,
+                new Rectangle(
+                    area.Left + margen,
+                    limiteSuperior + margen,
+                    ancho,
+                    alto));
             return;
         }
 
         if (evaluacionInmersivaAmpliaActiva) {
             int limiteSuperior = Math.Max(ClientRectangle.Top, panelBarraTitulo.Bottom);
-            panelPrincipal.SetBounds(
-                ClientRectangle.Left,
-                limiteSuperior,
-                Math.Max(1, ClientRectangle.Width),
-                Math.Max(1, ClientRectangle.Bottom - limiteSuperior));
+            AplicarBoundsSiCambian(
+                panelPrincipal,
+                new Rectangle(
+                    ClientRectangle.Left,
+                    limiteSuperior,
+                    Math.Max(1, ClientRectangle.Width),
+                    Math.Max(1, ClientRectangle.Bottom - limiteSuperior)));
             return;
         }
 
@@ -170,11 +180,13 @@ public partial class frmPrincipal {
                     anchoMinimo,
                     Math.Max(anchoMinimo, anchoMaximo));
 
-                panelPrincipal.SetBounds(
-                    area.Left + margen,
-                    limiteSuperior + margen,
-                    anchoAmplio,
-                    altoAmplio);
+                AplicarBoundsSiCambian(
+                    panelPrincipal,
+                    new Rectangle(
+                        area.Left + margen,
+                        limiteSuperior + margen,
+                        anchoAmplio,
+                        altoAmplio));
                 return;
             }
 
@@ -191,13 +203,30 @@ public partial class frmPrincipal {
                 altoDisponible,
                 tamanoPanelPrincipalNormal.Height + expansionVertical);
 
-            panelPrincipal.SetBounds(
-                Math.Max(area.Left, area.Left + (area.Width - ancho) / 2),
-                Math.Max(
-                    limiteSuperior,
-                    limiteSuperior + (area.Bottom - limiteSuperior - alto) / 2),
-                Math.Max(1, ancho),
-                Math.Max(1, alto));
+            AplicarBoundsSiCambian(
+                panelPrincipal,
+                new Rectangle(
+                    Math.Max(area.Left, area.Left + (area.Width - ancho) / 2),
+                    Math.Max(
+                        limiteSuperior,
+                        limiteSuperior +
+                            (area.Bottom - limiteSuperior - alto) / 2),
+                    Math.Max(1, ancho),
+                    Math.Max(1, alto)));
+            return;
+        }
+
+        if (distribucionPanelPrincipal == DistribucionPanelPrincipal.Curso) {
+            Rectangle limitesCurso =
+                CalculadorGeometriaNavegacionCurso.CalcularPanelPrincipalConMenu(
+                    ClientRectangle,
+                    Math.Max(ClientRectangle.Top, panelBarraTitulo.Bottom),
+                    panelMenu.Visible
+                        ? Math.Max(ClientRectangle.Left, panelMenu.Right)
+                        : ClientRectangle.Left,
+                    EscalarDiseno(24));
+
+            AplicarBoundsSiCambian(panelPrincipal, limitesCurso);
             return;
         }
 
@@ -216,8 +245,10 @@ public partial class frmPrincipal {
             int alto;
 
             if (distribucionPanelPrincipal is
+                DistribucionPanelPrincipal.Inicio or
                 DistribucionPanelPrincipal.Curso or
-                DistribucionPanelPrincipal.Estadisticas) {
+                DistribucionPanelPrincipal.Estadisticas or
+                DistribucionPanelPrincipal.Logros) {
                 ancho = anchoUtil;
                 alto = altoUtil;
             } else {
@@ -229,25 +260,27 @@ public partial class frmPrincipal {
                 alto = Math.Max(altoMinimo, Math.Min(altoUtil, altoMaximo));
             }
 
-            panelPrincipal.SetBounds(
-                limiteIzquierdo + Math.Max(0, (anchoArea - ancho) / 2),
-                limiteSuperior + Math.Max(0, (altoArea - alto) / 2),
-                ancho,
-                alto);
+            AplicarBoundsSiCambian(
+                panelPrincipal,
+                new Rectangle(
+                    limiteIzquierdo + Math.Max(0, (anchoArea - ancho) / 2),
+                    limiteSuperior + Math.Max(0, (altoArea - alto) / 2),
+                    ancho,
+                    alto));
             return;
         }
 
-        if (!tamanoPanelPrincipalNormal.IsEmpty) {
-            panelPrincipal.Size = tamanoPanelPrincipalNormal;
-        }
-
+        Size tamano = tamanoPanelPrincipalNormal.IsEmpty
+            ? panelPrincipal.Size
+            : tamanoPanelPrincipalNormal;
         int anchoMenu = panelMenu.Visible ? panelMenu.Width : 0;
         int espacioDisponible = ClientSize.Width - anchoMenu;
+        int x = anchoMenu + (espacioDisponible - tamano.Width) / 2;
+        int y = (ClientSize.Height - tamano.Height) / 2;
 
-        int x = anchoMenu + (espacioDisponible - panelPrincipal.Width) / 2;
-        int y = (ClientSize.Height - panelPrincipal.Height) / 2;
-
-        panelPrincipal.Location = new Point(x, y);
+        AplicarBoundsSiCambian(
+            panelPrincipal,
+            new Rectangle(x, y, tamano.Width, tamano.Height));
     }
 
     private int EscalarDiseno(int valor) {
@@ -261,39 +294,71 @@ public partial class frmPrincipal {
         RecalcularDistribucionCurso();
         AjustarGeometriaNuevaPractica();
         RecalcularGeometriaEstadisticas();
+        ActualizarGeometriaInicio();
+        ActualizarGeometriaLogros();
     }
 
     private void SincronizarLimitesVistasAdaptables() {
         Rectangle limites = panelPrincipal.ClientRectangle;
-        panelVistaNuevaPractica.SetBounds(
+        Rectangle limitesNormalizados = new(
             limites.Left,
             limites.Top,
             Math.Max(1, limites.Width),
             Math.Max(1, limites.Height));
 
-        if (estructuraEstadisticasInicializada) {
-            panelEstadisticasVista.SetBounds(
-                limites.Left,
-                limites.Top,
-                Math.Max(1, limites.Width),
-                Math.Max(1, limites.Height));
+        if (distribucionPanelPrincipal == DistribucionPanelPrincipal.Inicio ||
+            panelInicioVista.Visible) {
+            AplicarBoundsSiCambian(panelInicioVista, limitesNormalizados);
         }
 
-        if (!cursoInicializado) {
+        if (distribucionPanelPrincipal == DistribucionPanelPrincipal.Logros ||
+            (estructuraLogrosInicializada && panelLogrosVista.Visible)) {
+            SincronizarLimitesVistaLogros(limites);
+        }
+
+        if (distribucionPanelPrincipal ==
+                DistribucionPanelPrincipal.NuevaPractica ||
+            panelVistaNuevaPractica.Visible) {
+            AplicarBoundsSiCambian(panelVistaNuevaPractica, limitesNormalizados);
+        }
+
+        if (estructuraEstadisticasInicializada &&
+            (distribucionPanelPrincipal ==
+                DistribucionPanelPrincipal.Estadisticas ||
+             panelEstadisticasVista.Visible)) {
+            AplicarBoundsSiCambian(panelEstadisticasVista, limitesNormalizados);
+        }
+
+        if (!DebeRecalcularDistribucionCurso(
+                cursoInicializado,
+                distribucionPanelPrincipal == DistribucionPanelPrincipal.Curso,
+                modoCursoInmersivo,
+                vistaRutaActual != VistaRutaAprendizaje.Ninguna)) {
             return;
         }
 
         foreach (Control vista in ObtenerVistasRutaAprendizaje()) {
-            vista.SetBounds(
-                limites.Left,
-                limites.Top,
-                Math.Max(1, limites.Width),
-                Math.Max(1, limites.Height));
+            AplicarBoundsSiCambian(vista, limitesNormalizados);
         }
+    }
+
+    internal static bool AplicarBoundsSiCambian(
+        Control control,
+        Rectangle limites) {
+        ArgumentNullException.ThrowIfNull(control);
+
+        if (control.Bounds == limites) {
+            return false;
+        }
+
+        control.Bounds = limites;
+        return true;
     }
 
     private void FrmPrincipal_Resize(object? sender, EventArgs e) {
         timerRecalcularVista.Stop();
+        FormWindowState estadoAnterior = ultimoEstadoVentana;
+        ultimoEstadoVentana = WindowState;
 
         if (WindowState == FormWindowState.Minimized) {
             return;
@@ -306,7 +371,38 @@ public partial class frmPrincipal {
             return;
         }
 
+        if (DebeRecalcularInmediatamentePorCambioEstadoVentana(
+                estadoAnterior,
+                WindowState)) {
+            recalculoPendienteDuranteTransicion = false;
+            EjecutarRecalculoVistaFinal();
+            return;
+        }
+
+        if (GeometriaVistaSigueVigente(
+                ClientSize,
+                DeviceDpi,
+                ultimoTamanoVistaRecalculado,
+                ultimoDpiVistaRecalculado)) {
+            return;
+        }
+
         timerRecalcularVista.Start();
+    }
+
+    internal static bool DebeRecalcularInmediatamentePorCambioEstadoVentana(
+        FormWindowState estadoAnterior,
+        FormWindowState estadoActual) {
+        return estadoActual != FormWindowState.Minimized &&
+            estadoActual != estadoAnterior;
+    }
+
+    internal static bool GeometriaVistaSigueVigente(
+        Size tamanoActual,
+        int dpiActual,
+        Size ultimoTamano,
+        int ultimoDpi) {
+        return tamanoActual == ultimoTamano && dpiActual == ultimoDpi;
     }
 
     private void TimerRecalcularVista_Tick(object? sender, EventArgs e) {
@@ -355,6 +451,9 @@ public partial class frmPrincipal {
 
             if (panelPantallaBienvenida.Visible) {
                 CentrarContenidoBienvenida();
+                if (panelPantallaBienvenida.ActualizarCacheImagenFondo()) {
+                    panelPantallaBienvenida.Invalidate();
+                }
             }
         } finally {
             panelPrincipal.ResumeLayout(performLayout: false);
@@ -362,8 +461,11 @@ public partial class frmPrincipal {
             recalculandoVista = false;
         }
 
+        fondoEndForge.ActualizarCacheImagenFondo();
         fondoEndForge.Invalidate();
         panelPrincipal.Invalidate();
+        ultimoTamanoVistaRecalculado = ClientSize;
+        ultimoDpiVistaRecalculado = DeviceDpi;
         RegistrarTiempoInicio("Resize final: recálculo e invalidación terminados");
     }
 }

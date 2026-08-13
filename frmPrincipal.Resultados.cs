@@ -613,6 +613,10 @@ public partial class frmPrincipal {
             actualizandoHistorial = false;
         }
 
+        if (resultado.EsExitosa) {
+            MarcarInicioPendienteDeRecarga();
+        }
+
         if (IsDisposed || Disposing) {
             return;
         }

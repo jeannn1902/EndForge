@@ -785,6 +785,19 @@ public partial class frmPrincipal {
             return;
         }
 
+        long solicitud = RegistrarSolicitudCargaNavegacion();
+        await MostrarRutaAprendizajeDesdeMenuAsync(solicitud);
+    }
+
+    private async Task MostrarRutaAprendizajeDesdeMenuAsync(
+        long solicitudNavegacion) {
+        if (entradaCursoPendiente ||
+            navegacionCursoEnCurso ||
+            transicionVisualCursoActiva ||
+            !EsSolicitudCargaNavegacionVigente(solicitudNavegacion)) {
+            return;
+        }
+
         Panel panelSeleccionadoAlSolicitar = panelSeleccionado;
         long secuenciaTransicionAlSolicitar = secuenciaTransicionVisualCurso;
         entradaCursoPendiente = true;
@@ -793,6 +806,9 @@ public partial class frmPrincipal {
             await PrepararCursoParaInteraccionAsync();
 
             if (!cursoPreparado || IsDisposed || Disposing ||
+                !IsHandleCreated || esperandoCierreOperaciones ||
+                coordinadorCierreOperaciones.CierreSolicitado ||
+                !EsSolicitudCargaNavegacionVigente(solicitudNavegacion) ||
                 navegacionCursoEnCurso || transicionVisualCursoActiva ||
                 !ReferenceEquals(panelSeleccionado, panelSeleccionadoAlSolicitar) ||
                 secuenciaTransicionVisualCurso != secuenciaTransicionAlSolicitar) {
@@ -934,6 +950,11 @@ public partial class frmPrincipal {
     }
 
     private void MostrarDetallePractica(PracticaCurso practica) {
+        bool entradaDirectaDesdeInicio =
+            panelInicioVista.Visible &&
+            panelMenu.Visible &&
+            !modoCursoInmersivo &&
+            distribucionPanelPrincipal == DistribucionPanelPrincipal.Inicio;
         bool mismoDetalleVisible =
             panelDetallePracticaVista.Visible &&
             vistaRutaActual == VistaRutaAprendizaje.DetallePractica &&
@@ -951,20 +972,33 @@ public partial class frmPrincipal {
 
         RestablecerEstadosVisualesVistaActualCurso();
         PrepararDestinoDespuesDeCubiertaTransicionCurso(
-            () => PrepararYMostrarDetallePractica(practica));
+            () => PrepararYMostrarDetallePractica(
+                practica,
+                entradaDirectaDesdeInicio));
     }
 
-    private void PrepararYMostrarDetallePractica(PracticaCurso practica) {
+    private void PrepararYMostrarDetallePractica(
+        PracticaCurso practica,
+        bool entradaDirectaDesdeInicio = false) {
         panelPrincipal.SuspendLayout();
 
         try {
+            OcultarVistasPrincipalesFueraDelCurso();
             practicaCursoSeleccionada = practica;
             temaCursoSeleccionado = cursoService.ObtenerTema(practica.TemaId);
             lblNumeroDetallePracticaCurso.Text = $"Práctica No. {practica.Numero}";
             lblTituloDetallePracticaCurso.Text = practica.Nombre;
-            bool requiereModoInmersivo = !modoCursoInmersivo || panelMenu.Visible;
+            bool requiereModoInmersivo =
+                !entradaDirectaDesdeInicio &&
+                (!modoCursoInmersivo || panelMenu.Visible);
 
-            if (requiereModoInmersivo) {
+            if (entradaDirectaDesdeInicio) {
+                PrepararNavegacionPrincipalDesdeRuta();
+                MostrarNavegacionPrincipal(
+                    DistribucionPanelPrincipal.Curso,
+                    invalidarFondo: false);
+                SeleccionarPanelMenu(panelCurso);
+            } else if (requiereModoInmersivo) {
                 MostrarModoCursoInmersivo(invalidarFondo: false);
             } else {
                 ActualizarGeometriaDetallePractica();
@@ -1489,7 +1523,11 @@ public partial class frmPrincipal {
     }
 
     private void RecalcularDistribucionCurso() {
-        if (!cursoInicializado ||
+        if (!DebeRecalcularDistribucionCurso(
+                cursoInicializado,
+                distribucionPanelPrincipal == DistribucionPanelPrincipal.Curso,
+                modoCursoInmersivo,
+                vistaRutaActual != VistaRutaAprendizaje.Ninguna) ||
             desplazamientoTemasCurso is null ||
             desplazamientoPracticasTema is null ||
             desplazamientoDetallePractica is null ||
@@ -1512,6 +1550,15 @@ public partial class frmPrincipal {
         ActualizarGeometriaDetallePractica();
     }
 
+    internal static bool DebeRecalcularDistribucionCurso(
+        bool cursoInicializado,
+        bool distribucionCurso,
+        bool modoInmersivo,
+        bool vistaCursoActiva) {
+        return cursoInicializado &&
+            (distribucionCurso || modoInmersivo || vistaCursoActiva);
+    }
+
     private void ActualizarGeometriaVistaPracticas() {
         if (panelPracticasTemaVista is null || panelPracticasTemaVista.IsDisposed) {
             return;
@@ -1529,6 +1576,8 @@ public partial class frmPrincipal {
             !rutaAprendizajeInmersivaActiva &&
             !evaluacionInmersivaAmpliaActiva &&
             contextoEducativoInmersivo;
+        bool usarAnchoCurricularAmplio =
+            DebeUsarAnchoCurricularAmplio(usarAnchoInmersivoAmplio);
 
         if (usarAnchoInmersivoAmplio) {
             Rectangle areaInmersiva = ClientRectangle;
@@ -1566,15 +1615,16 @@ public partial class frmPrincipal {
 
         Rectangle area = panelPracticasTemaVista.ClientRectangle;
         bool distribucionAmplia = area.Height >= EscalarDiseno(620);
-        int margenHorizontal = usarAnchoInmersivoAmplio
+        int margenHorizontal = usarAnchoCurricularAmplio
             ? 0
             : EscalarDiseno(distribucionAmplia ? 16 : 12);
         int margenSuperior = EscalarDiseno(distribucionAmplia ? 4 : 8);
         int margenInferior = EscalarDiseno(distribucionAmplia ? 20 : 14);
-        int anchoDisponible = Math.Max(1, area.Width - margenHorizontal * 2);
-        int anchoContenido = Math.Min(
-            anchoDisponible,
-            EscalarDiseno(usarAnchoInmersivoAmplio ? 1500 : 1180));
+        int anchoContenido =
+            CalculadorGeometriaNavegacionCurso.CalcularAnchoContenidoCurricular(
+                area.Width,
+                margenHorizontal,
+                EscalarDiseno(usarAnchoCurricularAmplio ? 1500 : 1180));
         int xContenido = area.Left + margenHorizontal;
         int xTexto = xContenido + EscalarDiseno(4);
         int anchoTexto = Math.Max(1, anchoContenido - EscalarDiseno(8));
@@ -1647,6 +1697,8 @@ public partial class frmPrincipal {
             !rutaAprendizajeInmersivaActiva &&
             !evaluacionInmersivaAmpliaActiva &&
             contextoEducativoInmersivo;
+        bool usarAnchoCurricularAmplio =
+            DebeUsarAnchoCurricularAmplio(usarAnchoInmersivoAmplio);
 
         if (usarAnchoInmersivoAmplio) {
             Rectangle areaInmersiva = ClientRectangle;
@@ -1684,15 +1736,16 @@ public partial class frmPrincipal {
 
         Rectangle area = panelDetallePracticaVista.ClientRectangle;
         bool distribucionAmplia = area.Height >= EscalarDiseno(620);
-        int margenHorizontal = usarAnchoInmersivoAmplio
+        int margenHorizontal = usarAnchoCurricularAmplio
             ? 0
             : EscalarDiseno(distribucionAmplia ? 16 : 12);
         int margenSuperior = EscalarDiseno(distribucionAmplia ? 4 : 8);
         int margenInferior = EscalarDiseno(distribucionAmplia ? 20 : 14);
-        int anchoDisponible = Math.Max(1, area.Width - margenHorizontal * 2);
-        int anchoContenido = Math.Min(
-            anchoDisponible,
-            EscalarDiseno(usarAnchoInmersivoAmplio ? 1500 : 1180));
+        int anchoContenido =
+            CalculadorGeometriaNavegacionCurso.CalcularAnchoContenidoCurricular(
+                area.Width,
+                margenHorizontal,
+                EscalarDiseno(usarAnchoCurricularAmplio ? 1500 : 1180));
         int xContenido = area.Left + margenHorizontal;
         int xTexto = xContenido + EscalarDiseno(4);
         int anchoTexto = Math.Max(1, anchoContenido - EscalarDiseno(8));
@@ -1736,6 +1789,14 @@ public partial class frmPrincipal {
             Math.Max(1, limiteInferior - yDetalle));
 
         ActualizarGeometriaContenidoDetallePractica(volverAlInicio: false);
+    }
+
+    private bool DebeUsarAnchoCurricularAmplio(bool usarAnchoInmersivoAmplio) {
+        return usarAnchoInmersivoAmplio ||
+            !modoCursoInmersivo &&
+            panelMenu.Visible &&
+            distribucionPanelPrincipal == DistribucionPanelPrincipal.Curso &&
+            WindowState == FormWindowState.Maximized;
     }
 
     private void RecalcularVistaPrincipalCurso() {
@@ -3894,7 +3955,25 @@ public partial class frmPrincipal {
         }
 
         ActualizarProgresoEnMemoria(practicaId, estado, rutaProyecto);
+        ProgresoCurso? progresoPersistido = resultado.ProgresoPersistido;
+        TransicionProgresoPersistida? transicionPersistida =
+            resultado.TransicionPersistida;
         CargarProgresoCurso(mostrarAvisoInmediato: false);
+        MarcarInicioPendienteDeRecarga();
+
+        if (progresoPersistido is not null && transicionPersistida is not null) {
+            _ = EncolarProcesamientoMotivacion(() =>
+                RegistrarResultadoMotivacion(
+                    motivacionService.ProcesarProgresoPersistido(
+                        practicaId,
+                        progresoPersistido,
+                        transicionPersistida)));
+        } else {
+            Program.RegistrarErrorRecuperable(new InvalidOperationException(
+                "El progreso se guardó, pero no se obtuvo la transición " +
+                "publicada necesaria para procesar motivación."));
+        }
+
         return true;
     }
 
@@ -4107,7 +4186,8 @@ public partial class frmPrincipal {
         Point ubicacion,
         Size tamano,
         int radio,
-        bool interactiva = false) {
+        bool interactiva = false,
+        bool resaltarFocoContenido = true) {
         Panel tarjeta = interactiva
             ? new TarjetaCursoInteractiva()
             : new Panel();
@@ -4130,10 +4210,13 @@ public partial class frmPrincipal {
             tarjeta.Paint += (_, e) => {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 Rectangle limites = new(1, 1, tarjeta.Width - 3, tarjeta.Height - 3);
-                Color colorBorde = tarjeta.ContainsFocus
+                bool resaltarFoco = DebeResaltarFocoTarjetaCurso(
+                    resaltarFocoContenido,
+                    tarjeta.ContainsFocus);
+                Color colorBorde = resaltarFoco
                     ? ColorMoradoClaroCurso
                     : ColorBordeCurso;
-                float anchoBorde = tarjeta.ContainsFocus ? 2.2F : 1.2F;
+                float anchoBorde = resaltarFoco ? 2.2F : 1.2F;
 
                 using GraphicsPath contorno = CrearContornoRedondeado(limites, radio);
                 using Pen borde = new(colorBorde, anchoBorde);
@@ -4142,6 +4225,12 @@ public partial class frmPrincipal {
         }
 
         return tarjeta;
+    }
+
+    internal static bool DebeResaltarFocoTarjetaCurso(
+        bool resaltarFocoContenido,
+        bool contieneFoco) {
+        return resaltarFocoContenido && contieneFoco;
     }
 
     private static void AplicarRegionRedondeada(Control control, int radio) {
