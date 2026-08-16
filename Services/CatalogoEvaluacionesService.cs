@@ -587,11 +587,11 @@ public sealed partial class CatalogoEvaluacionesService {
             PracticaId = MayorDeEdadId,
             NombrePractica = "Mayor de edad",
             Objetivo = "Clasificar una edad válida y detectar valores fuera del rango permitido.",
-            Descripcion = "Se comprobará que el programa repita la edad recibida y la clasifique como mayor de edad, menor de edad o edad inválida.",
+            Descripcion = "Se comprobará que el programa clasifique la edad recibida como mayor de edad, menor de edad o edad inválida; si muestra la edad, debe coincidir con la entrada.",
             ContratoEntrada = "1 línea: edad entera. El rango válido es de 0 a 120; desde 18 se considera mayor de edad y los valores fuera del rango son inválidos.",
             CamposEntrada = Array.AsReadOnly(new[] { "Edad entera" }),
             ValidacionesRequeridas = Array.AsReadOnly(new[] {
-                "Mostrar la edad recibida con una etiqueta reconocible.",
+                "Si se muestra la edad recibida, debe coincidir con la entrada.",
                 "Clasificar las edades válidas usando el límite de 18 años.",
                 "Rechazar edades negativas o mayores que 120.",
                 "Mostrar una sola clasificación sin resultados contradictorios."
@@ -2060,7 +2060,11 @@ public sealed partial class CatalogoEvaluacionesService {
             Nombre = "Edad",
             Valor = edad,
             Tolerancia = 0D,
+            EsOpcional = true,
+            PoliticaAsociacion = PoliticaAsociacionValor.OpcionalComoLineaCompleta,
             EtiquetasAlternativas = Array.AsReadOnly(new[] {
+                "La edad es",
+                "Edad es",
                 "Años",
                 "Edad ingresada",
                 "Valor ingresado"
@@ -2083,6 +2087,14 @@ public sealed partial class CatalogoEvaluacionesService {
         return new ValorTextualEsperado {
             Nombre = "Clasificación",
             Valor = valorEsperado,
+            PoliticaAsociacion =
+                PoliticaAsociacionValor.OpcionalConConectoresConfigurados,
+            ConectoresPermitidos = Array.AsReadOnly(new[] {
+                "es",
+                "son",
+                "está"
+            }),
+            PuntuacionTerminalAdicional = Array.AsReadOnly(new[] { '!' }),
             EtiquetasAlternativas = Array.AsReadOnly(new[] {
                 "Clasificacion",
                 "Resultado",
@@ -2102,6 +2114,7 @@ public sealed partial class CatalogoEvaluacionesService {
                 CrearOpcionTextual(
                     "Edad inválida",
                     "edad inválida",
+                    "inválida",
                     "edad no válida",
                     "valor inválido",
                     "fuera de rango",
@@ -2728,12 +2741,24 @@ public sealed partial class CatalogoEvaluacionesService {
             Tipo = TipoSecuenciaEsperada.Textual,
             AlternativasTextualesEsperadas = Array.AsReadOnly(
                 eventos.Select(CrearEventoAdivinaNumero).ToArray()),
+            EventosTextualesReconocibles = Array.AsReadOnly(new[] {
+                CrearEventoAdivinaNumero("El número secreto es mayor"),
+                CrearEventoAdivinaNumero("El número secreto es menor"),
+                CrearEventoAdivinaNumero("Intento inválido"),
+                CrearEventoAdivinaNumero("Correcto"),
+                CrearEventoAdivinaNumero("Resultado incorrecto")
+            }),
             OrdenObligatorio = true,
             CantidadExacta = eventos.Count,
             PermitirDuplicados = true,
             PermitirElementosAdicionales = false,
             PermitirTextoAdicional = true,
-            RequerirEventosEnLineasIndependientes = true
+            RequerirEventosEnLineasIndependientes = true,
+            EtiquetasProhibidasDespuesDelUltimoEvento = Array.AsReadOnly(new[] {
+                "Intento",
+                "Nuevo intento",
+                "Siguiente intento"
+            })
         };
     }
 
@@ -2743,6 +2768,8 @@ public sealed partial class CatalogoEvaluacionesService {
             "El número secreto es mayor" =>
                 new ElementoTextualSecuenciaEsperado {
                     Valor = evento,
+                    IgnorarEnPreguntas = true,
+                    RechazarPrefijoNegativo = true,
                     Alternativas = Array.AsReadOnly(new[] {
                         "El numero secreto es mayor",
                         "Es mayor",
@@ -2754,6 +2781,8 @@ public sealed partial class CatalogoEvaluacionesService {
             "El número secreto es menor" =>
                 new ElementoTextualSecuenciaEsperado {
                     Valor = evento,
+                    IgnorarEnPreguntas = true,
+                    RechazarPrefijoNegativo = true,
                     Alternativas = Array.AsReadOnly(new[] {
                         "El numero secreto es menor",
                         "Es menor",
@@ -2765,6 +2794,7 @@ public sealed partial class CatalogoEvaluacionesService {
             "Intento inválido" =>
                 new ElementoTextualSecuenciaEsperado {
                     Valor = evento,
+                    IgnorarEnPreguntas = true,
                     Alternativas = Array.AsReadOnly(new[] {
                         "Intento invalido",
                         "Número fuera de rango",
@@ -2776,6 +2806,8 @@ public sealed partial class CatalogoEvaluacionesService {
             "Correcto" =>
                 new ElementoTextualSecuenciaEsperado {
                     Valor = evento,
+                    IgnorarEnPreguntas = true,
+                    RechazarPrefijoNegativo = true,
                     Alternativas = Array.AsReadOnly(new[] {
                         "Adivinaste",
                         "Número encontrado",
@@ -2791,6 +2823,26 @@ public sealed partial class CatalogoEvaluacionesService {
                         "Total de intentos",
                         "Cantidad de intentos"
                     })
+                },
+            "Resultado incorrecto" =>
+                new ElementoTextualSecuenciaEsperado {
+                    Valor = evento,
+                    IgnorarEnPreguntas = true,
+                    Alternativas = Array.AsReadOnly(new[] {
+                        "Resultado: Incorrecto",
+                        "Resultado no correcto",
+                        "No correcto",
+                        "No es correcto",
+                        "No es el número secreto",
+                        "No es el numero secreto",
+                        "Respuesta incorrecta",
+                        "No acertaste",
+                        "No adivinaste",
+                        "Incorrecto"
+                    }),
+                    RequerirTextoAlInicioDeLinea = true,
+                    PermitirInicioDespuesDeDelimitador = true,
+                    PermitirRepresentacionEtiquetadaEnCualquierPosicion = true
                 },
             _ => throw new ArgumentException(
                 "El evento del juego no está definido.",

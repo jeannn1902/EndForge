@@ -12,6 +12,13 @@ public enum TipoSecuenciaEsperada {
     Textual
 }
 
+public enum PoliticaAsociacionValor {
+    Requerida,
+    OpcionalComoLineaCompleta,
+    OpcionalComoValorUnico,
+    OpcionalConConectoresConfigurados
+}
+
 public sealed class CasoPrueba {
     public string Id { get; init; } = "";
 
@@ -101,6 +108,9 @@ public sealed class ValorNumericoEsperado {
 
     public bool DebeEstarAusente { get; init; }
 
+    public PoliticaAsociacionValor PoliticaAsociacion { get; init; } =
+        PoliticaAsociacionValor.Requerida;
+
     public IReadOnlyList<string> EtiquetasAlternativas { get; init; } =
         Array.Empty<string>();
 
@@ -131,6 +141,15 @@ public sealed class ValorTextualEsperado {
     public bool EsOpcional { get; init; }
 
     public bool PermitirSinEtiqueta { get; init; }
+
+    public PoliticaAsociacionValor PoliticaAsociacion { get; init; } =
+        PoliticaAsociacionValor.Requerida;
+
+    public IReadOnlyList<string> ConectoresPermitidos { get; init; } =
+        Array.Empty<string>();
+
+    public IReadOnlyList<char> PuntuacionTerminalAdicional { get; init; } =
+        Array.Empty<char>();
 
     public IReadOnlyList<string> EtiquetasAlternativas { get; init; } =
         Array.Empty<string>();
@@ -177,6 +196,11 @@ public sealed class SecuenciaEsperada {
     public bool PermitirTextoAdicional { get; init; } = true;
 
     public bool RequerirEventosEnLineasIndependientes { get; init; }
+
+    public IReadOnlyList<string> EtiquetasProhibidasDespuesDelUltimoEvento {
+        get;
+        init;
+    } = Array.Empty<string>();
 }
 
 public sealed class ElementoTextualSecuenciaEsperado {
@@ -185,6 +209,17 @@ public sealed class ElementoTextualSecuenciaEsperado {
     public bool BuscarComoTexto { get; init; } = true;
 
     public bool RequerirTextoAlInicioDeLinea { get; init; }
+
+    public bool RechazarPrefijoNegativo { get; init; }
+
+    public bool IgnorarEnPreguntas { get; init; }
+
+    public bool PermitirInicioDespuesDeDelimitador { get; init; }
+
+    public bool PermitirRepresentacionEtiquetadaEnCualquierPosicion {
+        get;
+        init;
+    }
 
     public IReadOnlyList<string> Alternativas { get; init; } =
         Array.Empty<string>();

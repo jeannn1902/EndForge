@@ -94,15 +94,18 @@ public sealed partial class ComparadorSalidaService {
                   secuenciasCompuestasComparadas.All(secuencia => secuencia.Coincide)
                 : reglasEstructuradas.TieneReglas);
         bool etiquetasValoresPresentes = !compararValores ||
-            valoresComparados.All(valor =>
-                valor.EsOpcional ||
-                valor.DebeEstarAusente ||
-                !string.IsNullOrWhiteSpace(valor.EtiquetaEncontrada)) &&
+            caso.ValoresNumericosEsperados
+                .Select((esperado, indice) => CumpleEstructuraValorNumerico(
+                    esperado,
+                    valoresComparados[indice]))
+                .All(cumple => cumple) &&
             booleanosComparados.All(valor => !string.IsNullOrWhiteSpace(valor.EtiquetaEncontrada));
         bool etiquetasTextoPresentes = !compararTexto ||
-            textosComparados.All(valor =>
-                valor.EsOpcional ||
-                !string.IsNullOrWhiteSpace(valor.EtiquetaEncontrada));
+            caso.ValoresTextualesEsperados
+                .Select((esperado, indice) => CumpleEstructuraValorTextual(
+                    esperado,
+                    textosComparados[indice]))
+                .All(cumple => cumple);
         bool cumpleEstructura =
             cumpleTexto &&
             etiquetasValoresPresentes &&
@@ -161,6 +164,20 @@ public sealed partial class ComparadorSalidaService {
             cadena.Coincide &&
             string.IsNullOrEmpty(cadena.ValorEsperado) &&
             cadena.ValoresEncontrados.Any(string.IsNullOrEmpty));
+        bool contieneAsociacionFlexibleReconocible =
+            caso.ValoresTextualesEsperados
+                .Select((esperado, indice) => new {
+                    Esperado = esperado,
+                    Resultado = textosComparados.ElementAtOrDefault(indice)
+                })
+                .Any(elemento =>
+                    elemento.Esperado.PoliticaAsociacion !=
+                        PoliticaAsociacionValor.Requerida &&
+                    elemento.Resultado is not null &&
+                    elemento.Resultado.Coincide &&
+                    !elemento.Resultado.TieneContradiccion &&
+                    !string.IsNullOrWhiteSpace(
+                        elemento.Resultado.RepresentacionEncontrada));
         bool salidaLegible =
             cadenaVaciaValida ||
             EsLegible(
@@ -173,7 +190,8 @@ public sealed partial class ComparadorSalidaService {
                     secuencia.CantidadEncontrada > 0) ||
                 secuenciasCompuestasComparadas.Any(secuencia =>
                     secuencia.CantidadEncontrada > 0) ||
-                reglasEstructuradas.TieneEstructuraReconocible);
+                reglasEstructuradas.TieneEstructuraReconocible ||
+                contieneAsociacionFlexibleReconocible);
         bool esCorrecta =
             cumpleTexto &&
             valoresCorrectos &&
@@ -361,6 +379,11 @@ public sealed partial class ComparadorSalidaService {
                 esperada,
                 candidatos);
         List<string> elementosAdicionales = adicionales.ToList();
+        bool tieneEventoProhibidoPosterior =
+            ContieneEtiquetaProhibidaDespuesDelUltimoEvento(
+                salida,
+                esperada,
+                candidatos);
         bool tieneTextoAdicional = !esperada.PermitirTextoAdicional &&
             ContieneTextoAdicional(salida, candidatos.Select(candidato =>
                 new IntervaloSecuencia(candidato.Indice, candidato.Longitud)), esperada);
@@ -373,6 +396,10 @@ public sealed partial class ComparadorSalidaService {
             elementosAdicionales.Add("Valor numérico asociado incorrecto");
         }
 
+        if (tieneEventoProhibidoPosterior) {
+            elementosAdicionales.Add("Evento posterior al final");
+        }
+
         bool coincide =
             cantidadCorrecta &&
             ordenCorrecto &&
@@ -383,6 +410,7 @@ public sealed partial class ComparadorSalidaService {
             eventosEnLineasIndependientes &&
             asociacionesNumericasCorrectas &&
             asociacionesNumericasFaltantes.Count == 0 &&
+            !tieneEventoProhibidoPosterior &&
             !tieneTextoAdicional;
         string mensaje = !eventosEnLineasIndependientes
             ? "Muestra cada respuesta principal en una línea independiente."
@@ -945,13 +973,44 @@ public sealed partial class ComparadorSalidaService {
                         continue;
                     }
 
-                    foreach (Match coincidencia in CrearRegexToken(normalizada)
+                    foreach (Match coincidencia in
+                        CrearRegexRepresentacionSecuencia(
+                            normalizada,
+                            elemento
+                                .PermitirRepresentacionEtiquetadaEnCualquierPosicion)
                         .Matches(salidaNormalizada)
                         .Cast<Match>()) {
+                        if (elemento.IgnorarEnPreguntas &&
+                            EstaCoincidenciaEnPregunta(
+                                salidaNormalizada,
+                                coincidencia.Index,
+                                coincidencia.Length)) {
+                            continue;
+                        }
+
                         if (elemento.RequerirTextoAlInicioDeLinea &&
-                            !EstaEtiquetaAlInicioDeLinea(
+                            !(elemento.PermitirInicioDespuesDeDelimitador
+                                ? EstaEtiquetaAlInicioDeLineaOClausula(
+                                    salidaNormalizada,
+                                    coincidencia.Index)
+                                : EstaEtiquetaAlInicioDeLinea(
+                                    salidaNormalizada,
+                                    coincidencia.Index)) &&
+                            !(elemento
+                                    .PermitirRepresentacionEtiquetadaEnCualquierPosicion &&
+                                EsRepresentacionConEtiquetaExplicita(
+                                    representacion))) {
+                            continue;
+                        }
+
+                        if (elemento.RechazarPrefijoNegativo &&
+                            TienePrefijoNegativo(
                                 salidaNormalizada,
                                 coincidencia.Index)) {
+                            candidatos.Add(new CandidatoSecuenciaTextual(
+                                coincidencia.Index,
+                                coincidencia.Length,
+                                $"Negación de {elemento.Valor}"));
                             continue;
                         }
 
@@ -983,6 +1042,68 @@ public sealed partial class ComparadorSalidaService {
         }
 
         return seleccionados;
+    }
+
+    private static bool ContieneEtiquetaProhibidaDespuesDelUltimoEvento(
+        string salida,
+        SecuenciaEsperada esperada,
+        IReadOnlyList<CandidatoSecuenciaTextual> candidatos) {
+        if (esperada.EtiquetasProhibidasDespuesDelUltimoEvento.Count == 0 ||
+            esperada.AlternativasTextualesEsperadas.Count == 0) {
+            return false;
+        }
+
+        string valorTerminal = esperada.AlternativasTextualesEsperadas[^1].Valor;
+        CandidatoSecuenciaTextual? eventoTerminal = candidatos
+            .LastOrDefault(candidato => candidato.Valor.Equals(
+                valorTerminal,
+                StringComparison.OrdinalIgnoreCase));
+
+        if (eventoTerminal is null) {
+            return false;
+        }
+
+        string salidaNormalizada = NormalizarLineaPreservandoIndices(salida);
+        int inicioBusqueda = eventoTerminal.Indice + eventoTerminal.Longitud;
+
+        foreach (string etiqueta in
+            esperada.EtiquetasProhibidasDespuesDelUltimoEvento) {
+            string etiquetaNormalizada = NormalizarTexto(etiqueta);
+
+            if (etiquetaNormalizada.Length == 0) {
+                continue;
+            }
+
+            foreach (Match coincidencia in CrearRegexToken(etiquetaNormalizada)
+                .Matches(salidaNormalizada)
+                .Cast<Match>()) {
+                if (coincidencia.Index >= inicioBusqueda &&
+                    (EstaEtiquetaAlInicioDeLineaOClausula(
+                        salidaNormalizada,
+                        coincidencia.Index) ||
+                     TieneSeparadorEtiquetaExplicitoDespues(
+                        salidaNormalizada,
+                        coincidencia.Index + coincidencia.Length))) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TienePrefijoNegativo(
+        string texto,
+        int indiceCoincidencia) {
+        int inicioLinea = indiceCoincidencia == 0
+            ? 0
+            : texto.LastIndexOf('\n', indiceCoincidencia - 1) + 1;
+        string prefijo = texto[inicioLinea..indiceCoincidencia];
+        int ultimoSeparador = prefijo.LastIndexOfAny(
+            new[] { '.', ',', ';', ':', '!', '?' });
+        string clausula = prefijo[(ultimoSeparador + 1)..];
+
+        return ContieneNegacion(clausula);
     }
 
     private static IReadOnlyList<CandidatoSecuenciaTextual>
@@ -1069,6 +1190,85 @@ public sealed partial class ComparadorSalidaService {
         return texto[inicioLinea..indiceEtiqueta].All(caracter =>
             char.IsWhiteSpace(caracter) ||
             caracter is '¡' or '¿' or '-' or '•' or '>' or '*');
+    }
+
+    private static bool EstaEtiquetaAlInicioDeLineaOClausula(
+        string texto,
+        int indiceEtiqueta) {
+        if (EstaEtiquetaAlInicioDeLinea(texto, indiceEtiqueta)) {
+            return true;
+        }
+
+        int inicioLinea = indiceEtiqueta == 0
+            ? 0
+            : texto.LastIndexOf('\n', indiceEtiqueta - 1) + 1;
+        int ultimoDelimitador = texto.LastIndexOfAny(
+            new[] { '.', ';', '!', '?' },
+            indiceEtiqueta - 1);
+
+        if (ultimoDelimitador < inicioLinea) {
+            return false;
+        }
+
+        return texto[(ultimoDelimitador + 1)..indiceEtiqueta].All(caracter =>
+            char.IsWhiteSpace(caracter) ||
+            caracter is '¡' or '¿' or '-' or '•' or '>' or '*');
+    }
+
+    private static bool EstaCoincidenciaEnPregunta(
+        string texto,
+        int indiceCoincidencia,
+        int longitudCoincidencia) {
+        int inicioLinea = indiceCoincidencia == 0
+            ? 0
+            : texto.LastIndexOf('\n', indiceCoincidencia - 1) + 1;
+        int ultimoDelimitador = indiceCoincidencia == 0
+            ? -1
+            : texto.LastIndexOfAny(
+                new[] { '.', ';', '!', '?' },
+                indiceCoincidencia - 1);
+        int inicioClausula = Math.Max(inicioLinea, ultimoDelimitador + 1);
+        int finLinea = texto.IndexOf('\n', indiceCoincidencia);
+
+        if (finLinea < 0) {
+            finLinea = texto.Length;
+        }
+
+        int finClausula = texto.IndexOfAny(
+            new[] { '.', ';', '!', '?' },
+            indiceCoincidencia + longitudCoincidencia);
+
+        if (finClausula < 0 || finClausula > finLinea) {
+            finClausula = finLinea;
+        } else {
+            finClausula++;
+        }
+
+        ReadOnlySpan<char> clausula = texto.AsSpan(
+            inicioClausula,
+            finClausula - inicioClausula);
+
+        return clausula.Contains('?') || clausula.Contains('¿');
+    }
+
+    private static bool EsRepresentacionConEtiquetaExplicita(
+        string representacion) {
+        int indiceSeparador = representacion.IndexOfAny(new[] { ':', '=' });
+
+        return indiceSeparador > 0 &&
+            indiceSeparador < representacion.Length - 1;
+    }
+
+    private static bool TieneSeparadorEtiquetaExplicitoDespues(
+        string texto,
+        int indiceFinalEtiqueta) {
+        int indice = indiceFinalEtiqueta;
+
+        while (indice < texto.Length && char.IsWhiteSpace(texto[indice])) {
+            indice++;
+        }
+
+        return indice < texto.Length && texto[indice] is ':' or '=';
     }
 
     private static bool EstanEventosEnLineasIndependientes(
@@ -1552,16 +1752,38 @@ public sealed partial class ComparadorSalidaService {
             }
         }
 
+        bool usoAsociacionSinEtiqueta =
+            esperado.PoliticaAsociacion != PoliticaAsociacionValor.Requerida;
+
+        if (usoAsociacionSinEtiqueta) {
+            foreach (CandidatoNumero candidato in
+                ExtraerNumerosSinEtiqueta(lineas, esperado.PoliticaAsociacion)) {
+                PosicionNumero posicion = new(
+                    candidato.IndiceLinea,
+                    candidato.IndiceCaracter,
+                    candidato.Longitud);
+
+                if (!numerosUtilizados.Contains(posicion)) {
+                    candidatos.TryAdd(posicion, candidato);
+                }
+            }
+        }
+
         foreach (PosicionNumero posicion in candidatos.Keys) {
             numerosUtilizados.Add(posicion);
         }
 
         CandidatoNumero[] encontrados = candidatos.Values.ToArray();
-        bool tieneContradiccion = encontrados.Any(candidato =>
-            encontrados.Any(otro => !SonRepresentacionesNumericasEquivalentes(
-                candidato.Valor,
-                otro.Valor,
-                esperado)));
+        bool asociacionUnicaAmbigua = usoAsociacionSinEtiqueta &&
+            esperado.PoliticaAsociacion ==
+                PoliticaAsociacionValor.OpcionalComoValorUnico &&
+            encontrados.Length > 1;
+        bool tieneContradiccion = asociacionUnicaAmbigua ||
+            encontrados.Any(candidato =>
+                encontrados.Any(otro => !SonRepresentacionesNumericasEquivalentes(
+                    candidato.Valor,
+                    otro.Valor,
+                    esperado)));
         bool coincide = esperado.DebeEstarAusente
             ? encontrados.Length == 0
             : encontrados.Length == 0
@@ -1579,6 +1801,48 @@ public sealed partial class ComparadorSalidaService {
             primerCandidato?.Etiqueta ?? string.Empty,
             tieneContradiccion,
             encontrados.Select(candidato => candidato.Valor).ToArray());
+    }
+
+    private static IEnumerable<CandidatoNumero> ExtraerNumerosSinEtiqueta(
+        string[] lineas,
+        PoliticaAsociacionValor politica) {
+        if (politica is not
+            (PoliticaAsociacionValor.OpcionalComoValorUnico or
+             PoliticaAsociacionValor.OpcionalComoLineaCompleta)) {
+            yield break;
+        }
+
+        for (int indiceLinea = 0; indiceLinea < lineas.Length; indiceLinea++) {
+            MatchCollection coincidencias = politica ==
+                PoliticaAsociacionValor.OpcionalComoValorUnico
+                    ? RegexNumeroSecuenciaConComaDecimal().Matches(lineas[indiceLinea])
+                    : RegexNumeroInicial().Matches(lineas[indiceLinea]);
+
+            foreach (Match coincidencia in coincidencias.Cast<Match>()) {
+                if (politica == PoliticaAsociacionValor.OpcionalComoLineaCompleta &&
+                    !EsNumeroComoLineaCompleta(lineas[indiceLinea], coincidencia)) {
+                    continue;
+                }
+
+                if (IntentarConvertirNumero(coincidencia.Value, out double valor)) {
+                    yield return new CandidatoNumero(
+                        indiceLinea,
+                        coincidencia.Index,
+                        coincidencia.Length,
+                        valor,
+                        string.Empty);
+                }
+            }
+        }
+    }
+
+    private static bool EsNumeroComoLineaCompleta(string linea, Match coincidencia) {
+        string restante = linea[(coincidencia.Index + coincidencia.Length)..]
+            .Trim();
+
+        return string.IsNullOrWhiteSpace(linea[..coincidencia.Index]) &&
+            (restante.Length == 0 ||
+             restante.All(caracter => caracter is '.' or ';' or '!'));
     }
 
     private static ResultadoValorBooleanoComparado CompararValorBooleano(
@@ -1735,6 +1999,20 @@ public sealed partial class ComparadorSalidaService {
                                     representacion));
                         }
                     }
+                }
+            }
+        }
+
+        if (esperado.PoliticaAsociacion != PoliticaAsociacionValor.Requerida) {
+            foreach (CandidatoTexto candidato in
+                ExtraerTextosSinEtiquetaDeterministas(lineas, esperado)) {
+                PosicionNumero posicion = new(
+                    candidato.IndiceLinea,
+                    candidato.IndiceCaracter,
+                    candidato.Longitud);
+
+                if (!textosUtilizados.Contains(posicion)) {
+                    candidatos.TryAdd(posicion, candidato);
                 }
             }
         }
@@ -1982,7 +2260,10 @@ public sealed partial class ComparadorSalidaService {
             string representacionNormalizada = NormalizarTexto(representacion);
 
             if (representacionNormalizada.Length == 0 ||
-                !CoincideValorTextual(valorNormalizado, representacionNormalizada)) {
+                !CoincideValorTextual(
+                    valorNormalizado,
+                    representacionNormalizada,
+                    esperado)) {
                 continue;
             }
 
@@ -2020,11 +2301,149 @@ public sealed partial class ComparadorSalidaService {
             .ToArray();
     }
 
-    private static bool CoincideValorTextual(string texto, string valor) {
+    private static IEnumerable<CandidatoTexto>
+        ExtraerTextosSinEtiquetaDeterministas(
+            string[] lineas,
+            ValorTextualEsperado esperado) {
+        var representaciones = CrearRepresentacionesTextuales(esperado)
+            .Select(elemento => new {
+                elemento.Representacion,
+                elemento.Valor,
+                Normalizada = NormalizarTexto(elemento.Representacion)
+            })
+            .Where(elemento => elemento.Normalizada.Length > 0)
+            .ToArray();
+        string[] conectores = esperado.ConectoresPermitidos
+            .Select(NormalizarTexto)
+            .Where(conector => conector.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        for (int indiceLinea = 0; indiceLinea < lineas.Length; indiceLinea++) {
+            string linea = lineas[indiceLinea];
+
+            if (string.IsNullOrWhiteSpace(linea) ||
+                linea.Contains('?') ||
+                linea.Contains('¿')) {
+                continue;
+            }
+
+            foreach ((string segmento, int inicioSegmento) in
+                SepararSegmentosAsociacion(linea, esperado)) {
+                string segmentoNormalizado = NormalizarTexto(segmento);
+                List<CoincidenciaTextoSinEtiqueta> coincidencias = new();
+
+                foreach (var representacion in representaciones) {
+                    if (segmentoNormalizado.Equals(
+                        representacion.Normalizada,
+                        StringComparison.Ordinal)) {
+                        coincidencias.Add(new CoincidenciaTextoSinEtiqueta(
+                            inicioSegmento,
+                            representacion.Normalizada.Length,
+                            representacion.Representacion,
+                            representacion.Valor));
+                    }
+
+                    if (esperado.PoliticaAsociacion !=
+                        PoliticaAsociacionValor.OpcionalConConectoresConfigurados) {
+                        continue;
+                    }
+
+                    foreach (string conector in conectores) {
+                        foreach (Match coincidenciaConector in
+                            CrearRegexToken(conector)
+                                .Matches(segmentoNormalizado)
+                                .Cast<Match>()) {
+                            string prefijo = segmentoNormalizado[
+                                ..coincidenciaConector.Index].TrimEnd();
+
+                            if (ContieneNegacion(prefijo) ||
+                                prefijo.EndsWith(':') ||
+                                prefijo.EndsWith('=')) {
+                                continue;
+                            }
+
+                            int inicioValor = coincidenciaConector.Index +
+                                coincidenciaConector.Length;
+                            string sufijo = segmentoNormalizado[inicioValor..]
+                                .TrimStart();
+
+                            if (sufijo.Equals(
+                                representacion.Normalizada,
+                                StringComparison.Ordinal)) {
+                                coincidencias.Add(new CoincidenciaTextoSinEtiqueta(
+                                    inicioSegmento + inicioValor,
+                                    representacion.Normalizada.Length,
+                                    representacion.Representacion,
+                                    representacion.Valor));
+                            }
+                        }
+                    }
+                }
+
+                int mayorEspecificidad = coincidencias.Count == 0
+                    ? 0
+                    : coincidencias.Max(elemento => elemento.Longitud);
+
+                foreach (CoincidenciaTextoSinEtiqueta coincidencia in coincidencias
+                    .Where(elemento => elemento.Longitud == mayorEspecificidad)
+                    .DistinctBy(elemento => new {
+                        elemento.IndiceCaracter,
+                        elemento.Valor
+                    })) {
+                    yield return new CandidatoTexto(
+                        indiceLinea,
+                        coincidencia.IndiceCaracter,
+                        coincidencia.Longitud,
+                        coincidencia.Valor,
+                        string.Empty,
+                        coincidencia.Representacion);
+                }
+            }
+        }
+    }
+
+    private static IEnumerable<(string Segmento, int Inicio)>
+        SepararSegmentosAsociacion(
+            string linea,
+            ValorTextualEsperado esperado) {
+        HashSet<char> separadores = new() { '.', ',', ';' };
+        separadores.UnionWith(esperado.PuntuacionTerminalAdicional);
+        int inicio = 0;
+
+        for (int indice = 0; indice < linea.Length; indice++) {
+            if (!separadores.Contains(linea[indice])) {
+                continue;
+            }
+
+            if (indice > inicio) {
+                yield return (linea[inicio..indice], inicio);
+            }
+
+            inicio = indice + 1;
+        }
+
+        if (inicio < linea.Length) {
+            yield return (linea[inicio..], inicio);
+        }
+    }
+
+    private static bool ContieneNegacion(string prefijo) {
+        return prefijo
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Any(palabra => palabra is "no" or "nunca" or "jamas");
+    }
+
+    private static bool CoincideValorTextual(
+        string texto,
+        string valor,
+        ValorTextualEsperado esperado) {
         return texto.Equals(valor, StringComparison.Ordinal) ||
             texto.StartsWith(valor + ".", StringComparison.Ordinal) ||
             texto.StartsWith(valor + ",", StringComparison.Ordinal) ||
-            texto.StartsWith(valor + ";", StringComparison.Ordinal);
+            texto.StartsWith(valor + ";", StringComparison.Ordinal) ||
+            esperado.PuntuacionTerminalAdicional.Any(puntuacion =>
+                texto.StartsWith(valor + puntuacion, StringComparison.Ordinal));
     }
 
     private static bool EmpiezaConToken(string texto, string token) {
@@ -2230,6 +2649,40 @@ public sealed partial class ComparadorSalidaService {
             RegexOptions.CultureInvariant);
     }
 
+    private static Regex CrearRegexRepresentacionSecuencia(
+        string representacionNormalizada,
+        bool permitirSeparadorFlexible) {
+        int indiceSeparador = representacionNormalizada.IndexOfAny(
+            new[] { ':', '=' });
+
+        if (!permitirSeparadorFlexible ||
+            indiceSeparador <= 0 ||
+            indiceSeparador >= representacionNormalizada.Length - 1) {
+            return CrearRegexToken(representacionNormalizada);
+        }
+
+        string etiqueta = representacionNormalizada[..indiceSeparador].Trim();
+        string valor = representacionNormalizada[(indiceSeparador + 1)..].Trim();
+        string cuerpoEtiqueta = string.Join(
+            @"\s+",
+            etiqueta.Split(
+                ' ',
+                StringSplitOptions.RemoveEmptyEntries |
+                StringSplitOptions.TrimEntries)
+                .Select(Regex.Escape));
+        string cuerpoValor = string.Join(
+            @"\s+",
+            valor.Split(
+                ' ',
+                StringSplitOptions.RemoveEmptyEntries |
+                StringSplitOptions.TrimEntries)
+                .Select(Regex.Escape));
+
+        return new Regex(
+            $@"(?<![\p{{L}}\p{{N}}_]){cuerpoEtiqueta}\s*[:=]\s*{cuerpoValor}(?![\p{{L}}\p{{N}}_])",
+            RegexOptions.CultureInvariant);
+    }
+
     private static string NormalizarTexto(string texto) {
         string descompuesto = texto.Normalize(NormalizationForm.FormD);
         StringBuilder resultado = new(descompuesto.Length);
@@ -2279,6 +2732,42 @@ public sealed partial class ComparadorSalidaService {
             .Replace("\r\n", "\n", StringComparison.Ordinal)
             .Replace('\r', '\n')
             .Split('\n');
+    }
+
+    private static bool CumpleEstructuraValorNumerico(
+        ValorNumericoEsperado esperado,
+        ResultadoValorNumericoComparado resultado) {
+        if (esperado.PoliticaAsociacion == PoliticaAsociacionValor.Requerida) {
+            return resultado.EsOpcional ||
+                resultado.DebeEstarAusente ||
+                !string.IsNullOrWhiteSpace(resultado.EtiquetaEncontrada);
+        }
+
+        if (!resultado.ValorObtenido.HasValue) {
+            return resultado.Coincide &&
+                (esperado.EsOpcional || esperado.DebeEstarAusente);
+        }
+
+        return resultado.Coincide && !resultado.TieneContradiccion;
+    }
+
+    private static bool CumpleEstructuraValorTextual(
+        ValorTextualEsperado esperado,
+        ResultadoValorTextualComparado resultado) {
+        if (esperado.PoliticaAsociacion == PoliticaAsociacionValor.Requerida) {
+            return resultado.EsOpcional ||
+                !string.IsNullOrWhiteSpace(resultado.EtiquetaEncontrada);
+        }
+
+        bool asociacionEncontrada =
+            !string.IsNullOrWhiteSpace(resultado.EtiquetaEncontrada) ||
+            !string.IsNullOrWhiteSpace(resultado.RepresentacionEncontrada);
+
+        if (!asociacionEncontrada) {
+            return resultado.EsOpcional && resultado.Coincide;
+        }
+
+        return resultado.Coincide && !resultado.TieneContradiccion;
     }
 
     private static bool EsLegible(
@@ -2528,6 +3017,12 @@ public sealed partial class ComparadorSalidaService {
         string Valor,
         string Etiqueta,
         string Representacion);
+
+    private sealed record CoincidenciaTextoSinEtiqueta(
+        int IndiceCaracter,
+        int Longitud,
+        string Representacion,
+        string Valor);
 
     private sealed record CandidatoSecuenciaNumerica(
         int Indice,
