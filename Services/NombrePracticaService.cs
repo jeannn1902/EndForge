@@ -3,7 +3,7 @@ using EndForge.Models;
 namespace EndForge.Services;
 
 public sealed class NombrePracticaService {
-    public const int LongitudMaxima = 35;
+    public const int LongitudMaxima = 40;
 
     private static readonly HashSet<string> NombresReservados = new(StringComparer.OrdinalIgnoreCase) {
         "CON", "PRN", "AUX", "NUL",
