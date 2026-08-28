@@ -145,7 +145,7 @@ public partial class frmPrincipal {
     private static readonly Color ColorMoradoCurso = Color.FromArgb(145, 82, 214);
     private static readonly Color ColorMoradoClaroCurso = Color.FromArgb(202, 151, 247);
     private static readonly Color ColorTextoSecundarioCurso = Color.FromArgb(190, 181, 204);
-    private const int DuracionTransicionVistaCursoMs = 235;
+    private const int DuracionTransicionVistaCursoMs = 750;
     private const int EsperaMaximaPaintDestinoTransicionCursoMs = 75;
 
     private CursoService cursoService = null!;
@@ -1350,10 +1350,11 @@ public partial class frmPrincipal {
         }
 
         double transcurrido = Environment.TickCount64 - inicioRetiroCubiertaTransicionCurso;
-        return (float)Math.Clamp(
+        double progresoLineal = Math.Clamp(
             transcurrido / DuracionTransicionVistaCursoMs,
             0D,
             1D);
+        return (float)(1D - Math.Pow(1D - progresoLineal, 3D));
     }
 
     private void PanelPrincipal_TransicionVisualSizeChanged(object? sender, EventArgs e) {
@@ -1394,25 +1395,17 @@ public partial class frmPrincipal {
             return;
         }
 
-        float proporcionRestante = 1F - progreso;
-        int centro = ancho / 2;
-        int anchoIzquierdo = (int)Math.Ceiling(centro * proporcionRestante);
-        int anchoDerecho = (int)Math.Ceiling((ancho - centro) * proporcionRestante);
+        int anchoRestante = (int)Math.Ceiling(ancho * (1F - progreso));
 
-        using GraphicsPath regionVisible = new();
-
-        if (anchoIzquierdo > 0) {
-            regionVisible.AddRectangle(new Rectangle(0, 0, anchoIzquierdo, alto));
+        if (anchoRestante > 0) {
+            cubiertaTransicionCurso.SetBounds(
+                0,
+                0,
+                anchoRestante,
+                alto);
+        } else {
+            cubiertaTransicionCurso.SetBounds(0, 0, 0, alto);
         }
-
-        if (anchoDerecho > 0) {
-            regionVisible.AddRectangle(
-                new Rectangle(ancho - anchoDerecho, 0, anchoDerecho, alto));
-        }
-
-        Region? regionAnterior = cubiertaTransicionCurso.Region;
-        cubiertaTransicionCurso.Region = new Region(regionVisible);
-        regionAnterior?.Dispose();
     }
 
     private void FinalizarTransicionVisualCurso() {

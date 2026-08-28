@@ -827,6 +827,9 @@ public partial class frmPrincipal {
             EjecucionFinalizada = resultado.EjecucionFinalizada,
             PuntosObtenidos = resultado.PuntosObtenidos,
             PuntosMaximos = resultado.PuntosMaximos,
+            PuntosCompilacion = resultado.PuntosCompilacion,
+            PuntosValidacion = resultado.PuntosValidacion,
+            PuntosClaridad = resultado.PuntosClaridad,
             RutaProyecto = resultado.RutaProyecto,
             Resultados = resultado.Resultados.ToArray(),
             Retroalimentacion = resultado.Retroalimentacion.ToArray()

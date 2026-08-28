@@ -253,20 +253,10 @@ public partial class frmPrincipal {
             return;
         }
 
-        OcultarVistaEstadisticas();
-        PrepararNavegacionPrincipalDesdeRuta();
-        MostrarNavegacionPrincipal(DistribucionPanelPrincipal.NuevaPractica);
-        SeleccionarPanelMenu(panelNuevaPractica);
-
-        panelInicioVista.Visible = false;
-        OcultarVistaLogros();
-        panelRecientesVista.Visible = false;
-        panelConfiguracionVista.Visible = false;
-        panelVistaNuevaPractica.Visible = true;
-        OcultarVistasCurso();
-
-        panelVistaNuevaPractica.BringToFront();
-        fondoEndForge.SendToBack();
+        NavegarVistaPrincipalConTransicion(
+            panelVistaNuevaPractica,
+            panelNuevaPractica,
+            DistribucionPanelPrincipal.NuevaPractica);
     }
 
     private void PanelInicio_Click(object? sender, EventArgs e) {

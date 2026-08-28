@@ -321,8 +321,8 @@ public sealed partial class CursoService {
                 "Muestra una sola clasificación."
             }),
             AdvertenciaEvaluacion =
-                "La evaluación automática para esta práctica se añadirá próximamente. " +
-                "Por ahora, revisa que el programa compile y clasifique correctamente valores positivos, negativos y cero.",
+                "La evaluación automática comprobará valores positivos, negativos y cero, " +
+                "además de una prueba adicional oculta. Revisa que el programa produzca una sola clasificación correcta.",
             HerramientaUtil = new HerramientaGuiaPractica {
                 Nombre = "Cadena if, else if y else",
                 Descripcion =
@@ -415,8 +415,8 @@ public sealed partial class CursoService {
                 "Muestra una sola clasificación por ejecución."
             }),
             AdvertenciaEvaluacion =
-                "La evaluación automática para esta práctica se añadirá próximamente. " +
-                "Por ahora, comprueba edades válidas, los límites 0, 18 y 120, y valores fuera de rango.",
+                "La evaluación automática comprobará edades válidas, los límites 0, 18 y 120, " +
+                "además de una prueba adicional oculta. Prueba también valores fuera de rango.",
             HerramientaUtil = new HerramientaGuiaPractica {
                 Nombre = "bool para guardar una condición",
                 Descripcion =
@@ -504,8 +504,8 @@ public sealed partial class CursoService {
                 "Muestra una sola categoría."
             }),
             AdvertenciaEvaluacion =
-                "La evaluación automática para esta práctica se añadirá próximamente. " +
-                "Por ahora, prueba cada frontera del rango y valores inferiores a 0 o superiores a 10.",
+                "La evaluación automática comprobará las fronteras 6, 8 y 9, los límites 0 y 10 " +
+                "y una prueba adicional oculta. Prueba también valores fuera del rango.",
             HerramientaUtil = new HerramientaGuiaPractica {
                 Nombre = "Validación de rango con && y ||",
                 Descripcion =
@@ -614,8 +614,8 @@ public sealed partial class CursoService {
                 "Muestra total original, porcentaje, descuento y total final."
             }),
             AdvertenciaEvaluacion =
-                "La evaluación automática para esta práctica se añadirá próximamente. " +
-                "Por ahora, prueba valores negativos y los límites 500, 1000 y 2000.",
+                "La evaluación automática comprobará los límites 500, 1000 y 2000, " +
+                "además de una prueba adicional oculta. Prueba también valores negativos.",
             HerramientaUtil = new HerramientaGuiaPractica {
                 Nombre = "Constantes y rangos de mayor a menor",
                 Descripcion =
@@ -732,8 +732,8 @@ public sealed partial class CursoService {
                 "Muestra el resultado solo cuando la opción y la operación sean válidas."
             }),
             AdvertenciaEvaluacion =
-                "La evaluación automática para esta práctica se añadirá próximamente. " +
-                "Por ahora, prueba las cuatro opciones, una opción inválida y una división entre cero.",
+                "La evaluación automática comprobará las cuatro operaciones, una opción inválida, " +
+                "la división entre cero y una prueba adicional oculta.",
             HerramientaUtil = new HerramientaGuiaPractica {
                 Nombre = "switch con validación adicional",
                 Descripcion =

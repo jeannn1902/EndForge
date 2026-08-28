@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Drawing.Drawing2D;
 
 namespace EndForge.Controls;
@@ -78,6 +79,8 @@ internal sealed class PanelDesplazableSinBarras : Panel {
     private const int MargenVerticalBarra = 4;
     private const int AltoMinimoIndicador = 28;
     private const int MargenRepintadoDesplazamiento = 2;
+    private const int DuracionSuavizadoRuedaMs = 750;
+    private const int IntervaloAnimacionMs = 15;
 
     private sealed class ContenedorFlujoDobleBuffer : FlowLayoutPanel {
         public ContenedorFlujoDobleBuffer() {
@@ -111,6 +114,12 @@ internal sealed class PanelDesplazableSinBarras : Panel {
     private int desfaseArrastreIndicador;
     private bool eventosContenidoConectados;
     private readonly HashSet<Control> controlesRegistrados = new();
+    private readonly System.Windows.Forms.Timer temporizadorAnimacion = new() {
+        Interval = IntervaloAnimacionMs
+    };
+    private readonly Stopwatch relojAnimacion = new();
+    private int posicionInicioAnimacion;
+    private int posicionDestinoAnimacion;
 
     public FlowLayoutPanel Contenido { get; }
 
@@ -158,6 +167,7 @@ internal sealed class PanelDesplazableSinBarras : Panel {
 
         Controls.Add(Contenido);
         ConectarEventosContenido();
+        temporizadorAnimacion.Tick += TemporizadorAnimacion_Tick;
     }
 
     public void ActualizarContenido(bool volverAlInicio) {
@@ -248,6 +258,7 @@ internal sealed class PanelDesplazableSinBarras : Panel {
     public void CancelarInteraccion() {
         bool requiereRepintado = indicadorHover || arrastrandoIndicador;
 
+        DetenerAnimacion();
         acumuladoRueda = 0;
         indicadorHover = false;
         arrastrandoIndicador = false;
@@ -501,11 +512,20 @@ internal sealed class PanelDesplazableSinBarras : Panel {
             ClientSize.Height,
             ObtenerMaximoDesplazamiento());
         acumuladoRueda = resultado.AcumuladoRestante;
-        MoverA(resultado.PosicionDestino);
+        MoverA(resultado.PosicionDestino, animar: true);
     }
 
-    private void MoverA(int destino) {
+    private void MoverA(int destino, bool animar = false) {
         int maximo = ObtenerMaximoDesplazamiento();
+
+        destino = Math.Clamp(destino, 0, maximo);
+
+        if (animar) {
+            IniciarAnimacion(destino, maximo);
+            return;
+        }
+
+        DetenerAnimacion();
         Rectangle indicadorAnterior = ObtenerRectanguloIndicador();
 
         estadoDesplazamiento.IntentarMover(
@@ -513,6 +533,55 @@ internal sealed class PanelDesplazableSinBarras : Panel {
             maximo,
             (_, posicionNueva) =>
                 AplicarDesplazamiento(indicadorAnterior, posicionNueva));
+    }
+
+    private void IniciarAnimacion(int destino, int maximo) {
+        int posicionActual = estadoDesplazamiento.PosicionActual;
+
+        if (!temporizadorAnimacion.Enabled && posicionActual == destino) {
+            return;
+        }
+
+        if (temporizadorAnimacion.Enabled && posicionDestinoAnimacion == destino) {
+            return;
+        }
+
+        posicionInicioAnimacion = posicionActual;
+        posicionDestinoAnimacion = destino;
+        relojAnimacion.Restart();
+        temporizadorAnimacion.Start();
+    }
+
+    private void TemporizadorAnimacion_Tick(object? sender, EventArgs e) {
+        double progreso = Math.Clamp(
+            relojAnimacion.Elapsed.TotalMilliseconds / DuracionSuavizadoRuedaMs,
+            0D,
+            1D);
+        double progresoSuavizado = 1D - Math.Pow(1D - progreso, 3D);
+        int posicion = (int)Math.Round(
+            posicionInicioAnimacion +
+            (posicionDestinoAnimacion - posicionInicioAnimacion) *
+            progresoSuavizado);
+        Rectangle indicadorAnterior = ObtenerRectanguloIndicador();
+
+        estadoDesplazamiento.Restablecer(posicion, ObtenerMaximoDesplazamiento());
+        AplicarDesplazamiento(indicadorAnterior, estadoDesplazamiento.PosicionActual);
+
+        if (progreso >= 1D) {
+            DetenerAnimacion();
+        }
+    }
+
+    private void DetenerAnimacion() {
+        if (!temporizadorAnimacion.Enabled && !relojAnimacion.IsRunning) {
+            return;
+        }
+
+        temporizadorAnimacion.Stop();
+        relojAnimacion.Stop();
+        estadoDesplazamiento.Restablecer(
+            posicionDestinoAnimacion,
+            ObtenerMaximoDesplazamiento());
     }
 
     private int ObtenerDesplazamientoSolicitado() {
@@ -863,6 +932,7 @@ internal sealed class PanelDesplazableSinBarras : Panel {
         if (disposing) {
             CancelarInteraccion();
             DesconectarEventosContenido();
+            temporizadorAnimacion.Dispose();
             pincelFondoContenido.Dispose();
             pincelPistaBarra.Dispose();
             pincelIndicadorBarra.Dispose();

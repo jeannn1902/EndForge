@@ -166,6 +166,15 @@ public partial class frmPrincipal {
 
             AgregarSeccionDetalle(
                 contenidoResultadoEvaluacion,
+                "Desglose de puntuación",
+                $"Compilación: {intento.PuntosCompilacion}/{intento.PuntosMaximos - 80} puntos\n" +
+                $"Casos de prueba: {intento.PuntosObtenidos - intento.PuntosCompilacion - intento.PuntosValidacion - intento.PuntosClaridad}/60 puntos\n" +
+                $"Validación del comportamiento: {intento.PuntosValidacion}/15 puntos\n" +
+                $"Claridad de la salida: {intento.PuntosClaridad}/5 puntos",
+                ancho,
+                ColorMoradoClaroCurso);
+            AgregarSeccionDetalle(
+                contenidoResultadoEvaluacion,
                 "Retroalimentación",
                 intento.Retroalimentacion.Count == 0
                     ? ObtenerMensajeCalificacion(intento.Calificacion)
@@ -218,7 +227,7 @@ public partial class frmPrincipal {
         bool visible = resultado.EsVisible && (caso?.EsVisible ?? true);
         string titulo = visible
             ? caso?.Nombre ?? $"Caso {numero}"
-            : $"Prueba adicional {numeroAdicional}";
+            : $"Caso adicional de esta práctica {numeroAdicional}";
         string estado = resultado.Aprobado ? "APROBADO" : "PENDIENTE";
         string detalle = visible
             ? $"Entrada utilizada:\n{resultado.Entrada.TrimEnd()}\n\n" +
@@ -227,7 +236,7 @@ public partial class frmPrincipal {
               resultado.Mensaje
             : resultado.Aprobado
                 ? "La prueba adicional se completó correctamente."
-                : "Revisa el comportamiento general del programa y vuelve a intentarlo.";
+                : $"{resultado.Mensaje} Vuelve a intentarlo después de revisar este caso.";
         Label medidor = CrearLabelCurso(
             detalle,
             Point.Empty,

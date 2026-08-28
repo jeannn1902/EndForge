@@ -732,7 +732,9 @@ public sealed partial class CatalogoEvaluacionesService {
                     "Calificación: 10.5\nClasificación: Calificación inválida",
                     "Comprueba de forma adicional una calificación mayor que 10.",
                     Array.Empty<string>(),
-                    new[] { CrearCalificacionEsperada(10.5D) },
+                    new[] {
+                        CrearCalificacionEsperada(10.5D, opcional: true)
+                    },
                     puntos: 12,
                     esVisible: false,
                     modoComparacion: ModoComparacionCaso.Mixto,
@@ -800,7 +802,9 @@ public sealed partial class CatalogoEvaluacionesService {
                     "Total de compra: -100\nEstado: Total inválido",
                     "Comprueba de forma adicional que un total negativo se rechace.",
                     Array.Empty<string>(),
-                    new[] { CrearTotalOriginalEsperado(-100D) },
+                    new[] {
+                        CrearTotalOriginalEsperado(-100D, opcional: true)
+                    },
                     puntos: 12,
                     esVisible: false,
                     modoComparacion: ModoComparacionCaso.Mixto,
@@ -1859,6 +1863,7 @@ public sealed partial class CatalogoEvaluacionesService {
             Valor = estado,
             EsOpcional = opcional,
             PermitirSinEtiqueta = true,
+            PoliticaAsociacion = PoliticaAsociacionValor.OpcionalComoValorUnico,
             EtiquetasAlternativas = Array.AsReadOnly(new[] {
                 "Estado",
                 "Error",
@@ -2124,11 +2129,13 @@ public sealed partial class CatalogoEvaluacionesService {
     }
 
     private static ValorNumericoEsperado CrearCalificacionEsperada(
-        double calificacion) {
+        double calificacion,
+        bool opcional = false) {
         return new ValorNumericoEsperado {
             Nombre = "Calificación",
             Valor = calificacion,
             Tolerancia = 0D,
+            EsOpcional = opcional,
             EtiquetasAlternativas = Array.AsReadOnly(new[] {
                 "Calificacion",
                 "Nota",
@@ -2143,6 +2150,8 @@ public sealed partial class CatalogoEvaluacionesService {
         return new ValorTextualEsperado {
             Nombre = "Clasificación",
             Valor = valorEsperado,
+            PermitirSinEtiqueta = true,
+            PoliticaAsociacion = PoliticaAsociacionValor.OpcionalComoValorUnico,
             EtiquetasAlternativas = Array.AsReadOnly(new[] {
                 "Clasificacion",
                 "Resultado",
@@ -2221,11 +2230,14 @@ public sealed partial class CatalogoEvaluacionesService {
             });
     }
 
-    private static ValorNumericoEsperado CrearTotalOriginalEsperado(double total) {
+    private static ValorNumericoEsperado CrearTotalOriginalEsperado(
+        double total,
+        bool opcional = false) {
         return new ValorNumericoEsperado {
             Nombre = "Total original",
             Valor = total,
             Tolerancia = 0.01D,
+            EsOpcional = opcional,
             EtiquetasAlternativas = Array.AsReadOnly(new[] {
                 "Total de compra",
                 "Compra",
@@ -2285,6 +2297,8 @@ public sealed partial class CatalogoEvaluacionesService {
             Nombre = "Validación del total",
             Valor = invalido ? "Total inválido" : "Total válido",
             EsOpcional = opcional,
+            PermitirSinEtiqueta = true,
+            PoliticaAsociacion = PoliticaAsociacionValor.OpcionalComoValorUnico,
             EtiquetasAlternativas = Array.AsReadOnly(new[] {
                 "Resultado",
                 "Estado",
@@ -2399,6 +2413,8 @@ public sealed partial class CatalogoEvaluacionesService {
             Nombre = "Operación",
             Valor = operacion,
             EsOpcional = opcional,
+            PermitirSinEtiqueta = true,
+            PoliticaAsociacion = PoliticaAsociacionValor.OpcionalComoValorUnico,
             EtiquetasAlternativas = Array.AsReadOnly(new[] { "Operacion" }),
             Opciones = Array.AsReadOnly(new[] {
                 CrearOpcionTextual(

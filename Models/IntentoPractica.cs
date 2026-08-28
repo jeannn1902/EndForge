@@ -23,6 +23,12 @@ public sealed class IntentoPractica {
 
     public int PuntosMaximos { get; init; } = 100;
 
+    public int PuntosCompilacion { get; init; }
+
+    public int PuntosValidacion { get; init; }
+
+    public int PuntosClaridad { get; init; }
+
     public string RutaProyecto { get; init; } = "";
 
     public IReadOnlyList<ResultadoCasoPrueba> Resultados { get; init; } =
