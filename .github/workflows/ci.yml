@@ -1,0 +1,35 @@
+name: Build and test EndForge
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Restore, build and test
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore .\EndForge.sln
+
+      - name: Build solution
+        run: dotnet build .\EndForge.sln --configuration Release --no-restore
+
+      - name: Run tests
+        run: dotnet test .\EndForge.Tests\EndForge.Tests.csproj --configuration Release --no-build --no-restore
