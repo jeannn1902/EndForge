@@ -707,6 +707,14 @@ public partial class frmPrincipal {
                 if (PuedeActualizarInterfazEvaluacion()) {
                     MarcarInicioPendienteDeRecarga();
                 }
+
+                if (intento.Calificacion == 100 &&
+                    ObtenerEstadoPractica(intento.PracticaId) !=
+                        EstadoPracticaCurso.Realizada) {
+                    PersistirEstadoPractica(
+                        intento.PracticaId,
+                        EstadoPracticaCurso.Realizada);
+                }
             }
 
             textoEstadoEvaluacion = "Resultado generado.";

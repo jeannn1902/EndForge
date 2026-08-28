@@ -3675,17 +3675,32 @@ public partial class frmPrincipal {
                 guia.DatosNecesarios,
                 guia.AdvertenciaEvaluacion),
             anchoContenido);
-        AgregarSeccionDetalle(
-            contenidoDetallePractica,
-            "Conceptos que aprenderás",
-            FormatearConceptosGuiaPractica(guia.ExplicacionesConceptos),
-            anchoContenido,
-            usarFuenteMonoespaciada: true);
-        AgregarSeccionDetalle(
-            contenidoDetallePractica,
-            "Pasos sugeridos",
-            FormatearListaNumerada(guia.PasosSugeridos),
-            anchoContenido);
+        for (int indice = 0; indice < guia.ExplicacionesConceptos.Count; indice++) {
+            ConceptoGuiaPractica concepto = guia.ExplicacionesConceptos[indice];
+            string contenido = concepto.Explicacion;
+
+            if (!string.IsNullOrWhiteSpace(concepto.Fragmento)) {
+                contenido += Environment.NewLine + Environment.NewLine +
+                    "CÓDIGO RELACIONADO" + Environment.NewLine +
+                    concepto.Fragmento;
+            }
+
+            AgregarSeccionDetalle(
+                contenidoDetallePractica,
+                $"Concepto {indice + 1}: {concepto.Nombre}",
+                contenido,
+                anchoContenido,
+                usarFuenteMonoespaciada: !string.IsNullOrWhiteSpace(
+                    concepto.Fragmento));
+        }
+
+        for (int indice = 0; indice < guia.PasosSugeridos.Count; indice++) {
+            AgregarSeccionDetalle(
+                contenidoDetallePractica,
+                $"Paso {indice + 1}",
+                guia.PasosSugeridos[indice],
+                anchoContenido);
+        }
 
         if (guia.HerramientaUtil is not null) {
             AgregarSeccionDetalle(
