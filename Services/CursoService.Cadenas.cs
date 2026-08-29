@@ -296,32 +296,42 @@ public sealed partial class CursoService {
             },
             new[] {
                 ConceptoCadena(
-                    "Transformación",
-                    "Cada letra puede cambiarse sin modificar su posición dentro del texto.",
-                    "char letra = 'a';"),
+                    "No destruyas el original",
+                    "Primero conserva texto. Después crea dos copias: una se transformará a mayúsculas y la otra a minúsculas.",
+                    "string mayusculas = texto;\nstring minusculas = texto;"),
                 ConceptoCadena(
                     "Recorrido",
                     "Examinar cada carácter permite preservar espacios, números y signos.",
-                    "for (char caracter : texto) { /* transformar si es letra */ }"),
+                    "for (char& caracter : mayusculas) {\n    // transformar este carácter\n}"),
                 ConceptoCadena(
-                    "Dos resultados",
-                    "Las dos versiones deben construirse y mostrarse de forma independiente.",
-                    "string superior = texto;\nstring inferior = texto;")
+                    "toupper y tolower",
+                    "Estas funciones transforman un carácter individual. No transforman una string completa; por eso se usan dentro de un recorrido.",
+                    "#include <cctype>\n\ncaracter = static_cast<char>(\n    std::toupper(static_cast<unsigned char>(caracter)));\n\ncaracter = static_cast<char>(\n    std::tolower(static_cast<unsigned char>(caracter)));"),
+                ConceptoCadena(
+                    "¿Por qué tantos casts?",
+                    "toupper y tolower reciben un carácter convertido a unsigned char y devuelven int. El cast final lo devuelve a char de forma explícita.",
+                    "char& caracter\nstatic_cast<unsigned char>(caracter)\nstatic_cast<char>(resultado)"),
+                ConceptoCadena(
+                    "Dos resultados independientes",
+                    "Recorre cada copia por separado. Así la versión en mayúsculas no destruye el texto que todavía necesitas convertir a minúsculas.",
+                    "for (char& caracter : mayusculas) {\n    caracter = ...;\n}\nfor (char& caracter : minusculas) {\n    caracter = ...;\n}")
             },
             new[] {
                 "Lee la línea completa.",
-                "Crea dos copias o resultados separados.",
-                "Recorre los caracteres para preparar cada versión.",
-                "Conserva sin cambios números, espacios y signos.",
-                "Muestra las dos cadenas con etiquetas distintas.",
+                "Crea una copia para mayúsculas y otra para minúsculas.",
+                "Incluye <cctype> para disponer de std::toupper y std::tolower.",
+                "Recorre la copia de mayúsculas y reemplaza cada carácter por std::toupper.",
+                "Recorre la copia de minúsculas y reemplaza cada carácter por std::tolower.",
+                "Deja intactos los caracteres que no sean letras transformables, como espacios, números y signos.",
+                "Muestra el texto original, la versión en mayúsculas y la versión en minúsculas con etiquetas distintas.",
                 "Prueba texto ya transformado y texto con caracteres variados."
             },
             HerramientaCadena(
-                "Conversión de un carácter",
-                "Las utilidades de caracteres pueden transformar una letra individual.",
-                "Ayudan a aplicar la misma operación a cada posición del texto.",
-                "char ejemplo = 'm';\nchar superior = static_cast<char>(toupper(ejemplo));",
-                "Es una técnica opcional. Debes decidir cómo recorrer y conservar el resto de la cadena."),
+                "Transformar las dos copias",
+                "La conversión ocurre carácter por carácter dentro de un recorrido. std::toupper y std::tolower no reciben una string completa.",
+                "Permite conservar el texto original y generar dos resultados sin mezclar las transformaciones.",
+                "#include <cctype>\n#include <iostream>\n#include <string>\nusing namespace std;\n\nint main() {\n    string texto;\n    getline(cin, texto);\n\n    string mayusculas = texto;\n    string minusculas = texto;\n\n    for (char& caracter : mayusculas) {\n        caracter = static_cast<char>(\n            toupper(static_cast<unsigned char>(caracter)));\n    }\n\n    for (char& caracter : minusculas) {\n        caracter = static_cast<char>(\n            tolower(static_cast<unsigned char>(caracter)));\n    }\n\n    cout << \"Original: \" << texto << '\\n';\n    cout << \"Mayúsculas: \" << mayusculas << '\\n';\n    cout << \"Minúsculas: \" << minusculas << '\\n';\n}",
+                "Puedes escribir std::toupper y std::tolower en lugar de toupper y tolower si no usas using namespace std. El ejemplo enseña la estructura, no es obligatorio copiar los nombres."),
             "Hola Mundo",
             "Mayúsculas: HOLA MUNDO\nMinúsculas: hola mundo",
             new[] {
@@ -407,31 +417,38 @@ public sealed partial class CursoService {
             new[] {
                 ConceptoCadena(
                     "Normalización",
-                    "Preparar una forma comparable evita que espacios y mayúsculas cambien el resultado.",
-                    "\"A n a\" puede compararse como \"ana\""),
+                    "Antes de comparar, crea una versión auxiliar: recorre el texto, ignora los espacios y guarda las letras en un mismo formato.",
+                    "string comparable;\n// \"A n a\" → \"ana\""),
                 ConceptoCadena(
                     "Extremos",
                     "Es posible comparar el primer carácter con el último y avanzar hacia el centro.",
                     "int izquierda = 0;\nint derecha = longitud - 1;"),
                 ConceptoCadena(
                     "Resultado booleano",
-                    "La decisión final tiene solo dos estados compatibles: sí o no.",
-                    "bool coincide = true;")
+                    "Comienza suponiendo que coincide. Si encuentras una pareja diferente, cambia el resultado a false y puedes detener la comparación.",
+                    "bool esPalindromo = true;\nif (comparable[izquierda] != comparable[derecha]) {\n    esPalindromo = false;\n}"),
+                ConceptoCadena(
+                    "No confundas los textos",
+                    "El texto original sirve para mostrarlo; comparable sirve únicamente para decidir. No elimines espacios del original.",
+                    "cout << \"Original: \" << texto;\ncout << \"Palíndromo: \" << esPalindromo;")
             },
             new[] {
                 "Lee la línea completa.",
-                "Prepara el texto para ignorar espacios y diferencias de mayúsculas.",
-                "Compara el orden directo con el inverso o enfrenta sus extremos.",
-                "Detén la conclusión positiva si encuentras una diferencia.",
+                "Conserva texto para mostrarlo y crea comparable para analizarlo.",
+                "Recorre texto y agrega a comparable solo los caracteres que vas a comparar.",
+                "Convierte las letras de comparable a un mismo formato antes de compararlas.",
+                "Coloca un índice al inicio y otro al final de comparable.",
+                "Compara los extremos y acércalos al centro en cada repetición.",
+                "Marca false al encontrar una diferencia y no vuelvas a afirmar que es palíndromo.",
                 "Muestra una sola respuesta con una etiqueta reconocible.",
                 "Prueba una frase con espacios y otra que no sea palíndromo."
             },
             HerramientaCadena(
-                "Separar preparación y comparación",
-                "Primero normalizar y después comparar mantiene clara cada responsabilidad.",
-                "Reduce condiciones repetidas mientras se revisan los extremos.",
-                "string comparable;\n// Agregar aquí únicamente los caracteres que participarán.",
-                "La técnica es opcional y no incluye el algoritmo terminado."),
+                "Preparar y comparar por separado",
+                "Primero construye comparable; después revisa sus extremos. Separar ambas tareas evita mezclar limpieza y decisión.",
+                "Permite conservar el texto original y hacer que la comparación sea más fácil de seguir.",
+                "string comparable;\nfor (char caracter : texto) {\n    if (caracter != ' ') {\n        comparable += caracter;\n    }\n}\n\n// Después compara comparable[izquierda]\n// con comparable[derecha].",
+                "El fragmento es una guía parcial: todavía debes decidir cómo unificar mayúsculas y cómo mover los índices."),
             "Anita lava la tina",
             "Palíndromo: Sí",
             new[] {
