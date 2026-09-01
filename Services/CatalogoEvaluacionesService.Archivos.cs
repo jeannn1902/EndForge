@@ -71,7 +71,7 @@ public sealed partial class CatalogoEvaluacionesService {
         IReadOnlyList<CriterioEvaluacion> rubrica) {
         return CrearDefinicionArchivos(
             ArchivosLeerTextoId,
-            "Leer y mostrar el contenido de un archivo",
+            "Leer y mostrar contenido de archivo",
             "Leer todo mensaje.txt y reproducir su contenido en consola.",
             "Cada caso preparará un mensaje.txt real antes de ejecutar el programa.",
             "Sin entrada de consola; mensaje.txt ya existe en el directorio del caso.",
@@ -340,7 +340,7 @@ public sealed partial class CatalogoEvaluacionesService {
             IReadOnlyList<CriterioEvaluacion> rubrica) {
         return CrearDefinicionArchivos(
             ArchivosResumenNumericoId,
-            "Calcular resumen de números guardados en archivo",
+            "Resumen numérico de archivo",
             "Calcular cantidad, suma, promedio, mayor y menor de numeros.txt.",
             "Cada caso preparará números reales y comprobará cinco resultados etiquetados.",
             "Sin entrada de consola; numeros.txt contiene un número por línea.",

@@ -47,7 +47,7 @@ public sealed partial class CatalogoEvaluacionesService {
         IReadOnlyList<CriterioEvaluacion> rubrica) {
         return CrearDefinicionEstructuras(
             EstructurasDatosEstudianteId,
-            "Capturar y mostrar datos de un estudiante",
+            "Capturar datos de estudiante",
             "Agrupar y mostrar los datos completos de un estudiante.",
             "Se comprobará un único bloque con ID, nombre completo, edad y promedio.",
             "4 líneas: ID entero; nombre completo; edad entera; promedio decimal.",
@@ -349,7 +349,7 @@ public sealed partial class CatalogoEvaluacionesService {
 
         return CrearDefinicionEstructuras(
             EstructurasMejorPromedioId,
-            "Encontrar el estudiante con mejor promedio",
+            "Encontrar estudiante con mejor promedio",
             "Seleccionar el registro con el promedio máximo y resolver empates por primera aparición.",
             "Se comprobarán juntos el ID, nombre y promedio del estudiante ganador.",
             "Primera línea n; después ID, nombre completo y promedio por estudiante.",

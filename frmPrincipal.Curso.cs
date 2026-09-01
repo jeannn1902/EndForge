@@ -3675,32 +3675,31 @@ public partial class frmPrincipal {
                 guia.DatosNecesarios,
                 guia.AdvertenciaEvaluacion),
             anchoContenido);
-        for (int indice = 0; indice < guia.ExplicacionesConceptos.Count; indice++) {
-            ConceptoGuiaPractica concepto = guia.ExplicacionesConceptos[indice];
-            string contenido = concepto.Explicacion;
+        string conceptos = string.Join(
+            Environment.NewLine + Environment.NewLine,
+            guia.ExplicacionesConceptos.Select((concepto, indice) =>
+                $"CONCEPTO {indice + 1}: {concepto.Nombre}" +
+                Environment.NewLine + concepto.Explicacion +
+                (string.IsNullOrWhiteSpace(concepto.Fragmento)
+                    ? string.Empty
+                    : Environment.NewLine + Environment.NewLine +
+                        "Código relacionado:" + Environment.NewLine +
+                        concepto.Fragmento)));
+        AgregarSeccionDetalle(
+            contenidoDetallePractica,
+            "Conceptos que aprenderás",
+            conceptos,
+            anchoContenido);
 
-            if (!string.IsNullOrWhiteSpace(concepto.Fragmento)) {
-                contenido += Environment.NewLine + Environment.NewLine +
-                    "CÓDIGO RELACIONADO" + Environment.NewLine +
-                    concepto.Fragmento;
-            }
-
-            AgregarSeccionDetalle(
-                contenidoDetallePractica,
-                $"Concepto {indice + 1}: {concepto.Nombre}",
-                contenido,
-                anchoContenido,
-                usarFuenteMonoespaciada: !string.IsNullOrWhiteSpace(
-                    concepto.Fragmento));
-        }
-
-        for (int indice = 0; indice < guia.PasosSugeridos.Count; indice++) {
-            AgregarSeccionDetalle(
-                contenidoDetallePractica,
-                $"Paso {indice + 1}",
-                guia.PasosSugeridos[indice],
-                anchoContenido);
-        }
+        string pasos = string.Join(
+            Environment.NewLine,
+            guia.PasosSugeridos.Select((paso, indice) =>
+                $"{indice + 1}. {paso}"));
+        AgregarSeccionDetalle(
+            contenidoDetallePractica,
+            "Construcción paso a paso",
+            pasos,
+            anchoContenido);
 
         if (guia.HerramientaUtil is not null) {
             AgregarSeccionDetalle(

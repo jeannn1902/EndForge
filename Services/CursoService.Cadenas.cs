@@ -111,8 +111,8 @@ public sealed partial class CursoService {
                 "grado2-cadenas-contar-caracteres",
                 TemaCadenasGradoJuniorId,
                 6,
-                "Contar vocales, consonantes, dígitos y espacios",
-                "Contar vocales, consonantes, dígitos y espacios",
+                "Contar tipos de caracteres",
+                "Contar tipos de caracteres",
                 "Clasificar los caracteres de una línea y acumular cuatro cantidades.",
                 "Crear un programa que cuente vocales, consonantes, dígitos y espacios, sin clasificar los signos dentro de esas categorías.",
                 new[] { "caracteres", "clasificación", "contadores", "vocales acentuadas" },
@@ -131,8 +131,8 @@ public sealed partial class CursoService {
                 "grado2-cadenas-reemplazar-caracter",
                 TemaCadenasGradoJuniorId,
                 7,
-                "Reemplazar todas las apariciones de un carácter",
-                "Reemplazar todas las apariciones de un carácter",
+                "Reemplazar apariciones de un carácter",
+                "Reemplazar apariciones de un carácter",
                 "Transformar una cadena sustituyendo cada coincidencia exacta de un carácter.",
                 "Crear un programa que lea un texto, un carácter de origen y uno de destino, y reemplace todas las apariciones respetando mayúsculas.",
                 new[] { "string", "char", "recorrido", "reemplazo" },
@@ -341,7 +341,7 @@ public sealed partial class CursoService {
                 "Sobrescribir una versión antes de conservar la otra.",
                 "Confundir las etiquetas de salida."
             },
-            "EndForge comparará ambas versiones por separado, distinguiendo mayúsculas, acentos y espacios.");
+            "EndForge comparará ambas versiones por separado, distinguiendo mayúsculas, minúsculas, espacios y números.");
     }
 
     private static GuiaPractica CrearGuiaInvertirCadena() {

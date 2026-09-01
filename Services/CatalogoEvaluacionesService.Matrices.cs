@@ -324,7 +324,7 @@ public sealed partial class CatalogoEvaluacionesService {
         IReadOnlyList<CriterioEvaluacion> rubrica) {
         return CrearDefinicionMatrices(
             MatricesDiagonalesId,
-            "Calcular las diagonales de una matriz cuadrada",
+            "Calcular diagonales de una matriz",
             "Obtener las diagonales principal y secundaria junto con sus sumas.",
             "Se comprobarán dos colecciones ordenadas y dos sumas escalares independientes.",
             "La entrada contiene n y los n × n enteros de una matriz cuadrada.",
@@ -770,7 +770,7 @@ public sealed partial class CatalogoEvaluacionesService {
 
         return CrearDefinicionMatrices(
             MatricesMayorMenorPosicionId,
-            "Encontrar mayor y menor con sus posiciones",
+            "Encontrar mayor y menor con posiciones",
             "Encontrar los extremos de una matriz y la primera posición de cada uno.",
             "Se comprobarán los valores y sus índices en base cero, respetando la primera aparición por filas.",
             "La entrada contiene filas, columnas y los enteros de la matriz en orden por filas.",

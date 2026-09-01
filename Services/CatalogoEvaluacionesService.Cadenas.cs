@@ -196,7 +196,7 @@ public sealed partial class CatalogoEvaluacionesService {
             new[] {
                 "Mostrar las dos versiones.",
                 "Preservar espacios, números y signos.",
-                "Distinguir mayúsculas, minúsculas y acentos."
+                "Distinguir mayúsculas y minúsculas sin alterar otros caracteres."
             },
             new[] {
                 CrearCasoDosCadenasExactasCadenas(
@@ -234,12 +234,12 @@ public sealed partial class CatalogoEvaluacionesService {
                     visible: true),
                 CrearCasoDosCadenasExactasCadenas(
                     "cadenas-caso-acentos",
-                    "Palabra con acento",
-                    EntradaCadena("programación"),
-                    "Mayúsculas: PROGRAMACIÓN\nMinúsculas: programación",
-                    "Comprueba sensibilidad a letras acentuadas.",
-                    "PROGRAMACIÓN",
-                    "programación",
+                    "Texto con espacio y números",
+                    EntradaCadena("programacion 2026"),
+                    "Mayúsculas: PROGRAMACION 2026\nMinúsculas: programacion 2026",
+                    "Comprueba que las letras, espacios y números se transformen sin cambiar su posición.",
+                    "PROGRAMACION 2026",
+                    "programacion 2026",
                     etiquetasMayusculas,
                     etiquetasMinusculas,
                     visible: true),
@@ -430,7 +430,7 @@ public sealed partial class CatalogoEvaluacionesService {
 
         return CrearDefinicionCadenas(
             CadenasContarCaracteresId,
-            "Contar vocales, consonantes, dígitos y espacios",
+            "Contar tipos de caracteres",
             "Clasificar los caracteres de una línea en cuatro cantidades.",
             "Se comprobarán cuatro resultados numéricos independientes.",
             "Una línea completa; puede estar vacía.",
@@ -532,7 +532,7 @@ public sealed partial class CatalogoEvaluacionesService {
 
         return CrearDefinicionCadenas(
             CadenasReemplazarCaracterId,
-            "Reemplazar todas las apariciones de un carácter",
+            "Reemplazar apariciones de un carácter",
             "Sustituir todas las coincidencias exactas de un carácter dentro de una línea.",
             "Se comprobará la cadena final completa y con sensibilidad a mayúsculas.",
             "Tres líneas: texto completo; carácter de origen; carácter de destino.",
