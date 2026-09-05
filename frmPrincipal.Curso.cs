@@ -3675,6 +3675,24 @@ public partial class frmPrincipal {
                 guia.DatosNecesarios,
                 guia.AdvertenciaEvaluacion),
             anchoContenido);
+        string nombresDatos = guia.DatosNecesarios.Count == 0
+            ? "los datos definidos en el enunciado"
+            : string.Join(", ", guia.DatosNecesarios.Select(dato => dato.Nombre));
+        string flujoConstruccion =
+            "1. ENTRADA\n" +
+            $"Captura {nombresDatos}.\n\n" +
+            "2. PROCESAMIENTO\n" +
+            "Aplica la operación, comparación o recorrido indicado por los pasos. " +
+            "Cada paso agrega una responsabilidad al programa.\n\n" +
+            "3. SALIDA\n" +
+            "Muestra el resultado con etiquetas claras y sin inventar datos.\n\n" +
+            "4. COMPROBACIÓN\n" +
+            "Prueba el ejemplo, un caso límite y una entrada diferente antes de evaluar.";
+        AgregarSeccionDetalle(
+            contenidoDetallePractica,
+            "Cómo se construye el programa",
+            flujoConstruccion,
+            anchoContenido);
         string conceptos = string.Join(
             Environment.NewLine + Environment.NewLine,
             guia.ExplicacionesConceptos.Select((concepto, indice) =>
