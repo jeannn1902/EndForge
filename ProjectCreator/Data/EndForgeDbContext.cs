@@ -1,0 +1,37 @@
+using Microsoft.EntityFrameworkCore;
+using EndForge.Models;
+
+namespace EndForge.Data
+{
+    public class EndForgeDbContext : DbContext
+    {
+        public DbSet<Usuario> Usuarios { get; set; } = null!;
+
+        public DbSet<ProgresoUsuarioDb> ProgresoUsuarioDbs { get; set; } = null!;
+
+        public DbSet<EvaluacionDb> EvaluacionDbs { get; set; } = null!;
+
+        public DbSet<ConcesionXPDb> ConcesionXPDbs { get; set; } = null!;
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            if (!optionsBuilder.IsConfigured)
+            {
+                optionsBuilder.UseSqlServer("Server=(localdb)\\mssqllocaldb;Database=EndForgeCloudDev;Trusted_Connection=True;");
+            }
+        }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<Usuario>(b =>
+            {
+                b.HasKey(u => u.Id);
+                b.HasMany(u => u.Progresos).WithOne(p => p.Usuario).HasForeignKey(p => p.UsuarioId);
+                b.HasMany(u => u.Evaluaciones).WithOne(e => e.Usuario).HasForeignKey(e => e.UsuarioId);
+                b.HasMany(u => u.ConcesionesXP).WithOne(c => c.Usuario).HasForeignKey(c => c.UsuarioId);
+            });
+        }
+    }
+}
