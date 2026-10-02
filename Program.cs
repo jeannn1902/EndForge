@@ -1,6 +1,14 @@
+using EndForge.Data;
+using EndForge.DependencyInjection;
+using EndForge.Repositories;
+using EndForge.Services;
+
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+
 using System.Resources;
 using System.Runtime.ExceptionServices;
-using EndForge.Services;
 
 [assembly: NeutralResourcesLanguage("es-MX")]
 
@@ -18,20 +26,53 @@ internal static class Program {
     ///  The main entry point for the application.
     /// </summary>
     [STAThread]
-    private static void Main() {
+    private static void Main()
+    {
         RegistrarManejadoresGlobales();
 
-        try {
-            ApplicationConfiguration.Initialize();
-            Application.Run(new frmPrincipal());
-        } catch (Exception error) {
-            bool esCritica = RegistroErroresService.EsExcepcionCritica(error);
-            registroErrores.Registrar(
-                error,
-                OrigenRegistroError.InicioAplicacion,
-                esTerminante: true);
+        var configuration = new ConfigurationBuilder()
+        .SetBasePath(AppContext.BaseDirectory)
+        .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+        .Build();
 
-            if (esCritica) {
+        // Construir el contenedor de servicios y registrar dependencias
+        var services = new ServiceCollection();
+        services.AddPersistenceServices();
+        services.AddScoped<frmPrincipal>();
+
+        services.AddDbContext<EndForgeDbContext>(options =>
+            options.UseSqlServer(
+                configuration.GetConnectionString("DefaultConnection"),
+                sqlOptions => sqlOptions.EnableRetryOnFailure()
+            )
+        );
+
+        var provider = services.BuildServiceProvider();
+
+        try
+        {
+            // Intentar aplicar migraciones antes de iniciar la UI. Si falla, se registra como recuperable.
+            try
+            {
+                var repo = provider.GetRequiredService<IProgresoRepository>();
+                repo.MigrateIfNeededAsync().GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                RegistrarErrorRecuperable(ex);
+            }
+
+            ApplicationConfiguration.Initialize();
+            // Ejecutar la aplicación pidiendo frmPrincipal al contenedor DI
+            Application.Run(provider.GetRequiredService<frmPrincipal>());
+        }
+        catch (Exception error)
+        {
+            bool esCritica = RegistroErroresService.EsExcepcionCritica(error);
+            registroErrores.Registrar(error, OrigenRegistroError.InicioAplicacion, esTerminante: true);
+
+            if (esCritica)
+            {
                 throw;
             }
 

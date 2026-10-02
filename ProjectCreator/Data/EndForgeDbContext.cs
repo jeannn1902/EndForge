@@ -5,6 +5,11 @@ namespace EndForge.Data
 {
     public class EndForgeDbContext : DbContext
     {
+
+        public EndForgeDbContext(DbContextOptions<EndForgeDbContext> options) : base(options)
+        {
+        }
+
         public DbSet<Usuario> Usuarios { get; set; } = null!;
 
         public DbSet<ProgresoUsuarioDb> ProgresoUsuarioDbs { get; set; } = null!;
