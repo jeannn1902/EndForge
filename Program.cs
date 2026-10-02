@@ -2,6 +2,8 @@ using EndForge.Data;
 using EndForge.DependencyInjection;
 using EndForge.Repositories;
 using EndForge.Services;
+using EndForge.App;
+using EndForge.Logging;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -38,6 +40,7 @@ internal static class Program {
         // Construir el contenedor de servicios y registrar dependencias
         var services = new ServiceCollection();
         services.AddPersistenceServices();
+        services.AddSingleton<AppState>();
         services.AddScoped<frmPrincipal>();
 
         // Determinar cadena de conexión; si falta, usar LocalDB con timeout corto para fallback inmediato
@@ -68,6 +71,30 @@ internal static class Program {
         );
 
         var provider = services.BuildServiceProvider();
+
+        // Determinar el estado de conectividad y registrarlo en AppState y en el log de eventos
+        try
+        {
+            using var scope = provider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<EndForgeDbContext>();
+            bool canConnect = false;
+            try
+            {
+                canConnect = db.Database.CanConnectAsync().GetAwaiter().GetResult();
+            }
+            catch
+            {
+                canConnect = false;
+            }
+
+            var appState = provider.GetRequiredService<AppState>();
+            appState.IsCloudConnected = canConnect;
+            AppEventLogger.Log($"Application started in {(canConnect ? "Cloud" : "Fallback")} mode.");
+        }
+        catch
+        {
+            // No bloquear el inicio si la comprobación falla
+        }
 
         try
         {
