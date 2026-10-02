@@ -31,20 +31,40 @@ internal static class Program {
         RegistrarManejadoresGlobales();
 
         var configuration = new ConfigurationBuilder()
-        .SetBasePath(AppContext.BaseDirectory)
-        .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-        .Build();
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+            .Build();
 
         // Construir el contenedor de servicios y registrar dependencias
         var services = new ServiceCollection();
         services.AddPersistenceServices();
         services.AddScoped<frmPrincipal>();
 
+        // Determinar cadena de conexión; si falta, usar LocalDB con timeout corto para fallback inmediato
+        var configuredConnection = configuration.GetConnectionString("DefaultConnection");
+        string connectionToUse;
+        if (string.IsNullOrWhiteSpace(configuredConnection))
+        {
+            connectionToUse = "Server=(localdb)\\mssqllocaldb;Database=EndForgeCloudDev;Trusted_Connection=True;Connection Timeout=3;";
+        }
+        else
+        {
+            try
+            {
+                var builder = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(configuredConnection)
+                {
+                    ConnectTimeout = 3
+                };
+                connectionToUse = builder.ConnectionString;
+            }
+            catch
+            {
+                connectionToUse = configuredConnection;
+            }
+        }
+
         services.AddDbContext<EndForgeDbContext>(options =>
-            options.UseSqlServer(
-                configuration.GetConnectionString("DefaultConnection"),
-                sqlOptions => sqlOptions.EnableRetryOnFailure()
-            )
+            options.UseSqlServer(connectionToUse, sqlOptions => sqlOptions.EnableRetryOnFailure())
         );
 
         var provider = services.BuildServiceProvider();
@@ -135,17 +155,13 @@ internal static class Program {
         if (Interlocked.Exchange(ref mostrandoMensajeError, 1) != 0) {
             return;
         }
-
-        try {
-            MessageBox.Show(
-                MensajeErrorRecuperable,
-                "EndForge",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Warning);
-        } catch (Exception errorAviso)
-            when (!RegistroErroresService.EsExcepcionCritica(errorAviso)) {
-            // El aviso tampoco debe provocar un segundo error no controlado.
-        } finally {
+        try
+        {
+            // No mostrar MessageBox en el arranque para evitar bloquear la interfaz.
+            // Registramos un aviso al registro de errores y continuamos silenciosamente.
+            registroErrores.Registrar(new Exception(MensajeErrorRecuperable), OrigenRegistroError.InicioAplicacion, esTerminante: false);
+        }
+        finally {
             Volatile.Write(ref mostrandoMensajeError, 0);
         }
     }

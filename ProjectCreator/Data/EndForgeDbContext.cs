@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using EndForge.Models;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Data.SqlClient;
 
 namespace EndForge.Data
 {
@@ -22,7 +24,40 @@ namespace EndForge.Data
         {
             if (!optionsBuilder.IsConfigured)
             {
-                optionsBuilder.UseSqlServer("Server=(localdb)\\mssqllocaldb;Database=EndForgeCloudDev;Trusted_Connection=True;");
+                string? connectionString = null;
+                try
+                {
+                    var config = new ConfigurationBuilder()
+                        .SetBasePath(AppContext.BaseDirectory)
+                        .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+                        .Build();
+
+                    connectionString = config.GetConnectionString("DefaultConnection");
+                }
+                catch
+                {
+                }
+
+                if (string.IsNullOrWhiteSpace(connectionString))
+                {
+                    connectionString = "Server=(localdb)\\mssqllocaldb;Database=EndForgeCloudDev;Trusted_Connection=True;Connection Timeout=3;";
+                }
+                else
+                {
+                    try
+                    {
+                        var csb = new SqlConnectionStringBuilder(connectionString)
+                        {
+                            ConnectTimeout = 3
+                        };
+                        connectionString = csb.ConnectionString;
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                optionsBuilder.UseSqlServer(connectionString, b => b.EnableRetryOnFailure());
             }
         }
 
