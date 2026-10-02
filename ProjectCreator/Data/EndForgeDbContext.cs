@@ -7,6 +7,9 @@ namespace EndForge.Data
 {
     public class EndForgeDbContext : DbContext
     {
+        public EndForgeDbContext()
+        {
+        }
 
         public EndForgeDbContext(DbContextOptions<EndForgeDbContext> options) : base(options)
         {
@@ -22,43 +25,7 @@ namespace EndForge.Data
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            if (!optionsBuilder.IsConfigured)
-            {
-                string? connectionString = null;
-                try
-                {
-                    var config = new ConfigurationBuilder()
-                        .SetBasePath(AppContext.BaseDirectory)
-                        .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
-                        .Build();
-
-                    connectionString = config.GetConnectionString("DefaultConnection");
-                }
-                catch
-                {
-                }
-
-                if (string.IsNullOrWhiteSpace(connectionString))
-                {
-                    connectionString = "Server=(localdb)\\mssqllocaldb;Database=EndForgeCloudDev;Trusted_Connection=True;Connection Timeout=3;";
-                }
-                else
-                {
-                    try
-                    {
-                        var csb = new SqlConnectionStringBuilder(connectionString)
-                        {
-                            ConnectTimeout = 3
-                        };
-                        connectionString = csb.ConnectionString;
-                    }
-                    catch
-                    {
-                    }
-                }
-
-                optionsBuilder.UseSqlServer(connectionString, b => b.EnableRetryOnFailure());
-            }
+            // La configuración se inyecta externamente (DI/fábrica de tiempo de diseño).
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

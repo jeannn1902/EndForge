@@ -88,8 +88,10 @@ internal static class Program {
             }
 
             var appState = provider.GetRequiredService<AppState>();
-            appState.IsCloudConnected = canConnect;
-            AppEventLogger.Log($"Application started in {(canConnect ? "Cloud" : "Fallback")} mode.");
+            // Consideramos 'Cloud' sólo si había una cadena configurada y la conexión fue exitosa.
+            bool hadConfiguredConnection = !string.IsNullOrWhiteSpace(configuration.GetConnectionString("DefaultConnection"));
+            appState.IsCloudConnected = hadConfiguredConnection && canConnect;
+            AppEventLogger.Log($"Application started in {(appState.IsCloudConnected ? "Cloud" : "Fallback")} mode.");
         }
         catch
         {
