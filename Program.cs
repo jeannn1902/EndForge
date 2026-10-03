@@ -37,6 +37,19 @@ internal static class Program {
             .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
             .Build();
 
+        // Registrar dónde carga la configuración y si existe una DefaultConnection (sin exponer el valor)
+        try
+        {
+            var configBase = AppContext.BaseDirectory ?? "<unknown>";
+            var hasDefaultConn = !string.IsNullOrWhiteSpace(configuration.GetConnectionString("DefaultConnection"));
+            AppEventLogger.Log($"Configuration base path: {configBase}");
+            AppEventLogger.Log($"Configuration has DefaultConnection: {hasDefaultConn}");
+        }
+        catch
+        {
+            // No fallar el arranque por los logs diagnósticos
+        }
+
         // Construir el contenedor de servicios y registrar dependencias
         var services = new ServiceCollection();
         services.AddPersistenceServices();
